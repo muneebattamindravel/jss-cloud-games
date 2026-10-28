@@ -68,7 +68,7 @@ describe('Pearls Connect rules: one block, pinned', () => {
 
   (SKIP_PIN ? test.skip : test)('the rules block hash is pinned (a change is a version bump)', () => {
     const h = crypto.createHash('sha256').update(block(game)).digest('hex');
-    expect(h).toBe('d3c1b66811d96928e3109d02dd163a28e60c058440e6e7df846e098bf2d51949');
+    expect(h).toBe('873caeaf5e5ab27ce0fe4192b0d503727e3e54cd55a4db6d4758cc682fc2b9a5');
   });
 
   (SKIP_PIN ? test.skip : test)('every rules constant is pinned by value', () => {
@@ -84,8 +84,8 @@ describe('Pearls Connect rules: one block, pinned', () => {
       MAX_INPUTS: 18100, MAX_SIM_STEPS: 216000, MAX_CELLS: 37,
     });
     // the points table, by value
-    expect([2, 3, 4, 6, 10, 20].map((n) => S.chainPoints(n, false))).toEqual([3, 6, 10, 21, 55, 210]);
-    expect(S.chainPoints(7, true)).toBe(56);
+    expect([2, 3, 4, 6, 10, 20].map((n) => S.chainPoints(n, false))).toEqual([1, 3, 6, 15, 45, 190]);
+    expect(S.chainPoints(7, true)).toBe(42);
   });
 
   test('every constant and function in the block is defined once and read by both files from the block', () => {
@@ -260,7 +260,7 @@ describe('Pearls Connect input: one finger, one chain, only what the rules accep
     const ch = W.chainsOf(g.trace);
     expect(ch.length).toBe(1);
     expect(ch[0]).toMatchObject({ n: 0, step: s1, down: s0, cells: [a, b] });
-    expect(pr.sim.score).toBe(3);
+    expect(pr.sim.score).toBe(1);
   });
   test('one pearl alone, a mixed-colour drag and a pearl dragged back over are not chains', () => {
     const g = ready(), pr = g.probe(), grid = pr.sim.grid;
@@ -336,7 +336,7 @@ describe('Pearls Connect golden runs (rules v2)', () => {
     expect(GOLDEN.runs.some((r) => r.loops > 10)).toBe(true);
     expect(GOLDEN.runs.some((r) => r.shuffles > 0)).toBe(true);
     expect(GOLDEN.runs.some((r) => r.score === 0)).toBe(true);
-    expect(Math.max(...GOLDEN.runs.map((r) => r.score))).toBeGreaterThan(10000);
+    expect(Math.max(...GOLDEN.runs.map((r) => r.score))).toBeGreaterThan(5000);
   });
 });
 

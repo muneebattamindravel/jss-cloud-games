@@ -77,7 +77,7 @@ describe('Pearls Connect validator: a refused input changes nothing and never ze
     for (let i = 0; i < 100; i++) ev.push(chn(1, 10, p2));
     const { fin } = run(ev);
     expect(fin.debug.chains).toBe(1);
-    expect(fin.score).toBe(3);
+    expect(fin.score).toBe(1);
   });
   test('steps may not go backwards', () => {
     const { out } = run([start(), chn(0, 30, firstPair), chn(1, 20, pairOf(chainedGrid(firstPair)))]);
@@ -130,7 +130,7 @@ describe('Pearls Connect validator: a refused input changes nothing and never ze
     const { out, fin } = run([start(), chn(0, 10, firstPair), chn(1, 18000, pairOf(chainedGrid(firstPair))), chn(1, 10 * 60 * 60 * 60, [0, 1])]);
     expect(out[2].reason).toBe('refused');    // the step the clock ends on: the rules refuse it
     expect(out[3].reason).toBe('over');       // past it: there is no such step
-    expect(fin.score).toBe(3);
+    expect(fin.score).toBe(1);
   });
   test('the input cap refuses further chains, it never zeroes', () => {
     const st = V.init({ seed: SEED });
@@ -168,7 +168,7 @@ describe('Pearls Connect validator: attacks that try to buy a better run', () =>
     expect(out[2].reason).toBe('beyond_cap');
     expect(fin.debug.steps).toBe(cap);
     expect(fin.gameOver).toBe(false);
-    expect(fin.score).toBe(3);
+    expect(fin.score).toBe(1);
   });
   test('the work bound: a run-out never goes past the run\'s own end', () => {
     const st = V.init({ seed: SEED, maxDurationSecs: 3600 });
@@ -286,20 +286,20 @@ describe('Pearls Connect rules at their exact edges (literals, never read from t
     expect(S.readChain(g, [0, 1, 2, 8, 7, 1, 0])).toBe(null);     // a repeat that is not last
     expect(S.readChain(g, [0, 1, 2, 3, 9, 8, 7, 6, 0])).toEqual({ kind: 0, loop: true, n: 8 });
   });
-  test('points: n pearls pay n(n+1)/2; a loop pays double on every pearl of its colour', () => {
+  test('points: n pearls pay n(n-1)/2; a loop pays double on every pearl of its colour', () => {
     const b = board(['110000', '112222', '333333', '444444', '222222', '333344']);
     expect(S.chainSim(b, [0, 1])).toBe(true);
-    expect(b.score).toBe(3);
+    expect(b.score).toBe(1);
     const l = board(['110000', '112222', '333333', '444444', '222222', '333344']);
     expect(S.chainSim(l, [0, 1, 7, 6, 0])).toBe(true);
-    expect(l.score).toBe(20);                                      // 4 pearls: 10, doubled
+    expect(l.score).toBe(12);                                      // 4 pearls: 6, doubled
     expect(l.events[0].cells).toEqual([0, 1, 7, 6]);
     const z = board(['110000', '112222', '333333', '444444', '222222', '333344']);
     expect(S.chainSim(z, [2, 3, 4, 5])).toBe(true);
-    expect(z.score).toBe(10);
+    expect(z.score).toBe(6);
     const w = board(['110001', '112222', '333333', '444444', '222222', '333344']);
     expect(S.chainSim(w, [0, 1, 7, 6, 0])).toBe(true);
-    expect(w.score).toBe(30);                                      // the 1 at cell 5 goes too: 5 pearls, 15, doubled
+    expect(w.score).toBe(20);                                      // the 1 at cell 5 goes too: 5 pearls, 10, doubled
     expect(w.events[0].cells).toEqual([0, 1, 7, 6, 5]);
   });
   test('gravity: pearls fall straight down in order, new ones come in at the top', () => {
@@ -310,7 +310,7 @@ describe('Pearls Connect rules at their exact edges (literals, never read from t
     expect(S.chainSim(c, [24, 25])).toBe(false);                   // 24 is 4
     const d = board(['012340', '123401', '234012', '340123', '000234', '012341']);
     expect(S.chainSim(d, [25, 24, 30])).toBe(true);
-    expect(d.score).toBe(6);
+    expect(d.score).toBe(3);
     // column 0: rows 4 and 5 cleared; 0,1,2,3 fall two rows
     expect([0, 6, 12, 18, 24, 30].map((i) => d.grid[i]).slice(2)).toEqual([0, 1, 2, 3]);
     expect([0, 6, 12, 18, 24, 30].map((i) => d.events[0].from[i])).toEqual([-1, -1, 0, 6, 12, 18]);

@@ -8,7 +8,7 @@ work come AFTER that, as a separate stage. This applies to every game here.
 - **Display name / id:** Pearls Connect / pearls-connect (renamed from Moti Jor, 28 Oct)
 - **One-line pitch:** drag through pearls of one colour to clear them; close a loop to clear every pearl of that colour.
 - **Reference game(s):** the chain-and-loop mechanic of dot-connecting puzzles. No name, art or audio taken.
-- **Core loop:** drag a chain of 2 or more same-colour pearls (up, down, sideways), release to clear. Chain of n scores n(n+1)/2; a loop scores double on every pearl of that colour. Refill falls from above; after a loop the refill avoids that colour.
+- **Core loop:** drag a chain of 2 or more same-colour pearls (up, down, sideways), release to clear. Chain of n scores n(n-1)/2 (changed from n(n+1)/2 on 28 Oct so pair-swiping cannot tie planning); a loop scores double on every pearl of that colour. Refill falls from above; after a loop the refill avoids that colour.
 - **Recovery:** nothing kills you; a weak move only costs time.
 - **Run length / end:** 5 minute fixed clock (founder, 28 Oct). A parked run ends at 5:00.
 - **Input style:** drag (later trace: one event per released chain, the list of cells).

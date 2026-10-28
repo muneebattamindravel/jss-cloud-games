@@ -8,7 +8,7 @@
  *
  * The game: a 6 x 6 board of pearls in five colours. The player drags through
  * pearls of one colour, each next to the one before; lifting the finger clears
- * the chain (n pearls pay n(n+1)/2). Closing a loop clears every pearl of that
+ * the chain (n pearls pay n(n-1)/2). Closing a loop clears every pearl of that
  * colour and pays double. Pearls above fall, new ones enter from the top, and
  * a board with no pair reshuffles. Five minutes; the score is the points.
  *
@@ -65,8 +65,10 @@ function hash(seed, k, j) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-// n pearls pay 1 + 2 + ... + n; a loop pays that twice.
-function chainPoints(n, loop) { return n * (n + 1) / 2 * (loop ? LOOP_MULT : 1); }
+// n pearls pay 0 + 1 + ... + (n - 1): a pair 1, four 6, six 15, ten 45, so
+// a long chain is worth far more than the pairs it could be cut into. A
+// loop pays that twice.
+function chainPoints(n, loop) { return n * (n - 1) / 2 * (loop ? LOOP_MULT : 1); }
 
 function adjacent(a, b) {
   var ra = Math.floor(a / N), rb = Math.floor(b / N), ca = a - ra * N, cb = b - rb * N;

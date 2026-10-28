@@ -61,8 +61,8 @@ const M = [
   ['hash shift', 'both', 'h = Math.imul(h ^ (h >>> 15), MIX_B);', 'h = Math.imul(h ^ (h >>> 14), MIX_B);'],
   ['hash k not +1', 'both', 'var h = (seed ^ Math.imul(k + 1, HASH_K)', 'var h = (seed ^ Math.imul(k, HASH_K)'],
   // ── points ───────────────────────────────────────────────────────────────
-  ['points linear', 'both', 'return n * (n + 1) / 2 * (loop ? LOOP_MULT : 1);', 'return n * (loop ? LOOP_MULT : 1);'],
-  ['points +1', 'both', 'return n * (n + 1) / 2 * (loop ? LOOP_MULT : 1);', 'return (n * (n + 1) / 2 + 1) * (loop ? LOOP_MULT : 1);'],
+  ['points linear', 'both', 'return n * (n - 1) / 2 * (loop ? LOOP_MULT : 1);', 'return n * (loop ? LOOP_MULT : 1);'],
+  ['points: the old n(n+1)/2', 'both', 'return n * (n - 1) / 2 * (loop ? LOOP_MULT : 1);', 'return n * (n + 1) / 2 * (loop ? LOOP_MULT : 1);'],
   ['loop not doubled', 'both', 'var pts = chainPoints(clear.length, ch.loop);', 'var pts = chainPoints(clear.length, false);'],
   ['points on chain length not cleared', 'both', 'var pts = chainPoints(clear.length, ch.loop);', 'var pts = chainPoints(ch.n, ch.loop);'],
   // ── neighbours and pairs ─────────────────────────────────────────────────

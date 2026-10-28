@@ -48,8 +48,10 @@ function hash(seed, k, j) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-// n pearls pay 1 + 2 + ... + n; a loop pays that twice.
-function chainPoints(n, loop) { return n * (n + 1) / 2 * (loop ? LOOP_MULT : 1); }
+// n pearls pay 0 + 1 + ... + (n - 1): a pair 1, four 6, six 15, ten 45, so
+// a long chain is worth far more than the pairs it could be cut into. A
+// loop pays that twice.
+function chainPoints(n, loop) { return n * (n - 1) / 2 * (loop ? LOOP_MULT : 1); }
 
 function adjacent(a, b) {
   var ra = Math.floor(a / N), rb = Math.floor(b / N), ca = a - ra * N, cb = b - rb * N;
