@@ -1,8 +1,8 @@
 # Package report: Pearls Connect (pearls-connect)
 
 Status: game approved for feel by the founder; anti-cheat stage built and tested
-in the workshop. Scoring decided (section 12). The battery is being re-run on the
-final scoring; see section 7.
+in the workshop on the final scoring: all suites green, mutation battery 103
+caught, 0 survivors. Ready for integration (docs/INTEGRATION.md).
 
 ## 1. The game
 A 6 x 6 board of pearls in five colours. Drag through pearls of one colour, up,
@@ -78,6 +78,7 @@ Hz; coverage counters (loops, shuffles, long chains) must stay above zero.
 ## 7. Mutation battery
 `shared/tests/lib/pearlsConnectMutate.js`, 103 mutations, run from four scratch
 copies (one per shard), pins on. Result: **103 live caught, 0 inert, 0 survivors.**
+Re-run in full on the final scoring (n(n-1)/2), 28 Oct: 103 caught, 0 survivors.
 The first pass caught 99 and 4 survived, all holes in the tests, none in the
 game; each was fixed and the 4 re-run and caught:
 - `c: qa switches embedded` and `c: session not awaited`: the same check sat in
