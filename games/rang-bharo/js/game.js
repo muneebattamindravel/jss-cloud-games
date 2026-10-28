@@ -700,10 +700,13 @@
   // ---------- the fixed-step loop ----------
   function stepOnce() {
     prevB = curB;
-    if (inbox.length) { const d = inbox.shift(); inputDir(sim, d); }
     const wasMaze = sim.maze, wasPainted = sim.painted;
+    sim.ev = [];
+    if (inbox.length) { const d = inbox.shift(); inputDir(sim, d); }
+    const fromInput = sim.ev;
     stepSim(sim);
     curB = ballPosOf(sim);
+    for (const e of fromInput) onEvent(e, wasMaze, wasPainted);
     for (const e of sim.ev) onEvent(e, wasMaze, wasPainted);
   }
 
