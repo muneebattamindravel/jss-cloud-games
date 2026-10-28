@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="/games/_shared/no-touch-ui.js"></script>
+  <script src="../_shared/mute.js"></script>
+  <script src="../_shared/kj-tutorial-state.js"></script>
+  <script src="../_shared/kj-replay.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#120c26" />
@@ -116,6 +120,122 @@
     </svg>
   </button>
 
+  <!-- KJ platform bridge (the Chakkar Chaku shape):
+       1. KJ_GAME_LOADED at load so the launcher knows we are here.
+       2. The session is minted ON LOAD; PLAY reads PREPARING YOUR GAME until
+          it exists, with no timeout. A run started without a seed can never count.
+       3. __kjGameStart records the {kind:'start', v} marker; __kjMove records each
+          accepted swipe against the fixed step it applies before. That is all
+          the server replays.
+       4. __kjSubmit(score) once, after the end screen, with the 75 s safety timer. -->
+  <script src="/sdk/kj-sdk/kj-sdk-v2.js"></script>
+  <script>
+    (function () {
+      var GAME_ID = 'rang-bharo';
+      var _started = false, _submitted = false;
+      window.__kjEmbed = (window.parent !== window) || /[?&]replay=1(&|$)/.test(location.search);
+      if (window.__kjEmbed) document.body.classList.add('kj-embed');
+
+      var _sessionReady = false, _readyWaiters = [];
+      window.__kjOnSessionReady = function (cb) {
+        if (_sessionReady) { try { cb(); } catch (_e) {} return; }
+        _readyWaiters.push(cb);
+      };
+      function markReady() {
+        if (_sessionReady) return;
+        _sessionReady = true;
+        var q = _readyWaiters.splice(0);
+        for (var i = 0; i < q.length; i++) { try { q[i](); } catch (_e) {} }
+      }
+
+      var _platformReady = false, _wantSession = false;
+      window.addEventListener('message', function (e) {
+        if (!e.data) return;
+        if (e.data.type === 'KJ_CONFIG' || e.data.type === 'KJ_V2_START') {
+          _platformReady = true;
+          if (_wantSession) { _wantSession = false; window.__kjBeginSession(); }
+        }
+      });
+
+      window.__kjBeginSession = function () {
+        if (_started) return;
+        // Standalone: no player token and nothing can count.
+        if (!window.__kjEmbed) { _started = true; markReady(); return; }
+        if (!_platformReady) { _wantSession = true; return; }
+        _started = true;
+        if (typeof window.kjStartV2 !== 'function') return;
+        window.kjStartV2({ gameId: GAME_ID })
+          .then(function () { markReady(); })   // window.__kjSeed exists only now
+          .catch(function (err) {
+            // Deliberately NOT markReady(): the SDK has told the platform,
+            // which offers Retry / Exit.
+            console.error('[rang-bharo] kjStartV2 failed', err);
+          });
+      };
+
+      try { window.parent.postMessage({ type: 'KJ_GAME_LOADED', gameId: GAME_ID }, '*'); } catch (_) {}
+      window.__kjBeginSession();
+
+      window.__kjGameStart = function (tHint, want) {
+        var v = Number(want) >= 1 ? 1 : 0;
+        try {
+          if (typeof window.kjEmit === 'function') {
+            window.kjEmit('input', { kind: 'start', v: v, tHint: typeof tHint === 'number' ? tHint : performance.now() });
+          }
+        } catch (_e) {}
+        return v;
+      };
+
+      // One move: its index in the run, its direction (0 up, 1 right, 2 down,
+      // 3 left) and the fixed step it applies before. The ACTION only, never its result.
+      window.__kjMove = function (tHint, n, dir, step) {
+        try {
+          if (typeof window.kjEmit === 'function') {
+            window.kjEmit('input', {
+              kind: 'move',
+              n: typeof n === 'number' ? n : null,
+              dir: typeof dir === 'number' ? dir : null,
+              step: typeof step === 'number' ? step : null,
+              tHint: tHint || performance.now(),
+            });
+          }
+        } catch (_e) {}
+      };
+
+      window.__kjSubmit = function (score) {
+        if (_submitted) return;
+        _submitted = true;
+        if (!window.__kjEmbed) return;
+        if (typeof window.kjSubmitV2 !== 'function') return;
+        var clientScore = Number(score) || 0;
+        var navigated = false;
+        var safety = setTimeout(function () {
+          if (navigated) return; navigated = true;
+          try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: 'submit_timeout' }, '*'); } catch (_) {}
+        }, 75000);   // above the SDK's own 3 x 20 s retry ladder
+        window.kjSubmitV2({ clientClaimedScore: clientScore })
+          .then(function (result) {
+            if (navigated) return; navigated = true;
+            clearTimeout(safety);
+            try {
+              window.parent.postMessage({
+                type: 'KJ_V2_RESULT',
+                score: (result && result.authoritativeScore) != null ? result.authoritativeScore : clientScore,
+                authoritative: !!result && !result.alreadyFinalSession,
+                flagged: !!(result && result.flaggedForReview),
+                notCounted: !!(result && result.counted === false),
+              }, '*');
+            } catch (_) {}
+          })
+          .catch(function (err) {
+            console.error('[rang-bharo] kjSubmitV2 failed after retries', err);
+            if (navigated) return; navigated = true;
+            clearTimeout(safety);
+            try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: (err && err.message) || 'submit_failed' }, '*'); } catch (_) {}
+          });
+      };
+    })();
+  </script>
   <script src="js/game.js"></script>
 </body>
 </html>

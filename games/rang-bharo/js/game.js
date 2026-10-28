@@ -56,6 +56,27 @@
     return y * w + x;
   }
 
+  // True when no move can strand the ball: every stop the ball can reach from
+  // the start can get back to it, so every tile stays reachable whatever the
+  // player does. A maze that fails this could lock a run, and is never used.
+  function trapFree(cells, w, h, start) {
+    const N = w * h, seen = new Uint8Array(N), list = [start];
+    seen[start] = 1;
+    for (let i = 0; i < list.length; i++) {
+      for (let d = 0; d < 4; d++) { const e = slideEnd(cells, w, h, list[i], d); if (!seen[e]) { seen[e] = 1; list.push(e); } }
+    }
+    const back = new Uint8Array(N), q = [start];
+    back[start] = 1;
+    for (let i = 0; i < q.length; i++) {
+      for (let j = 0; j < list.length; j++) {
+        const c = list[j];
+        if (back[c]) continue;
+        for (let d = 0; d < 4; d++) if (slideEnd(cells, w, h, c, d) === q[i]) { back[c] = 1; q.push(c); break; }
+      }
+    }
+    return q.length === list.length;
+  }
+
   // Shortest solution by BFS over (cell, painted set). Returns the move count,
   // or -1 if the state cap is hit first.
   function solvePar(cells, w, h, start, floors) {
@@ -168,17 +189,29 @@
         if (mv.fresh > 0) stuck = 0;
       }
       if (count * 100 < N * 38) continue;
+      if (!trapFree(cells, w, h, start)) continue;
       const par = solvePar(cells, w, h, start, count);
       const maze = { w, h, cells, start, floors: count, designed: moves, par: par < 0 ? moves : par, exact: par >= 0, path };
       if (maze.par >= minPar(n)) return maze;
       if (!best || maze.par > best.par) best = maze;
     }
-    return best;
+    return best || ringMaze(w, h);
   }
 
-  function newSim(seed) {
+  // The fallback no seed has needed: a corridor round the edge, cleared in 4.
+  function ringMaze(w, h) {
+    const cells = new Uint8Array(w * h);
+    for (let x = 0; x < w; x++) { cells[x] = 1; cells[(h - 1) * w + x] = 1; }
+    for (let y = 0; y < h; y++) { cells[y * w] = 1; cells[y * w + w - 1] = 1; }
+    const floors = 2 * w + 2 * h - 4;
+    return { w, h, cells, start: 0, floors, designed: 4, par: 4, exact: true, path: [1, 2, 3, 0] };
+  }
+
+  // The world a run starts from. `version` is the trace's rules version; v1 is
+  // the only one so far.
+  function initSim(seed, version) {
     const s = {
-      seed: seedToInt(seed), step: 0, over: false,
+      v: version | 0, seed: seedToInt(seed), step: 0, over: false, inputs: 0,
       score: 0, n: 0, moves: 0, mazes: 0, perfects: 0, tiles: 0, totalMoves: 0,
       maze: null, painted: null, left: 0,
       bx: 0, by: 0, dir: -1, sub: 0, queued: -1, pause: 0, lastInput: -1,
@@ -210,6 +243,7 @@
     if (s.over || d < 0 || d > 3 || (d | 0) !== d) return false;
     if (s.lastInput === s.step) return false;
     s.lastInput = s.step;
+    s.inputs++;
     if (s.dir >= 0 || s.pause > 0) { s.queued = d; return true; }
     tryStart(s, d);
     return true;
@@ -275,6 +309,9 @@
   const STEP_MS = 1000 / STEP_HZ;
   const qs = location.search;
   const harness = window.__rbHarness || null;
+  const EMBED = !!window.__kjEmbed;
+  const RP = window.KJReplay && window.KJReplay.active() ? window.KJReplay : null;
+  const SUBMIT_MS = 3600;       // the end screen and its count-up play out first
 
   const canvas = document.getElementById('scene');
   const g = canvas.getContext('2d');
@@ -677,15 +714,30 @@
     return { x: s.bx + (s.dir >= 0 ? DX[s.dir] * f : 0), y: s.by + (s.dir >= 0 ? DY[s.dir] * f : 0) };
   }
 
+  // Inside the platform the seed is the session's and nothing else. ?seed= is
+  // a standalone QA switch only.
   function newRunSeed() {
+    if (EMBED || RP) return window.__kjSeed;
     const m = /[?&]seed=([^&]+)/.exec(qs);
-    if (window.__kjSeed != null) return window.__kjSeed;
     if (m) return decodeURIComponent(m[1]);
     return 'local-' + ((Math.random() * 1e9) | 0);
   }
 
+  let runsStarted = 0, submitted = false, submitTimer = null, replayMoves = null, traceVersion = RULES_VERSION;
   function startRun() {
-    sim = newSim(newRunSeed());
+    if ((EMBED || RP) && runsStarted > 0) return;     // one session, one run
+    if ((EMBED || RP) && window.__kjSeed == null) return;
+    runsStarted++;
+    traceVersion = typeof window.__kjGameStart === 'function'
+      ? (Number(window.__kjGameStart(performance.now(), RULES_VERSION)) || 0) : RULES_VERSION;
+    let playVersion = RULES_VERSION;
+    if (RP) {
+      playVersion = RP.capVersion(playVersion);
+      replayMoves = RP.cursor('move', (e) => Number(e.step));
+      RP.started(playVersion);
+    }
+    sim = initSim(newRunSeed(), playVersion);
+    submitted = false; submitTimer = null;
     paintAt = new Float64Array(sim.maze.w * sim.maze.h);
     paintAt[sim.maze.start] = -1e9;
     prevB = ballPosOf(sim); curB = prevB;
@@ -698,12 +750,27 @@
   }
 
   // ---------- the fixed-step loop ----------
+  // One input path for a live swipe and a replayed one. The input applies to
+  // the sim before step `step + 1`, and only an ACCEPTED input is emitted:
+  // its index, its direction and its step, never what it did.
+  function applyInput(d, live) {
+    const step = sim.step, n = sim.inputs;
+    if (!inputDir(sim, d)) return false;
+    if (live) {
+      try { if (typeof window.__kjMove === 'function') window.__kjMove(performance.now(), n, d, step); } catch (_e) {}
+    }
+    return true;
+  }
+
   function stepOnce() {
     prevB = curB;
     const wasMaze = sim.maze, wasPainted = sim.painted;
-    sim.ev = [];
-    if (inbox.length) { const d = inbox.shift(); inputDir(sim, d); }
-    const fromInput = sim.ev;
+    const ev0 = sim.ev;
+    if (replayMoves) {
+      const due = replayMoves.due(sim.step);
+      for (let i = 0; i < due.length; i++) applyInput(Number(due[i].dir), false);
+    } else if (inbox.length) applyInput(inbox.shift(), true);
+    const fromInput = sim.ev === ev0 ? [] : sim.ev.slice(ev0.length);
     stepSim(sim);
     curB = ballPosOf(sim);
     for (const e of fromInput) onEvent(e, wasMaze, wasPainted);
@@ -778,10 +845,37 @@
     return { c, G, w: bw, h: bh };
   }
 
+  // The sim follows the WALL clock in whole steps. A normal frame runs at most
+  // three; after a stall or a hidden tab every owed step runs (bounded), so
+  // hiding the page never stops the run's clock.
+  let lastFrameAt = null;
+  function pump(t) {
+    if (lastT === null) { lastT = t; return 0; }
+    let dt = t - lastT; lastT = t;
+    if (dt < 0) dt = 0;
+    if (mode === 'play' && sim) {
+      const big = dt > 200;
+      acc += RP ? RP.elapsed(dt, STEP_MS * 3) : dt;
+      let n = 0;
+      const cap = big ? 60 * 60 * 2 : 3;
+      while (acc >= STEP_MS && n < cap) { acc -= STEP_MS; stepOnce(); n++; if (sim.over) break; }
+      if (acc > STEP_MS * 3) acc = STEP_MS * 3;
+      if (sim.over && mode === 'play') onRunOver();
+      if (RP) RP.report(sim.step, sim.score);
+    }
+    return dt;
+  }
+  // The backup clock: when frames stop (a hidden tab), timers still pump.
+  function backup() {
+    setTimeout(backup, 250);
+    const t = performance.now();
+    if (lastFrameAt === null || t - lastFrameAt > 200) pump(t);
+  }
+
   function frame(t) {
     requestAnimationFrame(frame);
-    if (lastT === null) { lastT = t; }
-    let dt = t - lastT; lastT = t;
+    lastFrameAt = performance.now();
+    let dt = pump(lastFrameAt);
     if (dt > 250) dt = 250;
     nowMs += dt;
     if (mode === 'ready') {
@@ -789,13 +883,6 @@
       if (e > 380 && !readyPopped) { readyPopped = true; SFX.ready(); }
       if (e > 1150 && !goPopped) { goPopped = true; SFX.go(); }
       if (e > 1500) { mode = 'play'; acc = 0; readyPopped = goPopped = false; }
-    }
-    if (mode === 'play' && sim) {
-      acc += dt;
-      let n = 0;
-      while (acc >= STEP_MS && n < 3) { acc -= STEP_MS; stepOnce(); n++; if (sim.over) break; }
-      if (acc > STEP_MS * 3) acc = STEP_MS * 3;
-      if (sim.over) onRunOver();
     }
     if (mode === 'end' && !endShown && nowMs - endT0 > 1500) showEnd();
     const sdt = dt / 1000;
@@ -814,6 +901,15 @@
     shake = 5;
     floatText("TIME'S UP!", DW / 2, DH * 0.42, 54, '#ffd23f', 1.6, 10);
     inbox = [];
+    // The score goes once the end screen has played out, on a timer so a
+    // hidden tab still submits.
+    submitTimer = setTimeout(submitOnce, SUBMIT_MS);
+  }
+  function submitOnce() {
+    if (submitted || !sim) return;
+    submitted = true;
+    if (RP) RP.setStep(sim.step);
+    try { if (typeof window.__kjSubmit === 'function') window.__kjSubmit(sim.score); } catch (_e) {}
   }
 
   // ---------- drawing ----------
@@ -971,33 +1067,36 @@
 
   // ---------- input: forgiving swipes, arrows, one gesture one move ----------
   let touchSeen = false;
-  const gest = { id: null, x: 0, y: 0, fired: false };
+  // Every finger is tracked on its own and fires at most once per touch: a
+  // thumb resting on the glass never blocks the finger that swipes, and one
+  // swipe is never two moves.
+  const fingers = new Map();
   function fire(d) {
-    if (mode !== 'play' || !sim || sim.over) return;
+    if (RP || mode !== 'play' || !sim || sim.over) return;
     inbox.push(d);
     if (inbox.length > 2) inbox.splice(0, inbox.length - 2);
   }
   function dirOf(dx, dy) { return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0); }
-  canvas.addEventListener('pointerdown', (e) => {
+  window.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'touch') touchSeen = true;
-    if (gest.id !== null) return;
-    gest.id = e.pointerId; gest.x = e.clientX; gest.y = e.clientY; gest.fired = false;
+    if (fingers.size >= 5) return;
+    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY, fired: false });
   });
   window.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== gest.id || gest.fired) return;
-    const dx = e.clientX - gest.x, dy = e.clientY - gest.y;
-    if (dx * dx + dy * dy >= 16 * 16) { gest.fired = true; fire(dirOf(dx, dy)); }
+    const f = fingers.get(e.pointerId);
+    if (!f || f.fired) return;
+    const dx = e.clientX - f.x, dy = e.clientY - f.y;
+    if (dx * dx + dy * dy >= 16 * 16) { f.fired = true; fire(dirOf(dx, dy)); }
   });
-  function endGesture(e) {
-    if (e.pointerId !== gest.id) return;
-    if (!gest.fired) {
-      const dx = e.clientX - gest.x, dy = e.clientY - gest.y;
-      if (dx * dx + dy * dy >= 7 * 7) fire(dirOf(dx, dy));
-    }
-    gest.id = null;
-  }
-  window.addEventListener('pointerup', endGesture);
-  window.addEventListener('pointercancel', (e) => { if (e.pointerId === gest.id) gest.id = null; });
+  window.addEventListener('pointerup', (e) => {
+    const f = fingers.get(e.pointerId);
+    if (!f) return;
+    fingers.delete(e.pointerId);
+    if (f.fired) return;
+    const dx = e.clientX - f.x, dy = e.clientY - f.y;
+    if (dx * dx + dy * dy >= 7 * 7) fire(dirOf(dx, dy));
+  });
+  window.addEventListener('pointercancel', (e) => { fingers.delete(e.pointerId); });
   const KEYS = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3, w: 0, d: 1, s: 2, a: 3, W: 0, D: 1, S: 2, A: 3 };
   window.addEventListener('keydown', (e) => {
     if (e.key in KEYS) {
@@ -1015,10 +1114,20 @@
   }
   muteBtn.classList.toggle('off', muted);
   muteBtn.addEventListener('click', (e) => { e.stopPropagation(); setMuted(!muted); if (!muted) SFX.ui(); });
-  function seenHow() { try { return localStorage.getItem('rang-bharo.how') === '1'; } catch (_e) { return false; } }
-  function markHow() { try { localStorage.setItem('rang-bharo.how', '1'); } catch (_e) {} }
+  // HOW TO PLAY shows once per rotation (KJTut) inside the platform.
+  function seenHow() {
+    if (window.KJTut) return !window.KJTut.shouldShow();
+    try { return localStorage.getItem('rang-bharo.how') === '1'; } catch (_e) { return false; }
+  }
+  function markHow() {
+    if (window.KJTut) { try { window.KJTut.markSeen(); } catch (_e) {} return; }
+    try { localStorage.setItem('rang-bharo.how', '1'); } catch (_e) {}
+  }
 
+  let sessionReady = false;
   $('playBtn').addEventListener('click', () => {
+    if (!sessionReady || mode !== 'menu') return;
+    if ((EMBED || RP) && runsStarted > 0) return;
     SFX.ui();
     show(menuEl, false); logo.running = false;
     if (!seenHow()) { openHow(true); return; }
@@ -1031,8 +1140,8 @@
     SFX.ui(); markHow(); show(howEl, false); demo.stop();
     if (howThenPlay) startRun(); else { mode = 'menu'; show(menuEl, true); logo.start(); }
   });
-  $('againBtn').addEventListener('click', () => { SFX.ui(); show(overEl, false); startRun(); });
-  $('homeBtn').addEventListener('click', () => { SFX.ui(); show(overEl, false); sim = null; mode = 'menu'; show(menuEl, true); logo.start(); refreshBest(); });
+  $('againBtn').addEventListener('click', () => { if (EMBED || RP) return; SFX.ui(); show(overEl, false); startRun(); });
+  $('homeBtn').addEventListener('click', () => { if (EMBED || RP) return; SFX.ui(); show(overEl, false); sim = null; mode = 'menu'; show(menuEl, true); logo.start(); refreshBest(); });
 
   function refreshBest() { $('menuBest').textContent = bestScore > 0 ? 'BEST ' + bestScore : ''; }
 
@@ -1220,9 +1329,21 @@
   refreshBest();
   const fontReady = (document.fonts && document.fonts.load) ? document.fonts.load('40px "Titan One"') : Promise.resolve();
   fontReady.then(() => { logo.rebuild(); spr.key = null; }, () => {}).then(() => logo.start());
+  // PLAY reads PREPARING YOUR GAME (disabled, from the page) until the
+  // session exists. There is no timeout: a run without a seed never counts.
   const playBtn = $('playBtn');
-  playBtn.disabled = false; playBtn.textContent = 'PLAY'; playBtn.classList.add('play-pulse');
+  if (EMBED || RP) { $('againBtn').hidden = true; $('homeBtn').hidden = true; }
+  function onSessionReady() {
+    if (sessionReady) return;
+    sessionReady = true;
+    if (RP) { show(menuEl, false); logo.running = false; startRun(); return; }
+    playBtn.disabled = false; playBtn.textContent = 'PLAY'; playBtn.classList.add('play-pulse');
+  }
+  if (typeof window.__kjOnSessionReady === 'function') window.__kjOnSessionReady(onSessionReady);
+  else onSessionReady();
+  if (RP) RP.ready('rang-bharo');
   requestAnimationFrame(frame);
+  backup();
   if (harness) {
     harness.fire = fire;
     harness.state = () => ({ mode, sim });
