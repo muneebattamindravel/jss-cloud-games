@@ -531,6 +531,16 @@
     if (p.i === 3) return down ? '' : 'cut';                 // the cut needs a hold the whole way: it waits for one
     return '';
   }
+  // Once a frame, outside the step accumulator: the gap between lessons and what the practice
+  // waits for are judged here. On a 120/144 Hz screen a frame is shorter than a step, so a wait
+  // that was only judged inside a step (while the accumulator is held at zero) never ended.
+  function pracSync() {
+    var p = prac;
+    if (p.phase === 'gap' && performance.now() >= p.nextAt) pracSetup(p.i + 1);
+    if (p.phase !== 'run') return;
+    var w = pracWants();
+    if (w !== p.want) { p.want = w; if (w) p.shownAt = performance.now(); }
+  }
   function stepPrac() {
     var p = prac;
     if (p.phase === 'ready') return false;
@@ -826,6 +836,7 @@
       while (acc >= STEP_MS && state === 'play') { acc -= STEP_MS; stepRun(); stepFx(); }
       if (waveBanner) waveBanner.t++;
     } else if (state === 'prac') {
+      if (prac) pracSync();
       acc += dt;
       // the moment the strings touch runs in slow motion, so the sawing can be watched
       var slow = prac && sim.rivals[0] && sim.rivals[0].lock ? 4 : 1, sms = STEP_MS * slow;
