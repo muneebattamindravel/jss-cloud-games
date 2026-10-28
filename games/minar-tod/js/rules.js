@@ -8,7 +8,7 @@ var RUN_STEPS = 180 * STEP_HZ;      // 3 minute clock
 var COLS = 8;                       // blocks around the cylinder
 var ANG = 65536;                    // one full turn, in angle units
 var COL_ANG = 8192;                 // ANG / COLS
-var FLIGHT = 16;                    // steps a ball flies before it lands
+var FLIGHT = 12;                    // steps a ball flies before it lands
 var TRANS_STEPS = 120;              // steps between towers (no input)
 var MAX_LEVELS = 20;
 var COPY_DOWN = 70, COPY_SIDE = 130;   // out of 256: how often a cell copies a neighbour
@@ -45,17 +45,16 @@ function hash(seed, k, j) {
 function towerSpec(seed, k) {
   var levels = Math.min(MAX_LEVELS, 10 + 2 * k);
   var colours = k < 1 ? 3 : k < 4 ? 4 : 5;
-  var base = Math.min(330, 180 + 15 * k);          // angle units per step (a turn in 6 s at first)
+  var base = Math.min(260, 110 + 15 * k);          // angle units per step (a turn in 10 s at first)
   var amp = k < 2 ? 0 : k < 6 ? 512 : 1400;         // spin swing, 1024 = 100 percent of base
   var hs = hash(seed, k, 9001);
   var dir = (hs & 1) ? 1 : -1;
   var wobble = 48 + ((hs >>> 1) & 31);              // table units per 256 steps
   var phase = (hs >>> 6) & 255;
-  var sweep = Math.min(22, 13 + k) + ((hs >>> 14) & 3); // aim speed, 1/256 level per step
   var steel = k < 3 ? 0 : Math.min(10, 4 + (k - 3));  // percent of cells
   var bomb = k < 5 ? 0 : 2;                          // percent of cells
   return { k: k, levels: levels, colours: colours, base: base, amp: amp, dir: dir,
-    wobble: wobble, phase: phase, sweep: sweep, steel: steel, bomb: bomb };
+    wobble: wobble, phase: phase, steel: steel, bomb: bomb };
 }
 
 // Cells in a flat array, index c * MAX_LEVELS + r, r = 0 at the bottom.
@@ -163,7 +162,7 @@ function greedyShots(g) {
   return shots;
 }
 
-function ballBudget(shots) { return shots + 3 + ((shots * 2 / 5) | 0); }
+function ballBudget(shots) { return shots + 2 + ((shots / 10) | 0); }
 
 function startTower(s, k) {
   var spec = towerSpec(s.seed, k);
@@ -174,9 +173,6 @@ function startTower(s, k) {
   s.balls = ballBudget(s.par);
   s.towerStep = 0;
   s.angle = (hash(s.seed, k, 9002) & (ANG - 1));
-  var ha = hash(s.seed, k, 9003);
-  s.aim = (ha % spec.levels) * 256 + 128;
-  s.aimDir = (ha >>> 16) & 1 ? 1 : -1;
 }
 
 function initSim(seed) {
@@ -192,17 +188,10 @@ function spinSpeed(spec, t) {
   return spec.dir * v;
 }
 
-// The column facing the camera at a tower angle.
-function facingCol(angle) { return (((ANG - angle + COL_ANG / 2) & (ANG - 1)) / COL_ANG) | 0; }
-
-// The aimed level: the aim bounces between the bottom and the top of the tower.
-function aimLevel(s) { return s.aim >> 8; }
-
-function moveAim(s) {
-  var hi = Math.max(1, topHeight(s.grid)) * 256 - 1;
-  s.aim += s.aimDir * s.spec.sweep;
-  if (s.aim >= hi) { s.aim = hi; s.aimDir = -1; }
-  if (s.aim <= 0) { s.aim = 0; s.aimDir = 1; }
+// A column can be tapped while its face is on the near half of the tower.
+function colVisible(angle, c) {
+  var d = ((c * COL_ANG + angle + ANG / 2) & (ANG - 1)) - ANG / 2;
+  return d >= -ANG / 4 && d <= ANG / 4;
 }
 
 // Where the tower will stand `ahead` steps from now.
@@ -212,12 +201,15 @@ function angleAhead(s, ahead) {
   return a;
 }
 
-// One tap. Accepted only while playing, with balls left and no ball in the air.
-function fire(s) {
+// One tap on block (c, r). Accepted only while playing, with balls left, no
+// ball in the air, and a block there on the near side of the tower.
+function fire(s, c, r) {
   if (s.phase !== 'play' || s.ball || s.balls <= 0) return false;
+  if (!(c >= 0 && c < COLS && r >= 0 && r < MAX_LEVELS) || c !== (c | 0) || r !== (r | 0)) return false;
+  if (s.grid[c * MAX_LEVELS + r] === EMPTY || !colVisible(s.angle, c)) return false;
   s.balls--;
   s.fired++;
-  s.ball = { level: aimLevel(s), land: s.step + FLIGHT };
+  s.ball = { c: c, r: r, land: s.step + FLIGHT };
   return true;
 }
 
@@ -232,7 +224,6 @@ function stepSim(s) {
   } else {
     s.angle = (s.angle + spinSpeed(s.spec, s.towerStep)) & (ANG - 1);
     s.towerStep++;
-    moveAim(s);
     if (s.ball && s.step >= s.ball.land) ev = land(s);
   }
   if (s.step >= RUN_STEPS) { s.score += s.pending; s.pending = 0; s.phase = 'over';   // the clock banks the tower in play
@@ -240,15 +231,11 @@ function stepSim(s) {
   return ev;
 }
 
-// The cell a ball aimed at `level` hits in column c: a ball aimed above a
-// column lands on its top block; only an empty column is a miss.
-function targetRow(g, c, level) { return Math.min(level, colHeight(g, c) - 1); }
-
 function land(s) {
-  var c = facingCol(s.angle), r = targetRow(s.grid, c, s.ball.level);
+  var c = s.ball.c, r = s.ball.r;   // nothing changes the grid while a ball flies
   s.ball = null;
   var ev = { type: 'miss', c: c, r: r, cells: [], pts: 0 };
-  if (r >= 0) {
+  if (s.grid[c * MAX_LEVELS + r] !== EMPTY) {
     var v = s.grid[c * MAX_LEVELS + r];
     if (v === STEEL) ev.type = 'steel';
     else {
@@ -283,8 +270,8 @@ function land(s) {
 // ==== MINAR TOD RULES END ====
 
 if (typeof module !== 'undefined') {
-  module.exports = { initSim: initSim, stepSim: stepSim, fire: fire, aimLevel: aimLevel, angleAhead: angleAhead,
-    facingCol: facingCol, targetRow: targetRow, hitCells: hitCells, colHeight: colHeight, topHeight: topHeight, greedyShots: greedyShots,
+  module.exports = { initSim: initSim, stepSim: stepSim, fire: fire, colVisible: colVisible, angleAhead: angleAhead,
+    hitCells: hitCells, colHeight: colHeight, topHeight: topHeight, greedyShots: greedyShots,
     towerSpec: towerSpec, buildGrid: buildGrid, breakablesLeft: breakablesLeft, removeAndSettle: removeAndSettle,
     groupPoints: groupPoints, FLIGHT: FLIGHT, COLS: COLS, MAX_LEVELS: MAX_LEVELS, RUN_STEPS: RUN_STEPS,
     EMPTY: EMPTY, STEEL: STEEL, BOMB: BOMB, ANG: ANG, COL_ANG: COL_ANG, hash: hash };

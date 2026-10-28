@@ -363,31 +363,14 @@
   // Dust puffs.
   var DUST = 160;
   var mDust = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.5, 1),
-    new THREE.MeshLambertMaterial({ color: '#fff4e2', transparent: true, opacity: 0.55, depthWrite: false }), DUST);
+    new THREE.MeshLambertMaterial({ color: '#fff4e2', transparent: true, opacity: 0.4, depthWrite: false }), DUST);
   mDust.frustumCulled = false; mDust.count = 0; scene.add(mDust);
   var dust = [];
 
-  // The ball and its trail.
+  // The ball.
   var ballMat = new THREE.MeshPhongMaterial({ color: '#28345e', shininess: 120, specular: '#c9d8ff' });
   var ballMesh = new THREE.Mesh(new THREE.SphereGeometry(0.36, 22, 16), ballMat);
   ballMesh.visible = false; scene.add(ballMesh);
-
-  // Aim ring and target frame.
-  var ringMat = new THREE.MeshBasicMaterial({ color: '#fff8dc', transparent: true, opacity: 0.6, depthWrite: false });
-  var ring = new THREE.Mesh(new THREE.TorusGeometry(R + 0.72, 0.045, 6, 48), ringMat);
-  ring.rotation.x = Math.PI / 2; scene.add(ring);
-  var frame = new THREE.Group();
-  var frameMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 1, depthWrite: false });
-  (function () {
-    var fw = BW * 1.12, fh = BH * 1.14, t = 0.09;
-    [[0, fh / 2, fw + t, t], [0, -fh / 2, fw + t, t], [fw / 2, 0, t, fh], [-fw / 2, 0, t, fh]].forEach(function (b) {
-      var m = new THREE.Mesh(new THREE.BoxGeometry(b[2], b[3], 0.06), frameMat); m.position.set(b[0], b[1], 0); frame.add(m);
-    });
-    var arrow = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.3, 4), frameMat);
-    arrow.rotation.z = Math.PI; arrow.position.y = fh / 2 + 0.32; frame.add(arrow);
-    frame.userData.arrow = arrow;
-  })();
-  scene.add(frame);
 
   // ------------------------------------------------------------------ 2D fx layer
   var fx = $('fx'), fg = fx.getContext('2d');
@@ -445,7 +428,7 @@
       var k = p.life / p.max;
       var pop = p.life < 0.18 ? 0.4 + 0.75 * (p.life / 0.18) : 1.15 - 0.15 * Math.min(1, (p.life - 0.18) * 6);
       fg.save();
-      fg.translate(p.x, p.y - 70 * s * Math.sqrt(k));
+      fg.translate(p.x, p.y - 40 * s * Math.sqrt(k));
       fg.scale(pop * s, pop * s);
       fg.globalAlpha = k > 0.75 ? (1 - k) / 0.25 : 1;
       fg.font = p.size + 'px "Titan One", system-ui, sans-serif';
@@ -461,9 +444,13 @@
   }
 
   // ------------------------------------------------------------------ tower visuals
-  var sim = null;
-  var V = { cols: [], camH: 10, capY: 10, capVY: 0, capFly: null, ringY: 1, shake: 0, angle: 0, prevAngle: 0,
-    ball: null, afterBall: null, timers: [], hl: null, hlKey: '' };
+  // The world being drawn: the run, the hands-on practice, or the menu tower.
+  // All three have the same shape: { grid, angle }.
+  var sim = null, menuSim = null, prac = null;
+  function world() { return mode === 'prac' && prac ? prac : (sim && mode !== 'menu' ? sim : menuSim); }
+
+  var V = { cols: [], camH: 10, capY: 10, capVY: 0, capFly: null, shake: 0, angle: 0, prevAngle: 0,
+    ball: null, afterBall: null, timers: [] };
 
   function colourOf(t) { return t === STEEL ? PAL_STEEL : t === BOMB ? '#ffcc00' : PAL[t]; }
 
@@ -486,6 +473,13 @@
     out.set(Math.sin(th) * R, y, Math.cos(th) * R);
     return th;
   }
+  // Where block (c, r) is drawn right now (its face centre).
+  function blockFace(c, r, out) {
+    var b = V.cols[c] && V.cols[c][r];
+    var th = colTheta(c, V.angle), rad = R + BD / 2;
+    out.set(Math.sin(th) * rad, b ? b.y : BH * (r + 0.5), Math.cos(th) * rad);
+    return out;
+  }
 
   function spawnDebris(x, y, z, colour, n, power) {
     var col = new THREE.Color(colour);
@@ -496,7 +490,7 @@
       debris.push({ p: new THREE.Vector3(x + rand(-0.3, 0.3), y + rand(-0.25, 0.25), z + rand(-0.3, 0.3)),
         v: new THREE.Vector3(out.x * sp + rand(-2, 2), rand(2.5, 7.5) * power, out.z * sp * 0.6 + rand(-1, 1.5) * power),
         r: new THREE.Euler(rand(0, 6), rand(0, 6), rand(0, 6)), w: new THREE.Vector3(rand(-12, 12), rand(-12, 12), rand(-12, 12)),
-        s: rand(0.7, 1.25), life: 0, max: rand(1.4, 2.3), c: col.clone().offsetHSL(0, 0, rand(-0.06, 0.06)), bounced: 0 });
+        s: rand(0.7, 1.25), life: 0, max: rand(1.4, 2.3), c: col.clone().offsetHSL(0, 0, rand(-0.06, 0.06)) });
     }
   }
   function spawnDust(x, y, z, n, size) {
@@ -508,7 +502,7 @@
     }
   }
 
-  var vA = new THREE.Vector3();
+  var vA = new THREE.Vector3(), vB = new THREE.Vector3();
   // Remove the broken cells from the visual columns (rows in the grid BEFORE the hit).
   function breakVis(cells, power) {
     var byCol = {};
@@ -524,7 +518,7 @@
         if (!b) return;
         blockPos(c, b.y, V.angle, vA);
         spawnDebris(vA.x, vA.y, vA.z, colourOf(b.t), cells.length > 14 ? 3 : 5, power);
-        if (nDust < 26) { spawnDust(vA.x, vA.y, vA.z, 2, 1); nDust++; }
+        if (nDust < 7 && (nDust === 0 || Math.random() < 0.4)) { spawnDust(vA.x, vA.y, vA.z, 1, 0.8); nDust++; }
         V.cols[c].splice(r, 1);
       });
     });
@@ -540,15 +534,16 @@
       V.cols[c] = [];
     }
   }
+  // A safety net: if the picture ever disagrees with the world, the world wins.
   function resyncVis() {
-    // A safety net: if the picture ever disagrees with the sim, the sim wins.
+    var w = world(); if (!w) return;
     for (var c = 0; c < COLS; c++) {
-      var h = colHeight(sim.grid, c), col = V.cols[c];
+      var h = colHeight(w.grid, c), col = V.cols[c];
       var ok = col.length === h;
-      for (var r = 0; ok && r < h; r++) if (col[r].t !== sim.grid[c * ML + r]) ok = false;
+      for (var r = 0; ok && r < h; r++) if (col[r].t !== w.grid[c * ML + r]) ok = false;
       if (!ok) {
         var arr = [];
-        for (var r2 = 0; r2 < h; r2++) arr.push({ t: sim.grid[c * ML + r2], y: col[r2] ? col[r2].y : BH * (r2 + 0.5), vy: 0, sq: 1 });
+        for (var r2 = 0; r2 < h; r2++) arr.push({ t: w.grid[c * ML + r2], y: col[r2] ? col[r2].y : BH * (r2 + 0.5), vy: 0, sq: 1 });
         V.cols[c] = arr;
       }
     }
@@ -557,6 +552,33 @@
   function later(sec, fn) { V.timers.push({ t: sec, fn: fn }); }
   // A timer that belongs to the tower in play: dropped if the next tower has arrived.
   function laterTower(sec, fn) { var k = sim.tower; later(sec, function () { if (sim && sim.tower === k && sim.phase === 'trans') fn(); }); }
+
+  // ------------------------------------------------------------------ picking: which block is under a tap
+  var raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  var pickMap = { colour: [], steel: [], bomb: [] };   // instance index -> c * ML + r, refreshed every frame
+  function pickAt(x, y) {
+    ndc.set(x / VW * 2 - 1, -(y / VH) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    var hits = raycaster.intersectObjects([mColour, mSteel, mBomb], false);
+    for (var i = 0; i < hits.length; i++) {
+      var h = hits[i], m = h.object === mColour ? pickMap.colour : h.object === mSteel ? pickMap.steel : pickMap.bomb;
+      var cell = m[h.instanceId];
+      if (cell != null) return cell;
+    }
+    return -1;
+  }
+  // A fingertip is not a pixel: try the tap point, then a small ring around it.
+  function pickCell(x, y) {
+    var cell = pickAt(x, y);
+    if (cell >= 0) return cell;
+    var rad = 14 * Math.max(UI, 0.8);
+    for (var k = 0; k < 8; k++) {
+      var a = k * TAU / 8;
+      cell = pickAt(x + Math.cos(a) * rad, y + Math.sin(a) * rad);
+      if (cell >= 0) return cell;
+    }
+    return -1;
+  }
 
   // ------------------------------------------------------------------ HUD and banners
   var hud = $('hud'), hScore = $('hScore'), hPend = $('hPend'), hClock = $('hClock'), hTower = $('hTower'), hBalls = $('hBalls');
@@ -607,9 +629,40 @@
     hTower.textContent = 'TOWER ' + (sim.tower + 1);
   }
 
+  // ------------------------------------------------------------------ a ball lands: the shared hit effects
+  // Used by the run and by the practice. `hit` = { c, r, type, cells, pts, colour }.
+  function hitFx(hit) {
+    var face = blockFace(hit.c, hit.r, new THREE.Vector3());
+    var out = new THREE.Vector3(face.x, 0, face.z).normalize();
+    var ab = { p: face.clone().addScaledVector(out, 0.3), v: new THREE.Vector3(), life: 0 };
+    var sp = toScreen(face.x, face.y, face.z);
+    if (hit.type === 'steel') {
+      ab.v.set(out.x * 7 + rand(-2, 2), 6, out.z * 7);
+      Snd.clang();
+      V.shake = Math.max(V.shake, 0.18);
+      spawnDebris(face.x, face.y, face.z, '#fff3a0', 6, 0.6);
+      var b0 = V.cols[hit.c] && V.cols[hit.c][hit.r]; if (b0) b0.sq = 0.8;
+      popup('CLANG', sp.x, sp.y, '#dfe6ee', 22, 'steel wastes a ball');
+    } else if (hit.type === 'miss') {
+      ab.v.set(-out.x * 10, 1, -out.z * 10); Snd.whoosh();
+    } else {
+      var n = hit.cells.length, bomb = hit.type === 'bomb';
+      ab.v.set(out.x * 5 + rand(-2, 2), 5, out.z * 5);
+      breakVis(hit.cells, bomb ? 1.6 : 0.8 + Math.min(0.7, n / 20));
+      if (bomb) { Snd.boom(); V.shake = Math.max(V.shake, 0.9); spawnDust(face.x, face.y, face.z, 10, 2.2); }
+      else Snd.crunch(n);
+      V.shake = Math.max(V.shake, Math.min(0.75, 0.12 + n * 0.035));
+      var word = bomb ? 'BOOM' : n >= 16 ? 'MEGA!' : n >= 10 ? 'HUGE!' : n >= 6 ? 'NICE!' : null;
+      popup('+' + fmt(hit.pts), sp.x, sp.y, bomb ? '#ffcc00' : PAL[hit.colour], 22 + Math.min(10, n * 0.6), word);
+    }
+    V.afterBall = ab;
+    V.ball = null;
+  }
+
   // ------------------------------------------------------------------ events from the sim
   var NEWS = { 1: 'NEW: a fourth colour', 2: 'NEW: the spin speeds up and slows', 3: 'NEW: steel never breaks',
     4: 'NEW: a fifth colour', 5: 'NEW: a bomb clears its ring', 6: 'NEW: the spin can reverse' };
+  var resyncSoon = 0, resyncEvery = 1;
 
   function handleEvent(ev) {
     if (ev.type === 'over') { if (ev.prev) handleEvent(ev.prev); return; }
@@ -621,37 +674,11 @@
       Snd.blip(520); later(0.12, function () { Snd.blip(780); });
       return;
     }
-    // A ball landed.
-    var hitY = BH * (ev.r + 0.5);
-    var front = R + BD / 2;
-    var ab = { p: new THREE.Vector3(0, hitY, front + 0.3), v: new THREE.Vector3(), life: 0 };
-    if (ev.type === 'miss') {
-      ab.v.set(rand(-0.5, 0.5), 1.5, -16); Snd.whoosh();
-      popup('MISS', VW / 2, toScreen(0, hitY, front).y, '#dfe7ee', 34);
-    } else if (ev.type === 'steel') {
-      ab.v.set(rand(-3, 3), 6, 9); Snd.clang();
-      V.shake = Math.max(V.shake, 0.18);
-      spawnDebris(0, hitY, front, '#fff3a0', 6, 0.6);
-      var c0 = V.cols[ev.c] && V.cols[ev.c][ev.r]; if (c0) c0.sq = 0.8;
-      popup('CLANG!', VW / 2, toScreen(0, hitY, front).y, '#cfd8e2', 36, 'steel wastes a ball');
-    } else {
-      var n = ev.cells.length, bomb = ev.type === 'bomb';
-      ab.v.set(rand(-2, 2), 5, 7);
-      breakVis(ev.cells, bomb ? 1.6 : 0.8 + Math.min(0.7, n / 20));
-      if (bomb) { Snd.boom(); V.shake = Math.max(V.shake, 0.9); spawnDust(0, hitY, front, 10, 2.2); }
-      else Snd.crunch(n);
-      V.shake = Math.max(V.shake, Math.min(0.75, 0.12 + n * 0.035));
-      var sp = toScreen(0, hitY, front);
-      var word = n >= 16 ? 'MEGA!' : n >= 10 ? 'HUGE!' : n >= 6 ? 'NICE!' : null;
-      popup('+' + fmt(ev.pts), sp.x, sp.y, bomb ? '#ffcc00' : PAL[ev.colour], 30 + Math.min(22, n * 1.2), bomb ? 'BOOM! ring cleared' : word ? word + '  ' + n + ' blocks' : null);
-      resyncSoon = 0.9;
-    }
-    V.afterBall = ab;
-    V.ball = null;
+    hitFx(ev);
+    if (ev.type === 'break' || ev.type === 'bomb') resyncSoon = 0.9;
     if (ev.cleared) smashed(ev);
     else if (ev.stands) stands(ev);
   }
-  var resyncSoon = 0, resyncEvery = 1;
 
   function smashed(ev) {
     laterTower(0.25, function () {
@@ -660,7 +687,7 @@
       V.shake = Math.max(V.shake, 0.8);
       Snd.boom(); Snd.chord();
       banner('SMASHED!', 'big', '+' + fmt(ev.banked) + ' banked  +' + fmt(ev.bonus) + ' bonus', '', 1500);
-      burstConfetti(120, VW / 2, VH * 0.42, 1);
+      burstConfetti(120, VW / 2, VH * 0.3, 1);
     });
   }
   function stands(ev) {
@@ -674,42 +701,154 @@
     });
   }
 
-  // ------------------------------------------------------------------ the loop
+  // ------------------------------------------------------------------ input
   var mode = 'menu', acc = 0, lastT = null, idleSince = 0;
-  var menuSim = null;
   var autoPlay = /[?&]auto=1/.test(QS);
   var perfOn = /[?&]perf=1/.test(QS);
   var qaSpeed = +((/[?&]speed=(\d+)/.exec(QS) || [])[1] || 1);   // QA only: run the clock faster
-  var perf = { n: 0, sum: 0, max: 0, worst: [] };
+  var perf = { n: 0, sum: 0, max: 0 };
 
   function seedForRun() {
     var m = /[?&]seed=(\d+)/.exec(QS);
     return m ? (+m[1] >>> 0) : ((Math.random() * 4294967296) >>> 0);
   }
 
-  function predicted() {
-    if (!sim || sim.phase !== 'play') return null;
-    var a = angleAhead(sim, FLIGHT), c = facingCol(a), r = targetRow(sim.grid, c, aimLevel(sim));
-    var h = colHeight(sim.grid, c);
-    if (r < 0) r = aimLevel(sim);
-    var key = c + ':' + r + ':' + sim.broken + ':' + sim.tower;
-    if (key !== V.hlKey) {
-      V.hlKey = key;
-      V.hl = { c: c, r: r, empty: r >= h, t: r < h ? sim.grid[c * ML + r] : 0, cells: r < h ? hitCells(sim.grid, c, r) : [] };
-    }
-    return V.hl;
+  // Fire at block (c, r) of the run. Returns true if the sim took it.
+  function fireAt(c, r) {
+    if (!fire(sim, c, r)) return false;
+    Snd.thump();
+    idleSince = sim.step;
+    V.ball = { from: launchPoint(), c: c, r: r, fireStep: sim.step, cells: sim.grid[c * ML + r] === STEEL ? [] : hitCells(sim.grid, c, r) };
+    return true;
   }
+  function launchPoint() { return new THREE.Vector3(rand(-0.4, 0.4), GROUND_Y + 0.6, camera.position.z * 0.55); }
 
-  function onPress() {
+  function onPress(e) {
     Snd.init();
-    if (mode !== 'play' || !sim) return;
-    if (fire(sim)) {
-      Snd.thump();
-      idleSince = sim.step;
-      V.ball = { fireStep: sim.step, level: sim.ball.level, x0: rand(-0.3, 0.3) };
-    }
+    if (!e || e.clientX == null) return;            // keys do nothing: you must pick a block
+    var cell = pickCell(e.clientX, e.clientY);
+    if (cell < 0) return;
+    var c = (cell / ML) | 0, r = cell - c * ML;
+    if (mode === 'prac') { pracTap(c, r); return; }
+    if (mode !== 'play' || !sim || sim.phase !== 'play') return;
+    if (!fireAt(c, r) && sim.ball) { /* one ball at a time: the tap is ignored */ }
   }
 
+  // ------------------------------------------------------------------ hands-on practice (outside the run)
+  // Its own little tower and real seconds. Never touches `sim`, scores nothing.
+  // 1 the tower stops with a yellow chunk in front: "Tap a block". 2 it turns to
+  // show a big red chunk and drifts slowly: "Tap the biggest chunk". 3 what is
+  // left crumbles: "Clear a tower to bank its points". Then YOU'RE READY.
+  var PRAC_COLS = [[3, 2, 2, 2, 4], [4, 3, 2, 1, 3], [1, 4, 3, 3, 2], [2, 1, 1, 4, 2],
+    [1, 1, 1, 1, 3], [3, 1, 1, 2, 4], [4, 2, 4, 3, 1], [1, 3, 2, 4, 2]];
+  var pCap = $('pcap'), pHand = $('phand'), pSkip = $('pskip'), pReady = $('pready');
+  function tutSeen() { return +(lsGet('minar-tod-tut') || 0); }
+
+  function startPractice() {
+    var g = new Array(COLS * ML);
+    for (var i = 0; i < g.length; i++) g[i] = EMPTY;
+    for (var c = 0; c < COLS; c++) for (var r = 0; r < PRAC_COLS[c].length; r++) g[c * ML + r] = PRAC_COLS[c][r];
+    prac = { grid: g, angle: 6000, phase: 'intro', pt: 0, glide: null, spin: 0, target: null, ball: null };
+    lsSet('minar-tod-tut', String(tutSeen() + 1));
+    V.prevAngle = V.angle = prac.angle;
+    buildVis(g, true);
+    debris.length = 0; dust.length = 0; V.ball = null; V.afterBall = null; V.timers = [];
+    mode = 'prac';
+    hide(menu); hide(over); hud.classList.add('is-hidden');
+    pSkip.hidden = false;
+    pracGlide('intro', 0, 1.2);
+  }
+  function pracCaption(text) {
+    pCap.textContent = text || '';
+    pCap.classList.toggle('on', !!text);
+  }
+  function pracGlide(phase, to, dur) {
+    var d = ((to - prac.angle + ANG / 2) % ANG + ANG) % ANG - ANG / 2;
+    prac.phase = phase; prac.pt = 0; prac.target = null; prac.spin = 0;
+    prac.glide = { from: prac.angle, d: d, dur: dur };
+  }
+  function pracTap(c, r) {
+    var p = prac;
+    if (!p || p.ball || (p.phase !== 'tap1' && p.phase !== 'tap2')) return;
+    if (!colVisible(Math.round(p.angle) & (ANG - 1), c)) return;
+    Snd.thump();
+    var cells = p.grid[c * ML + r] === STEEL ? [] : hitCells(p.grid, c, r);
+    p.ball = { c: c, r: r, t: 0 };
+    V.ball = { from: launchPoint(), c: c, r: r, cells: cells };
+    p.target = null;
+    pracCaption('');
+  }
+  function pracLand() {
+    var p = prac, b = p.ball;
+    p.ball = null;
+    var v = p.grid[b.c * ML + b.r];
+    var cells = hitCells(p.grid, b.c, b.r);
+    hitFx({ c: b.c, r: b.r, type: 'break', cells: cells, pts: groupPoints(cells.length), colour: v });
+    p.grid = removeAndSettle(p.grid, cells);
+    if (p.phase === 'tap1') {
+      p.phase = 'after1'; p.pt = 0;
+      pracCaption(cells.length > 1 ? 'Same colours touching it break too!' : 'Only that block broke. Aim for a chunk!');
+    } else {
+      p.phase = 'after2'; p.pt = 0;
+      pracCaption(cells.length >= 6 ? 'Big chunk, far more points!' : 'Bigger chunks score far more points.');
+    }
+  }
+  function pracUpdate(dt) {
+    var p = prac;
+    if (!p) return;
+    p.pt += dt;
+    if (p.glide) {
+      var g = p.glide, k = Math.min(1, p.pt / g.dur), e = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k);
+      p.angle = g.from + g.d * e;
+      if (k >= 1) {
+        p.glide = null; p.pt = 0;
+        if (p.phase === 'intro') { p.phase = 'tap1'; p.target = { c: 0, r: 2 }; pracCaption('Tap a block to hit it'); }
+        else if (p.phase === 'turn') { p.phase = 'tap2'; p.spin = 1500; p.target = { c: 4, r: 1 }; pracCaption('The tower turns. Tap the biggest chunk!'); }
+      }
+    } else if (p.spin) p.angle += p.spin * dt;
+    p.angle = ((p.angle % ANG) + ANG) % ANG;
+    if (p.ball) { p.ball.t += dt; if (p.ball.t >= FLIGHT / STEP_HZ) pracLand(); return; }
+    if (p.phase === 'after1' && p.pt > 1.3) pracGlide('turn', ANG - 4 * COL_ANG - 3000, 1.1);
+    else if (p.phase === 'after2' && p.pt > 1.3) {
+      p.phase = 'smash'; p.pt = 0;
+      pracCaption('Clear a whole tower to bank its points');
+      later(0.5, function () {
+        if (mode !== 'prac') return;
+        crumbleAll(1.2); Snd.boom(); Snd.chord(); V.shake = 0.6;
+        V.capFly = { vy: 11, vx: rand(-2, 2), spin: rand(-6, 6), rot: 0 };
+        for (var i = 0; i < prac.grid.length; i++) prac.grid[i] = EMPTY;
+        banner('SMASHED!', 'big', '', '', 1100);
+        burstConfetti(90, VW / 2, VH * 0.3, 0.9);
+      });
+    } else if (p.phase === 'smash' && p.pt > 2.4) pracReady();
+  }
+  function pracReady() {
+    if (!prac || prac.phase === 'ready') return;
+    prac.phase = 'ready'; prac.target = null; prac.ball = null;
+    pracCaption(''); pSkip.hidden = true;
+    show(pReady);
+    Snd.blip(880);
+  }
+  function leavePractice() {
+    prac = null; pSkip.hidden = true; pracCaption('');
+    pHand.classList.remove('on');
+    hide(pReady);
+  }
+  pSkip.addEventListener('click', function () { Snd.init(); Snd.blip(600); pracReady(); });
+  $('pplayBtn').addEventListener('click', function () { leavePractice(); startGame(); });
+
+  // The pointing ring over the block the practice wants tapped.
+  function placeHand() {
+    var t = prac && prac.target;
+    var on = !!(t && mode === 'prac' && V.cols[t.c] && V.cols[t.c][t.r]);
+    pHand.classList.toggle('on', on);
+    if (!on) return;
+    blockFace(t.c, t.r, vB);
+    var sp = toScreen(vB.x, vB.y, vB.z);
+    pHand.style.transform = 'translate(' + sp.x + 'px,' + sp.y + 'px) scale(' + UI + ')';
+  }
+
+  // ------------------------------------------------------------------ the loop
   function frameLoop(now) {
     requestAnimationFrame(frameLoop);
     var dt = lastT == null ? STEP : Math.min(0.1, (now - lastT) / 1000);
@@ -729,7 +868,10 @@
       if (n >= 4 * qaSpeed) acc = 0;
     }
     var alpha = mode === 'play' ? acc / STEP : 1;
-    if (sim && (mode === 'play' || mode === 'ready' || mode === 'timeup')) {
+    if (mode === 'prac' && prac) {
+      pracUpdate(dt);
+      V.angle = prac.angle;
+    } else if (sim && (mode === 'play' || mode === 'ready' || mode === 'timeup')) {
       var d = ((sim.angle - V.prevAngle + ANG / 2) & (ANG - 1)) - ANG / 2;
       V.angle = V.prevAngle + d * alpha;
     } else {
@@ -737,6 +879,7 @@
     }
     update(dt, alpha);
     renderer.render(scene, camera);
+    placeHand();
     drawFx(dt);
     if (perfOn || window.__mtPerf) {
       var ms = performance.now() - t0;
@@ -755,15 +898,15 @@
       var tm = V.timers[ti2]; tm.t -= dt;
       if (tm.t <= 0) { V.timers.splice(ti2, 1); tm.fn(); }
     }
-    if (resyncSoon > 0) { resyncSoon -= dt; if (resyncSoon <= 0 && sim) resyncVis(); }
+    if (resyncSoon > 0) { resyncSoon -= dt; if (resyncSoon <= 0 && sim && mode === 'play') resyncVis(); }
     resyncEvery -= dt;
     if (resyncEvery <= 0) { resyncEvery = 1; if (sim && sim.phase === 'play' && mode === 'play') resyncVis(); }
 
-    var g = sim && mode !== 'menu' ? sim.grid : menuSim.grid;
-    var th = topHeight(g);
+    var w = world();
+    var th = topHeight(w.grid);
     // Camera: framed on the tower in world units, eased as it shrinks.
     var menuView = mode === 'menu';
-    var targetH = menuView ? 30 : Math.max(th, 6);
+    var targetH = menuView ? 30 : mode === 'prac' ? 9 : Math.max(th, 6);
     V.camH += (targetH - V.camH) * Math.min(1, dt * 2.2);
     var yTop = V.camH * BH + 2.6, yBot = GROUND_Y - 0.2;
     var half = (yTop - yBot) / 2 / 0.8;
@@ -775,16 +918,18 @@
     camera.position.set(sx, cy + dist * 0.2 + sy, dist);
     camera.lookAt(sx * 0.5, cy + sy * 0.5, 0);
 
-    // Blocks.
-    var hl = mode === 'play' ? predicted() : null;
-    var hlSet = null;
-    if (hl && !hl.empty && hl.t !== STEEL) { hlSet = {}; for (var hi = 0; hi < hl.cells.length; hi++) hlSet[hl.cells[hi]] = 1; }
-    var pulse = 0.5 + 0.5 * Math.sin(timeAcc * 9);
+    // Blocks. The chunk a ball is flying at glows; so does the practice's target chunk.
+    var hlSet = null, pulse = 0.5 + 0.5 * Math.sin(timeAcc * 9);
+    var hlCells = V.ball ? V.ball.cells : (prac && prac.target && mode === 'prac') ? hitCells(prac.grid, prac.target.c, prac.target.r) : null;
+    if (hlCells) { hlSet = {}; for (var hi = 0; hi < hlCells.length; hi++) hlSet[hlCells[hi]] = 1; }
     var nC = 0, nS = 0, nB = 0;
+    var pmC = pickMap.colour, pmS = pickMap.steel, pmB = pickMap.bomb;
+    var canPick = mode === 'play' || mode === 'prac';
     for (var c = 0; c < COLS; c++) {
       var col = V.cols[c];
       if (!col) continue;
       var thc = colTheta(c, V.angle), sn = Math.sin(thc), cs = Math.cos(thc);
+      var tappable = canPick && colVisible(Math.round(V.angle) & (ANG - 1), c);
       for (var r = 0; r < col.length; r++) {
         var b = col[r], ty = BH * (r + 0.5);
         b.vy -= 40 * dt; b.y += b.vy * dt;
@@ -797,12 +942,14 @@
         dummy.rotation.set(0, thc, 0);
         dummy.scale.set(1 + (1 - b.sq) * 0.5, b.sq, 1 + (1 - b.sq) * 0.5);
         dummy.updateMatrix();
-        if (b.t === STEEL) mSteel.setMatrixAt(nS++, dummy.matrix);
-        else if (b.t === BOMB) mBomb.setMatrixAt(nB++, dummy.matrix);
+        var cell = tappable ? c * ML + r : null;
+        if (b.t === STEEL) { pmS[nS] = cell; mSteel.setMatrixAt(nS++, dummy.matrix); }
+        else if (b.t === BOMB) { pmB[nB] = cell; mBomb.setMatrixAt(nB++, dummy.matrix); }
         else {
           tmpC.copy(colObj(PAL[b.t]));
-          if (hlSet && hlSet[c * ML + r]) tmpC.lerp(white, 0.18 + 0.22 * pulse);
+          if (hlSet && hlSet[c * ML + r]) tmpC.lerp(white, 0.2 + 0.25 * pulse);
           mColour.setColorAt(nC, tmpC);
+          pmC[nC] = cell;
           mColour.setMatrixAt(nC++, dummy.matrix);
         }
       }
@@ -810,6 +957,8 @@
     mColour.count = nC; mSteel.count = nS; mBomb.count = nB;
     mColour.instanceMatrix.needsUpdate = true; if (mColour.instanceColor) mColour.instanceColor.needsUpdate = true;
     mSteel.instanceMatrix.needsUpdate = true; mBomb.instanceMatrix.needsUpdate = true;
+    // The raycaster tests bounds first; instances move, so refresh them.
+    mColour.computeBoundingSphere(); mSteel.computeBoundingSphere(); mBomb.computeBoundingSphere();
     bombMat.emissiveIntensity = 0.12 + 0.3 * pulse;
     topSlab.rotation.y = V.angle / ANG * TAU;
 
@@ -829,35 +978,16 @@
     cap.position.y = V.capY;
     cap.rotation.y = V.angle / ANG * TAU;
 
-    // Aim ring and target frame.
-    var showAim = mode === 'play' && sim && sim.phase === 'play';
-    ring.visible = frame.visible = !!(showAim && hl);
-    if (ring.visible) {
-      var ry = BH * (hl.r + 0.5);
-      V.ringY += (ry - V.ringY) * Math.min(1, dt * 22);
-      ring.position.y = V.ringY;
-      var idle = sim.step - idleSince > 180 && !sim.ball;
-      ringMat.opacity = idle ? 0.55 + 0.45 * pulse : 0.55;
-      ringMat.color.set(idle ? '#fff08a' : '#fff8dc');
-      ring.scale.setScalar(idle ? 1 + 0.04 * pulse : 1);
-      var thf = colTheta(hl.c, V.angle);
-      var fr = R + BD / 2 + 0.06;
-      frame.position.set(Math.sin(thf) * fr, ry, Math.cos(thf) * fr);
-      frame.rotation.set(0, thf, 0);
-      var busy = !!sim.ball || sim.balls <= 0;
-      frameMat.color.set(hl.empty ? '#ff9a9a' : hl.t === STEEL ? '#c9d2dc' : hl.t === BOMB ? '#ffd23a' : '#ffffff');
-      frameMat.opacity = busy ? 0.35 : hl.empty ? 0.6 : 1;
-      var fs = 1 + (idle ? 0.12 : 0.05) * pulse;
-      frame.scale.set(fs, fs, 1);
-    }
-
-    // Ball in flight.
-    if (V.ball && sim && sim.ball) {
-      var u = clamp((sim.step + alpha - V.ball.fireStep) / FLIGHT, 0, 1);
-      var hy = BH * (V.ball.level + 0.5), fz = R + BD / 2 + 0.3;
-      var x0 = V.ball.x0, y0 = Math.max(GROUND_Y + 0.5, hy - 4.5), z0 = fz + 11;
+    // Ball in flight: it homes on the block it was fired at.
+    if (V.ball) {
+      var u;
+      if (mode === 'prac' && prac && prac.ball) u = clamp(prac.ball.t / (FLIGHT / STEP_HZ), 0, 1);
+      else if (sim && sim.ball) u = clamp((sim.step + alpha - V.ball.fireStep) / FLIGHT, 0, 1);
+      else u = 1;
+      blockFace(V.ball.c, V.ball.r, vA);
+      var f0 = V.ball.from;
       ballMesh.visible = true;
-      ballMesh.position.set(x0 * (1 - u), y0 + (hy - y0) * u + Math.sin(u * Math.PI) * 1.4, z0 + (fz - z0) * u);
+      ballMesh.position.set(f0.x + (vA.x - f0.x) * u, f0.y + (vA.y - f0.y) * u + Math.sin(u * Math.PI) * 1.6, f0.z + (vA.z - f0.z) * u);
       ballMesh.rotation.x -= dt * 20;
     } else if (V.afterBall) {
       var ab = V.afterBall;
@@ -866,9 +996,7 @@
       ballMesh.visible = ab.life < 1.6;
       ballMesh.position.copy(ab.p);
       if (ab.life > 1.6) V.afterBall = null;
-    } else {
-      ballMesh.visible = false;
-    }
+    } else ballMesh.visible = false;
 
     // Debris and dust.
     var nd = 0;
@@ -905,29 +1033,33 @@
     updateHud(dt);
   }
 
+  // QA only: a pilot that taps the biggest visible chunk after a short think.
   function autoPilot() {
     if (!sim || sim.phase !== 'play' || sim.ball || sim.balls <= 0) return;
-    var hl = predicted(); if (!hl || hl.empty || hl.t === STEEL) return;
-    if (!V.autoBest || V.autoBestKey !== sim.broken + ':' + sim.tower) {
-      var best = 0;
-      for (var c = 0; c < COLS; c++) for (var r = 0; r < colHeight(sim.grid, c); r++) best = Math.max(best, hitCells(sim.grid, c, r).length);
-      V.autoBest = best; V.autoBestKey = sim.broken + ':' + sim.tower; V.autoWait = 0;
+    if (sim.step - idleSince < 30) return;
+    var best = null;
+    for (var c = 0; c < COLS; c++) {
+      if (!colVisible(sim.angle, c)) continue;
+      for (var r = 0; r < colHeight(sim.grid, c); r++) {
+        if (sim.grid[c * ML + r] === STEEL) continue;
+        var n = hitCells(sim.grid, c, r).length;
+        if (!best || n > best.n) best = { c: c, r: r, n: n };
+      }
     }
-    V.autoWait++;
-    if (hl.cells.length >= V.autoBest * (V.autoWait > 120 ? 0.5 : 0.8)) onPress();
+    if (best) fireAt(best.c, best.r);
   }
 
   // ------------------------------------------------------------------ screens
-  var menu = $('menu'), howto = $('howto'), over = $('over');
+  var menu = $('menu'), over = $('over');
   var veil = $('veil');
-  function syncVeil() { veil.classList.toggle('on', !howto.classList.contains('is-hidden') || !over.classList.contains('is-hidden')); }
+  function syncVeil() { veil.classList.toggle('on', !over.classList.contains('is-hidden') || !pReady.classList.contains('is-hidden')); }
   function show(el) { el.classList.remove('is-gone'); void el.offsetWidth; el.classList.remove('is-hidden'); syncVeil(); }
   function hide(el) { el.classList.add('is-hidden'); syncVeil(); setTimeout(function () { if (el.classList.contains('is-hidden')) el.classList.add('is-gone'); }, 320); }
   function best() { return +(lsGet('minar-tod-best') || 0); }
   function refreshMenuBest() { var b = best(); $('menuBest').textContent = b ? 'BEST ' + fmt(b) : ''; }
 
   function toMenu() {
-    mode = 'menu'; sim = null;
+    mode = 'menu'; sim = null; leavePractice();
     menuSim = initSim((Math.random() * 4294967296) >>> 0);
     V.camH = 30;
     buildVis(menuSim.grid, true);
@@ -938,14 +1070,14 @@
 
   function startGame() {
     Snd.init(); Snd.blip(660);
-    hide(menu); hide(over); hide(howto);
+    hide(menu); hide(over);
     sim = initSim(seedForRun());
     var qaTower = /[?&]tower=(\d+)/.exec(QS);   // QA only: start on a later tower
     if (qaTower) startTower(sim, +qaTower[1]);
     window.__mtSeed = sim.seed;
     V.prevAngle = V.angle = sim.angle;
     buildVis(sim.grid, true);
-    debris.length = 0; dust.length = 0; V.ball = null; V.afterBall = null; V.timers = []; V.hlKey = '';
+    debris.length = 0; dust.length = 0; V.ball = null; V.afterBall = null; V.timers = [];
     shownScore = 0; shownPend = -1; lastSec = -1; lastBalls = -1;
     hud.classList.remove('is-hidden');
     mode = 'ready';
@@ -992,22 +1124,14 @@
     })();
   }
 
-  var howFromMenu = false;
-  function openHow(fromPlay) {
-    howFromMenu = !fromPlay;
-    $('howOk').textContent = fromPlay ? 'PLAY' : 'GOT IT';
-    hide(menu); show(howto);
-  }
+  // The practice shows on the first two launches, and any time from HOW TO PLAY.
+  var noTut = /[?&]tut=0/.test(QS);
   $('playBtn').addEventListener('click', function () {
     Snd.init(); Snd.blip(660);
-    if (!lsGet('minar-tod-howto')) { openHow(true); return; }
+    if (!noTut && tutSeen() < 2) { startPractice(); return; }
     startGame();
   });
-  $('howBtn').addEventListener('click', function () { Snd.init(); Snd.blip(600); openHow(false); });
-  $('howOk').addEventListener('click', function () {
-    lsSet('minar-tod-howto', '1');
-    if (howFromMenu) { hide(howto); show(menu); Snd.blip(600); } else startGame();
-  });
+  $('howBtn').addEventListener('click', function () { Snd.init(); Snd.blip(600); startPractice(); });
   $('againBtn').addEventListener('click', function () { startGame(); });
   $('homeBtn').addEventListener('click', function () { Snd.init(); Snd.blip(600); toMenu(); });
   var muteBtn = $('muteBtn');
@@ -1015,17 +1139,16 @@
   muteBtn.addEventListener('click', function () { Snd.init(); Snd.setMuted(!Snd.isMuted()); muteBtn.classList.toggle('off', Snd.isMuted()); if (!Snd.isMuted()) Snd.blip(700); });
 
   function isButton(e) { var t = e && e.target; return !!(t && t.closest && t.closest('button')); }
-  if (window.KJPress) KJPress.bind(onPress, { keys: ['Space', 'Enter'], ignore: function (e) { return isButton(e) || mode !== 'play'; } });
+  if (window.KJPress) KJPress.bind(onPress, { ignore: function (e) { return isButton(e) || (mode !== 'play' && mode !== 'prac'); } });
   else canvas.addEventListener('pointerdown', onPress);
   document.addEventListener('pointerdown', function () { Snd.init(); }, { passive: true });
+  canvas.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
 
-  // ------------------------------------------------------------------ 2D art: logo and HOW TO PLAY
-  function block2d(g, x, y, s, col, glow) {
-    g.save();
-    if (glow) { g.shadowColor = '#fff6b0'; g.shadowBlur = s * 0.6; }
+  // ------------------------------------------------------------------ 2D art: the logo
+  function block2d(g, x, y, s, col) {
     var gr = g.createLinearGradient(0, y, 0, y + s);
     gr.addColorStop(0, shade(col, 0.25)); gr.addColorStop(1, shade(col, -0.18));
-    g.fillStyle = gr; rr(g, x, y, s, s, s * 0.2); g.fill(); g.restore();
+    g.fillStyle = gr; rr(g, x, y, s, s, s * 0.2); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.35)'; rr(g, x + s * 0.12, y + s * 0.1, s * 0.76, s * 0.18, s * 0.09); g.fill();
     g.fillStyle = 'rgba(0,0,0,0.12)'; rr(g, x + s * 0.1, y + s * 0.78, s * 0.8, s * 0.12, s * 0.06); g.fill();
   }
@@ -1033,69 +1156,13 @@
     var c = new THREE.Color(hex); var hsl = {}; c.getHSL(hsl);
     c.setHSL(hsl.h, hsl.s, clamp(hsl.l + k * 0.5, 0, 1)); return '#' + c.getHexString();
   }
-  function ball2d(g, x, y, r) {
-    var gr = g.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
-    gr.addColorStop(0, '#d8e4ff'); gr.addColorStop(0.35, '#4b5f99'); gr.addColorStop(1, '#141a33');
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
-  }
-  function txt(g, s, x, y, size, fill, stroke) {
-    g.font = size + 'px "Titan One", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineJoin = 'round'; g.lineWidth = size * 0.24; g.strokeStyle = stroke || '#5a1530'; g.strokeText(s, x, y);
-    g.fillStyle = fill; g.fillText(s, x, y);
-  }
-  function panelBg(g, w, h) {
-    var gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#2f9fa3'); gr.addColorStop(1, '#fbe3bd');
-    g.fillStyle = gr; g.fillRect(0, 0, w, h);
-  }
-  function drawHow() {
-    var P = PAL;
-    var g1 = $('how1').getContext('2d'); panelBg(g1, 224, 224);
-    var grid1 = [[1, 2, 3], [2, 2, 4], [3, 1, 1], [4, 3, 1]];
-    for (var r = 0; r < 4; r++) for (var c = 0; c < 3; c++) block2d(g1, 40 + c * 50, 20 + r * 44, 46, P[grid1[r][c]], false);
-    g1.strokeStyle = 'rgba(255,248,220,0.9)'; g1.lineWidth = 4; g1.beginPath(); g1.moveTo(16, 87); g1.lineTo(208, 87); g1.stroke();
-    g1.strokeStyle = '#ffffff'; g1.lineWidth = 6; rr(g1, 86, 62, 56, 52, 8); g1.stroke();
-    g1.fillStyle = '#fff'; g1.beginPath(); g1.moveTo(114, 52); g1.lineTo(104, 40); g1.lineTo(124, 40); g1.fill();
-    g1.strokeStyle = 'rgba(255,255,255,0.7)'; g1.lineWidth = 4;
-    [[150, 200, 132, 150], [170, 196, 146, 152], [162, 214, 140, 162]].forEach(function (l) { g1.beginPath(); g1.moveTo(l[0], l[1]); g1.lineTo(l[2], l[3]); g1.stroke(); });
-    ball2d(g1, 160, 182, 18);
-    txt(g1, 'TAP', 52, 200, 26, '#ffe27a');
-
-    var g2 = $('how2').getContext('2d'); panelBg(g2, 224, 224);
-    var grid2 = [[1, 3, 3, 4], [2, 2, 3, 1], [4, 2, 2, 2], [1, 3, 2, 4]];
-    for (var r2 = 0; r2 < 4; r2++) for (var c2 = 0; c2 < 4; c2++) {
-      var v = grid2[r2][c2], burst = v === 2;
-      if (burst) {
-        var cx = 22 + c2 * 46 + 21, cy = 30 + r2 * 44 + 21;
-        g2.save(); g2.translate(cx + (c2 - 1.5) * 8, cy + (r2 - 1.5) * 6); g2.rotate((c2 - r2) * 0.25);
-        block2d(g2, -15, -15, 30, P[2], true); g2.restore();
-      } else block2d(g2, 22 + c2 * 46, 30 + r2 * 44, 42, P[v], false);
-    }
-    g2.strokeStyle = '#fff6b0'; g2.lineWidth = 4;
-    for (var k = 0; k < 8; k++) { var a = k * TAU / 8; g2.beginPath(); g2.moveTo(112 + Math.cos(a) * 30, 112 + Math.sin(a) * 30); g2.lineTo(112 + Math.cos(a) * 44, 112 + Math.sin(a) * 44); g2.stroke(); }
-    txt(g2, '+210', 112, 22, 30, '#ffe27a');
-
-    var g3 = $('how3').getContext('2d'); panelBg(g3, 224, 224);
-    g3.fillStyle = '#f2b233'; rr(g3, 50, 150, 124, 18, 6); g3.fill();
-    g3.fillStyle = '#b3123e'; g3.fillRect(64, 168, 96, 26);
-    var pieces = [[60, 70, 1, -0.5], [150, 60, 3, 0.6], [92, 40, 4, 0.3], [130, 100, 5, -0.8], [72, 112, 2, 0.9], [160, 118, 1, -0.2]];
-    pieces.forEach(function (p) { g3.save(); g3.translate(p[0], p[1]); g3.rotate(p[3]); block2d(g3, -15, -15, 30, P[p[2]], false); g3.restore(); });
-    txt(g3, 'SMASHED!', 112, 136, 28, '#ffe27a');
-    for (var b = 0; b < 3; b++) ball2d(g3, 84 + b * 28, 208, 11);
-
-    var gs = $('howSteel').getContext('2d');
-    gs.drawImage(steelTex.image, 4, 4, 72, 72);
-    var gb = $('howBomb').getContext('2d');
-    gb.drawImage(bombTex.image, 4, 4, 72, 72);
-  }
-
   function drawLogo() {
     var c = $('logo'), g = c.getContext('2d'), w = c.width, h = c.height;
     g.clearRect(0, 0, w, h);
-    // bunting
     var cols = ['#ef3b4f', '#ffb400', '#22b573', '#3d6bff', '#a64bf0', '#ff7a1a'];
     g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 3; g.beginPath(); g.moveTo(20, 18); g.quadraticCurveTo(w / 2, 52, w - 20, 18); g.stroke();
     for (var i = 0; i < 13; i++) {
-      var t = (i + 0.5) / 13, x = 20 + (w - 40) * t, y = 18 + 4 * 34 * t * (1 - t) * 0.5 * 1.0 + 8 * Math.sin(t * Math.PI);
+      var t = (i + 0.5) / 13, x = 20 + (w - 40) * t, y = 18 + 68 * t * (1 - t);
       g.fillStyle = cols[i % cols.length]; g.beginPath(); g.moveTo(x - 20, y); g.lineTo(x + 20, y); g.lineTo(x, y + 34); g.closePath(); g.fill();
       g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(x, y + 10, 4, 0, TAU); g.fill();
     }
@@ -1111,20 +1178,21 @@
     }
     word('MINAR', 150, 132, -0.03);
     word('TOD!', 282, 150, 0.03);
-    // a little breaking stack beside the title
     block2d(g, 40, 300, 50, '#3d6bff'); block2d(g, 40, 248, 50, '#22b573');
     g.save(); g.translate(80, 214); g.rotate(-0.5); block2d(g, -22, -22, 44, '#ef3b4f'); g.restore();
     block2d(g, w - 92, 300, 50, '#a64bf0');
     g.save(); g.translate(w - 58, 240); g.rotate(0.45); block2d(g, -22, -22, 44, '#ffb400'); g.restore();
   }
   var fontReady = (document.fonts && document.fonts.load) ? document.fonts.load('60px "Titan One"') : Promise.resolve();
-  fontReady.then(function () { drawLogo(); drawHow(); }, function () { drawLogo(); drawHow(); });
+  fontReady.then(drawLogo, drawLogo);
 
   // QA hooks (phase 1 only): scripted play and frame timing.
   window.__mt = {
-    sim: function () { return sim; }, mode: function () { return mode; }, press: onPress, start: startGame,
+    sim: function () { return sim; }, mode: function () { return mode; }, start: startGame, practice: startPractice,
+    prac: function () { return prac; }, fireAt: fireAt,
+    // Screen point of block (c, r) right now, for scripted taps.
+    screenOf: function (c, r) { blockFace(c, r, vB); return toScreen(vB.x, vB.y, vB.z); },
     perf: function () { var r = { frames: perf.n, avgMs: perf.n ? perf.sum / perf.n : 0, maxMs: perf.max }; perf.n = 0; perf.sum = 0; perf.max = 0; return r; },
-    predicted: predicted,
   };
 
   toMenu();
