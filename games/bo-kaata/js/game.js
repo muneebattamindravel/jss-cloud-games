@@ -858,7 +858,7 @@
         fxAcc += dt; while (fxAcc >= STEP_MS) { fxAcc -= STEP_MS; stepFx(); }
       } else fxAcc = 0;
     } else if (state === 'dying' || state === 'over') {
-      acc += dt; while (acc >= STEP_MS) { acc -= STEP_MS; stepFx(); } acc = 0;
+      acc += dt; while (acc >= STEP_MS) { acc -= STEP_MS; stepFx(); }          // the remainder is kept: zeroing it each frame never let a fast screen reach a step
     }
     render(now);
   }
