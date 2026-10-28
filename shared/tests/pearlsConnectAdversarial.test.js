@@ -147,6 +147,11 @@ describe('Pearls Connect validator: a refused input changes nothing and never ze
     const { fin } = run(ev);
     expect(fin.suspicious).toBe('validator_rejects:12');
   });
+  test('the suspicious mark starts at exactly ten refusals', () => {
+    const bad = { type: 'input', payload: { kind: 'chain', n: -1, step: 1, down: 0, cells: [] } };
+    expect(run([start()].concat(new Array(9).fill(bad))).fin.suspicious).toBe(null);
+    expect(run([start()].concat(new Array(10).fill(bad))).fin.suspicious).toBe('validator_rejects:10');
+  });
 });
 
 describe('Pearls Connect validator: attacks that try to buy a better run', () => {
