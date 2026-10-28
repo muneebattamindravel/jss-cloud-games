@@ -143,13 +143,14 @@ const M = [
   ['c: one finger only', 'game', '    if (fingers.size >= 5) return;', '    if (fingers.size >= 1) return;'],
   ['c: dir axis swapped', 'game', 'return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);', 'return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 3 : 1) : (dy > 0 ? 2 : 0);'],
   ['c: key repeat', 'game', '      if (!e.repeat) fire(KEYS[e.key]);', '      fire(KEYS[e.key]);'],
-  ['c: input in READY', 'game', '    if (RP || mode !== \'play\' || !sim || sim.over) return;', '    if (RP || !sim || sim.over) return;'],
-  ['c: input in replay', 'game', '    if (RP || mode !== \'play\' || !sim || sim.over) return;', '    if (mode !== \'play\' || !sim || sim.over) return;'],
+  ['c: input in READY', 'game', '    if (mode !== \'play\' || !sim || sim.over) return;', '    if (!sim || sim.over) return;'],
+  ['c: live input in replay', 'game', '    if (replayMoves) {\n      const due', '    if (replayMoves && false) {\n      const due'],
   ['c: inbox stacks', 'game', '    if (inbox.length > 2) inbox.splice(0, inbox.length - 2);', '    if (inbox.length > 2) inbox.splice(0, inbox.length - 1);'],
   ['c: two inputs a step', 'game', '    } else if (inbox.length) applyInput(inbox.shift(), true);', '    } else while (inbox.length) applyInput(inbox.shift(), true);'],
   ['c: no backup clock', 'game', '    if (lastFrameAt === null || t - lastFrameAt > 200) pump(t);', '    if (lastFrameAt === null) pump(t);'],
   ['c: no catch-up', 'game', '      const cap = big ? 60 * 60 * 2 : 3;', '      const cap = 3;'],
   ['c: catch-up 6', 'game', '      const cap = big ? 60 * 60 * 2 : 3;', '      const cap = big ? 60 * 60 * 2 : 6;'],
+  ['c: catch-up 1', 'game', '      const cap = big ? 60 * 60 * 2 : 3;', '      const cap = big ? 60 * 60 * 2 : 1;'],
   ['c: frame delta used', 'game', '      while (acc >= STEP_MS && n < cap) { acc -= STEP_MS; stepOnce(); n++; if (sim.over) break; }', '      if (acc >= STEP_MS) { acc = 0; stepOnce(); n++; }'],
   ['c: submit at once', 'game', '  const SUBMIT_MS = 3600;', '  const SUBMIT_MS = 1000;'],
   ['c: submit never', 'game', '    submitTimer = setTimeout(submitOnce, SUBMIT_MS);', ''],
@@ -157,7 +158,6 @@ const M = [
   ['c: run without a seed', 'game', '    if ((EMBED || RP) && window.__kjSeed == null) return;', ''],
   ['c: ?seed inside the platform', 'game', '    if (EMBED || RP) return window.__kjSeed;\n    const m', '    const m'],
   ['c: no session gate', 'game', '    if (!sessionReady || mode !== \'menu\') return;', '    if (mode !== \'menu\') return;'],
-  ['c: again inside platform', 'game', "$('againBtn').addEventListener('click', () => { if (EMBED || RP) return;", "$('againBtn').addEventListener('click', () => {"],
   ['c: trace version not marked', 'game', "? (Number(window.__kjGameStart(performance.now(), RULES_VERSION)) || 0) : RULES_VERSION;", '? 0 : RULES_VERSION; if (false) window.__kjGameStart();'],
   ['c: replay inputs not applied', 'game', '      for (let i = 0; i < due.length; i++) applyInput(Number(due[i].dir), false);', ''],
   ['c: replay emits', 'game', '      for (let i = 0; i < due.length; i++) applyInput(Number(due[i].dir), false);', '      for (let i = 0; i < due.length; i++) applyInput(Number(due[i].dir), true);'],
@@ -170,6 +170,10 @@ const INERT = {
   // GEN_ATTEMPTS: measured on 4800 mazes (300 seeds x 16), the most attempts
   // any maze needed before passing every gate is far below 59; 'GEN_ATTEMPTS small' must be caught.
   'GEN_ATTEMPTS': 'no maze in 4800 measured needs the 60th attempt; the large variant (1) is caught',
+  // The per-frame cap only spreads owed steps over frames (nothing is ever
+  // dropped), so 3 or 6 give the same steps on the same wall clock; measured:
+  // every suite passes with 6. 'c: catch-up 1' (cannot keep up at 30 Hz) is caught.
+  'c: catch-up 6': 'owed steps are never dropped; the cap only spreads them; catch-up 1 is caught',
 };
 
 function read(f) { return fs.readFileSync(FILES[f], 'utf8'); }

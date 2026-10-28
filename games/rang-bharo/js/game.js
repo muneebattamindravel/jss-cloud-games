@@ -1071,7 +1071,7 @@
   // swipe is never two moves.
   const fingers = new Map();
   function fire(d) {
-    if (RP || mode !== 'play' || !sim || sim.over) return;
+    if (mode !== 'play' || !sim || sim.over) return;
     inbox.push(d);
     if (inbox.length > 2) inbox.splice(0, inbox.length - 2);
   }
@@ -1126,7 +1126,6 @@
   let sessionReady = false;
   $('playBtn').addEventListener('click', () => {
     if (!sessionReady || mode !== 'menu') return;
-    if ((EMBED || RP) && runsStarted > 0) return;
     SFX.ui();
     show(menuEl, false); logo.running = false;
     if (!seenHow()) { openHow(true); return; }
@@ -1139,7 +1138,7 @@
     SFX.ui(); markHow(); show(howEl, false); demo.stop();
     if (howThenPlay) startRun(); else { mode = 'menu'; show(menuEl, true); logo.start(); }
   });
-  $('againBtn').addEventListener('click', () => { if (EMBED || RP) return; SFX.ui(); show(overEl, false); startRun(); });
+  $('againBtn').addEventListener('click', () => { SFX.ui(); show(overEl, false); startRun(); });
   $('homeBtn').addEventListener('click', () => { if (EMBED || RP) return; SFX.ui(); show(overEl, false); sim = null; mode = 'menu'; show(menuEl, true); logo.start(); refreshBest(); });
 
   function refreshBest() { $('menuBest').textContent = bestScore > 0 ? 'BEST ' + bestScore : ''; }

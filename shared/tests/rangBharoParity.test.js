@@ -273,6 +273,26 @@ describe('Rang Bharo input: one move at a time, one swipe one move', () => {
     expect(pr.sim.inputs).toBe(1);
     expect(W.movesOf(g.trace).length).toBe(1);
   });
+  test('a swipe fires while the finger is still moving, before it lifts', () => {
+    const { g, pr, open } = atRest();
+    const d = open[0], DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+    g.fire('pointerdown', { pointerType: 'touch', pointerId: 1, clientX: 100, clientY: 400 });
+    g.fire('pointermove', { pointerType: 'touch', pointerId: 1, clientX: 100 + DX[d] * 20, clientY: 400 + DY[d] * 20 });
+    g.advance(1000 / 60 * 2);
+    expect(pr.sim.inputs).toBe(1);
+    g.fire('pointerup', { pointerType: 'touch', pointerId: 1, clientX: 100 + DX[d] * 20, clientY: 400 + DY[d] * 20 });
+    g.advance(100);
+    expect(pr.sim.inputs).toBe(1);
+  });
+  test('two swipes inside one frame are two moves on two steps, never one step', () => {
+    const { g, pr, open } = atRest();
+    g.swipe(open[0]); g.swipe((open[0] + 2) & 3);
+    g.advance(1000 / 60 * 3);
+    expect(pr.sim.inputs).toBe(2);
+    const m = W.movesOf(g.trace);
+    expect(m.length).toBe(2);
+    expect(m[1].step).toBe(m[0].step + 1);
+  });
   test('a short flick counts, a jitter does not', () => {
     const { g, pr, open } = atRest();
     g.swipe(open[0], { flickOnly: true, len: 9 });
@@ -323,6 +343,9 @@ describe('Rang Bharo input: one move at a time, one swipe one move', () => {
     g.swipe(1); g.key(2);
     g.advance(400);
     expect(W.movesOf(g.trace).length).toBe(0);
+    while (g.probe().mode !== 'play') g.advance(1000 / 60);
+    g.advance(500);
+    expect(W.movesOf(g.trace).length).toBe(0);   // nothing was held over into the run
   });
 });
 
