@@ -19,7 +19,7 @@
   var pskip = $('pskip'), pplay = $('pplay');
 
   var state = 'menu';         // menu | prac | play | dying | over
-  var sim = null, prev = null, acc = 0, lastT = null;
+  var sim = null, prev = null, acc = 0, fxAcc = 0, lastT = null;
   var fit = null, dpr = 1, boxW = 0, boxH = 0;
 
   function randomSeed() { var s = ''; for (var i = 0; i < 16; i++) s += Math.floor(Math.random() * 16).toString(16); return s; }
@@ -141,7 +141,48 @@
     spriteCache[key] = c;
     return c;
   }
-  function looksOf(id) { var h = ((id * 2654435761) >>> 0); return { pal: h % PAL.length, pat: (h >>> 8) % 5 }; }
+  // The big kites (guddi, tukkal, fierce) are drawn like the real Lahori tukkal: a spire with curved
+  // sides, a wide lens with pointed tips, a notch, a crescent wing below, yellow tie points and a tassel.
+  // Traced from the founder's photo. Drawing only, the hit box is the rules'.
+  var TUK = [
+    { spire: '#26393b', lens: '#26393b', wing: '#26393b', tas: '#26393b' },     // dark green, as in the photo
+    { spire: '#3b2a99', lens: '#f2e44a', wing: '#3b2a99', tas: '#3b2a99' },
+    { spire: '#c8231b', lens: '#c8231b', wing: '#f3efe6', tas: '#c8231b' },
+    { spire: '#1a1a1a', lens: '#f3f3f0', wing: '#1a1a1a', tas: '#1a1a1a' },
+  ];
+  var bigCache = {};
+  function bigSprite(v) {
+    var key = v + ':' + dpr;
+    if (bigCache[key]) return bigCache[key];
+    var k = 3 * dpr, c = layer(70 * k, 74 * k), g = c.getContext('2d'), T = TUK[v % TUK.length];
+    g.scale(k, k); g.translate(35, 37); g.lineJoin = 'round'; g.lineCap = 'round';
+    var edge = function () { g.strokeStyle = 'rgba(20,10,16,0.55)'; g.lineWidth = 1.1; g.stroke(); };
+    var spire = function () { g.beginPath(); g.moveTo(0, -34); g.quadraticCurveTo(1.6, -22, 8.4, -18.4); g.lineTo(-8.4, -18.4); g.quadraticCurveTo(-1.6, -22, 0, -34); g.closePath(); };
+    var lens = function () {
+      g.beginPath(); g.moveTo(-8.4, -18.6); g.quadraticCurveTo(-26, -19, -31, -5.8);
+      g.quadraticCurveTo(-22, 4, -11.4, 6.2); g.lineTo(11.4, 6.2); g.quadraticCurveTo(22, 4, 31, -5.8);
+      g.quadraticCurveTo(26, -19, 8.4, -18.6); g.closePath();
+    };
+    var wing = function () {
+      g.beginPath(); g.moveTo(-26.4, 8.6); g.quadraticCurveTo(-18, 6.4, -11.4, 6.2); g.lineTo(11.4, 6.2); g.quadraticCurveTo(18, 6.4, 26.4, 8.6);
+      g.quadraticCurveTo(18, 22, 0, 20.6); g.quadraticCurveTo(-18, 22, -26.4, 8.6); g.closePath();
+    };
+    // the tassel: a knot and a short fringe
+    g.fillStyle = T.tas; g.beginPath(); g.moveTo(0, 20); g.lineTo(2.2, 24); g.lineTo(-2.2, 24); g.closePath(); g.fill();
+    g.strokeStyle = T.tas; g.lineWidth = 1.3; for (var f = -3; f <= 3; f++) { g.beginPath(); g.moveTo(f * 0.6, 23.5); g.lineTo(f * 1.1, 31); g.stroke(); }
+    wing(); g.fillStyle = T.wing; g.fill(); edge();
+    lens(); g.fillStyle = T.lens; g.fill(); edge();
+    spire(); g.fillStyle = T.spire; g.fill(); edge();
+    g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(0, -32); g.lineTo(0, 20); g.stroke();   // the spar
+    g.fillStyle = '#e8cf3a';                                                                                                        // yellow tie points
+    [[-8.4, -18.4], [8.4, -18.4], [-11.4, 6.2], [11.4, 6.2]].forEach(function (d) { g.beginPath(); g.arc(d[0], d[1], 1.5, 0, Math.PI * 2); g.fill(); });
+    [[0, -17.6, 3.2], [0, 19.4, 2.6]].forEach(function (d) { g.beginPath(); g.moveTo(d[0] - d[2], d[1] - d[2] * 0.6); g.lineTo(d[0] + d[2], d[1] - d[2] * 0.6); g.lineTo(d[0], d[1] + d[2] * 0.7); g.closePath(); g.fill(); });
+    [[-31, -5.8], [31, -5.8], [-26.4, 8.6], [26.4, 8.6]].forEach(function (d) { g.beginPath(); g.moveTo(d[0], d[1] - 1.6); g.lineTo(d[0] + 1.6, d[1]); g.lineTo(d[0], d[1] + 1.6); g.lineTo(d[0] - 1.6, d[1]); g.closePath(); g.fill(); });
+    c.__ox = 35; c.__oy = 37; c.__k = k;
+    bigCache[key] = c;
+    return c;
+  }
+  function looksOf(id) { var h = ((id * 2654435761) >>> 0); return { pal: h % PAL.length, pat: (h >>> 8) % 5, tv: (h >>> 16) % TUK.length }; }
 
   // ── audio: Web Audio only, nothing to download ──────────────────────────
   // A Basant soundtrack (dhol, with a quiet shehnai line) and a shouted
@@ -157,7 +198,7 @@
     noiseBuf = AC.createBuffer(1, Math.floor(AC.sampleRate * 0.5), AC.sampleRate);
     var nd = noiseBuf.getChannelData(0), ns = 12345;
     for (var i = 0; i < nd.length; i++) { ns = (Math.imul(ns, 1664525) + 1013904223) >>> 0; nd[i] = ns / 2147483648 - 1; }   // fixed noise, never Math.random
-    loadSong();
+    loadSong(); loadClips();
     return AC;
   }
   ['pointerdown', 'touchend', 'click', 'keydown'].forEach(function (t) { window.addEventListener(t, function () { audio(); }, { passive: true }); });
@@ -221,21 +262,43 @@
     if (!musicOn || !AC) return;
     while (nextT < AC.currentTime + 0.3) { musicStep(nextT, stepNo); stepNo++; nextT += STEP_S; }
   }
-  // The soundtrack is a recorded Punjabi dhol loop. It streams in after the first
+  // The soundtrack is the founder's Basant track (85 s, looped). It streams in after the first
   // gesture; until it has loaded (or if it never does) the synthesised dhol plays.
   var songBuf = null, songSrc = null, songAsked = false;
   function loadSong() {
     if (songAsked || !AC || typeof fetch !== 'function') return;
     songAsked = true;
-    fetch('audio/basant.mp3?v=1').then(function (r) { if (!r.ok) throw new Error('song'); return r.arrayBuffer(); })
+    fetchAudio('audio/basant.mp3?v=2')
       .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
       .then(function (buf) { songBuf = buf; if (musicOn && !songSrc) swapToSong(); })
       .catch(function () {});
   }
+  function fetchAudio(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error('audio'); return r.arrayBuffer(); }); }
+  // The shout is the founder's recorded "Bo Kaata!" (two takes, used in turn). Until they have
+  // loaded, or if they never do, the synthesised shout below stands in.
+  var clips = {}, clipsAsked = false, shoutNo = 0;
+  function loadClips() {
+    if (clipsAsked || !AC || typeof fetch !== 'function') return;
+    clipsAsked = true;
+    ['bokaata1', 'bokaata2'].forEach(function (n) {
+      fetchAudio('audio/' + n + '.mp3?v=1')
+        .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
+        .then(function (buf) { clips[n] = buf; })
+        .catch(function () {});
+    });
+  }
+  function playClip(n, when, vol, rate) {
+    var buf = clips[n]; if (!buf || !audio()) return false;
+    var src = AC.createBufferSource(), g = AC.createGain();
+    src.buffer = buf; src.playbackRate.value = rate || 1; g.gain.value = vol;
+    src.connect(g); g.connect(master); src.start(AC.currentTime + (when || 0));
+    return true;
+  }
   function playSong() {
     var src = AC.createBufferSource(); src.buffer = songBuf; src.loop = true;
-    src.loopStart = 0.02; src.loopEnd = Math.max(0.5, songBuf.duration - 0.02);
-    src.connect(musicGain); src.start(AC.currentTime + 0.05, 0.02); songSrc = src;
+    // the whole buffer loops: the file carries its own 5 ms fade in and 12 ms fade out, so the seam does not click
+    src.loopStart = 0; src.loopEnd = songBuf.duration;
+    src.connect(musicGain); src.start(AC.currentTime + 0.05, 0); songSrc = src;
   }
   function swapToSong() {
     clearInterval(musicTimer); musicTimer = 0;            // the synthesised loop hands over
@@ -293,14 +356,16 @@
   }
   var SFX = {
     cut: function (mult, big) {
-      shout(0, 1, 1); if (mult > 1 || big) shout(0.03, 1.06, 0.7);                                // a crowd joins in on a streak or a big kite
+      var take = shoutNo++ % 2 ? 'bokaata2' : 'bokaata1', other = take === 'bokaata1' ? 'bokaata2' : 'bokaata1';
+      if (playClip(take, 0, 1, 1)) { if (mult > 1 || big) playClip(other, 0.09, 0.45, 1.05); }   // a second voice joins in on a streak or a big kite
+      else { shout(0, 1, 1); if (mult > 1 || big) shout(0.03, 1.06, 0.7); }
       dholRoll(0.1, big ? 12 : mult > 1 ? 8 : 5, 0.7);
       note(784, 0.05, 0.35, 0.1); note(1175, 0.12, 0.45, 0.09); if (mult > 1) note(1568, 0.19, 0.5, 0.08);
     },
     pench: function () { note(1320, 0, 0.12, 0.05); },
     warn: function () { note(440, 0, 0.18, 0.07); note(440, 0.16, 0.18, 0.07); },
     lost: function (why) {
-      if (why !== 'roof') shout(0.12, 1.28, 0.55);                                                // the rival shouts it back at you
+      if (why !== 'roof' && !playClip(shoutNo % 2 ? 'bokaata2' : 'bokaata1', 0.12, 0.6, 0.92)) shout(0.12, 1.28, 0.55);   // the rival shouts it back at you
       note(392, 0, 0.4, 0.11); note(294, 0.14, 0.55, 0.1);
     },
     good: function () { note(1047, 0, 0.3, 0.1); note(1319, 0.08, 0.35, 0.09); },
@@ -378,7 +443,7 @@
         for (var j = 0; j < before.length; j++) if (before[j].id === e.id) r0 = before[j];
         var rx = e.x / U, ry = e.y / U, p = r0 ? intersect(PK.SPOOL_X / U, PK.SPOOL_Y / U, s.me.x / U, s.me.y / U, r0.ax / U, r0.ay / U, rx, ry) : [rx, ry];
         var lk = looksOf(e.id);
-        falling.push({ x: rx, y: ry, vx: (r0 && r0.side ? -1 : 1) * (0.8 + Math.random()), vy: -0.5, rot: (r0 ? r0.h : 0) / 1024 * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25, t: 0, pal: lk.pal, pat: lk.pat });
+        falling.push({ x: rx, y: ry, vx: (r0 && r0.side ? -1 : 1) * (0.8 + Math.random()), vy: -0.5, rot: (r0 ? r0.h : 0) / 1024 * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25, t: 0, pal: e.big ? lk.tv : lk.pal, pat: e.big ? 9 : lk.pat, sc: kiteScale({ big: e.big, id: e.id }) });
         burst(p[0], p[1], 26, ['#fff6c2', '#ffd23f', '#ffffff'], 3.4);
         texts.push({ x: p[0], y: p[1] - 18, s: 'BO KAATA!', sub: e.mult > 1 ? '+' + e.pts + '  x' + e.mult : '+' + e.pts, t: 0, big: e.mult });
         SFX.cut(e.mult, e.big);
@@ -393,7 +458,8 @@
         SFX.lost(e.why); shake = 9;
       } else if (e.k === 'enter') {
         var nr2 = null; for (var b = 0; b < s.rivals.length; b++) if (s.rivals[b].id === e.id) nr2 = s.rivals[b];
-        if (nr2 && nr2.big === 2) texts.push({ x: 207, y: 200, s: 'TUKKAL!', sub: 'thick line: hold longer, x3', t: 0, big: 2 });
+        if (nr2 && nr2.big === 3) texts.push({ x: 207, y: 200, s: 'FIERCE KITE!', sub: 'fast and wavy: hit it when it rests', t: 0, big: 2, warn: 1 });
+        else if (nr2 && nr2.big === 2) texts.push({ x: 207, y: 200, s: 'TUKKAL!', sub: 'thick line: hold longer, x3', t: 0, big: 2 });
         else if (nr2 && nr2.big === 1 && !seenGuddi) { seenGuddi = true; texts.push({ x: 207, y: 200, s: 'GUDDI', sub: 'bigger kite: hold longer, x2', t: 0, big: 1 }); }
         else if (nr2 && nr2.pm && !seenPm) { seenPm = true; texts.push({ x: 207, y: 200, s: 'PENCH MASTER', sub: 'pulls when you dart at it', t: 0, big: 1, warn: 1 }); }
       } else if (e.k === 'hunter') {
@@ -422,7 +488,7 @@
   var seedHex = null, lastWave = 1, waveBanner = null;
   function startRun() {
     seedHex = window.__kjSeed || (EMBED ? null : (qp('seed') || randomSeed()));
-    var v = window.__kjGameStart ? window.__kjGameStart(performance.now(), 2) : 2;
+    var v = window.__kjGameStart ? window.__kjGameStart(performance.now(), 3) : 3;
     if (RP) { v = RP.capVersion(v); replayCur = RP.cursor(['touch', 'lift'], function (p) { return Number(p.step); }); RP.started(v); }
     sim = PK.initSim(seedHex, v); prev = snap(sim);
     seenPm = false; seenGuddi = false; lastGust = 0;
@@ -471,7 +537,7 @@
   var prac = null, handImg = null;
   var HAND_W = 64, HAND_H = 100;
   var RINGS = { 0: { x: 207, y: 270 }, 2: { x: 320, y: 300 } };
-  var SPIN_STEPS = 34;                                // lesson 1 is done after this much spinning
+  var SPIN_STEPS = 60;                                // lesson 1 is done after this much spinning
   function buildHandSprite() {
     var k = 4, c = layer(HAND_W * k, HAND_H * k), g = c.getContext('2d'); g.scale(k, k);
     g.lineWidth = 3.2; g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = '#5b2340';
@@ -488,7 +554,7 @@
   }
   function startPractice() {
     state = 'prac'; startMusic(); menuEl.classList.add('is-hidden'); overEl.classList.add('is-hidden');
-    sim = PK.initSim('0badc0de00000000', 2);
+    sim = PK.initSim('0badc0de00000000', 3);           // the practice flies by the same rules as a run
     sim.nextAt = 1e12; sim.lastCut = 1e12;            // nobody comes in uninvited
     prac = { i: 0 }; fx = []; texts = []; falling = []; trails = []; myFall = null;
     pskip.classList.remove('is-hidden'); pplay.classList.add('is-hidden');
@@ -505,8 +571,8 @@
     if (i === 1) s.me = Object.assign({}, s.me, { pull: 1, s: 4 * U });
     if (i === 2) s.me = { x: 150 * U, y: 360 * U, h: 0, s: 0, pull: 0 };
     if (i === 3) {
-      s.me = { x: 130 * U, y: 340 * U, h: 236, s: 0, pull: 0 };     // nose already toward their line
-      s.rivals = [{ id: 7, big: 0, pm: 0, wp: 0, side: 1, w: 1, ax: 430 * U, ay: 620 * U, x: 290 * U, y: 200 * U, h: 0, s: 0, pull: 0, vmax: 0, aim: 9, react: 1e9, dart: 0, think: 0, run: 0, hx: 290 * U, hy: 200 * U, rest: 1e9, restBase: 1e9, until: 1e12, hunter: 0 }];
+      s.me = { x: 70 * U, y: 380 * U, h: 256, s: 0, pull: 0 };      // nose already toward their line, which stands mid screen with room to cross it
+      s.rivals = [{ id: 7, big: 0, pm: 0, wp: 0, side: 1, w: 1, ax: 255 * U, ay: 650 * U, x: 215 * U, y: 200 * U, h: 0, s: 0, pull: 0, vmax: 0, aim: 9, react: 1e9, dart: 0, think: 0, run: 0, hx: 215 * U, hy: 200 * U, rest: 1e9, restBase: 1e9, until: 1e12, hunter: 0 }];
     }
     prev = snap(s); myFall = null;
     if (i === 4) { prac.phase = 'ready'; pplay.classList.remove('is-hidden'); pskip.classList.add('is-hidden'); syncPlay(); silence(); }
@@ -519,17 +585,28 @@
   function pracNext(delay) { prac.phase = 'gap'; prac.nextAt = performance.now() + delay; }
   // what the practice is waiting for, or '' when it may run
   function pracWants() {
-    var p = prac, me = sim.me, down = fingerDown || wantTouch;       // a tap counts as a press
+    var p = prac, me = sim.me, down = fingerDown || wantTouch || (p.hold > 0 && wantLift);       // a tap counts as a press
     if (p.i === 0) return down ? '' : 'hold';
     if (p.i === 1) return fingerDown ? 'let' : '';
     if (p.i === 2) {
       if (me.pull) return '';
       var aimed = PK.aimedAt(me.h, RINGS[2].x * U - me.x, RINGS[2].y * U - me.y, 6);
-      if (down) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
-      return aimed ? 'now' : '';
+      if (fingerDown) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
+      if (!aimed) { wantTouch = false; return ''; }   // a tap while it still turns does nothing (the lift it brought still lands)
+      return down ? '' : 'now';
     }
-    if (p.i === 3) return down || p.live > 0 ? '' : 'cut';
+    if (p.i === 3) return down ? '' : 'cut';                 // the cut needs a hold the whole way: it waits for one
     return '';
+  }
+  // Once a frame, outside the step accumulator: the gap between lessons and what the practice
+  // waits for are judged here. On a 120/144 Hz screen a frame is shorter than a step, so a wait
+  // that was only judged inside a step (while the accumulator is held at zero) never ended.
+  function pracSync() {
+    var p = prac;
+    if (p.phase === 'gap' && performance.now() >= p.nextAt) pracSetup(p.i + 1);
+    if (p.phase !== 'run') return;
+    var w = pracWants();
+    if (w !== p.want) { p.want = w; if (w) p.shownAt = performance.now(); }
   }
   function stepPrac() {
     var p = prac;
@@ -587,9 +664,9 @@
   }
   // a kite drawn with its nose along heading h (0 up, 1024 a turn)
   function drawKite(g, x, y, h, pal, pat, mine, t, seedOff, alpha, slack, scale) {
-    var sp = kiteSprite(pal, pat, mine), wob = slack ? Math.sin(t / 60 + seedOff) * 0.08 : 0;
+    var sp = pat === 9 ? bigSprite(pal) : kiteSprite(pal, pat, mine), wob = slack ? Math.sin(t / 60 + seedOff) * 0.08 : 0;
     g.save(); g.globalAlpha = alpha == null ? 1 : alpha; g.translate(x, y); g.rotate(h / 1024 * Math.PI * 2 + wob); if (scale) g.scale(scale, scale);
-    drawTail(g, t, mine ? '#ffd23f' : PAL[pal][1], seedOff, slack ? 1.6 : 0.6);
+    if (pat !== 9) drawTail(g, t, mine ? '#ffd23f' : PAL[pal][1], seedOff, slack ? 1.6 : 0.6);
     g.drawImage(sp, -sp.__ox, -sp.__oy, sp.width / sp.__k, sp.height / sp.__k);
     g.restore();
   }
@@ -653,6 +730,8 @@
       g.lineWidth = 5; g.strokeStyle = '#5b2340'; g.strokeText(waveBanner.s, 207, 120); g.fillStyle = '#fff'; g.fillText(waveBanner.s, 207, 120); g.restore();
     }
   }
+  var BIG_SCALE = [1, 1.2, 1.5, 1.1];
+  function kiteScale(r) { return r.big === 3 ? 0.95 + ((((r.id * 2246822519) >>> 0) >>> 24) % 5) * 0.075 : BIG_SCALE[r.big] || 1; }   // fierce: 0.95 to 1.25
   function drawWorld(g, now, a) {
     var ring = state === 'prac' && prac && prac.phase !== 'gap' ? RINGS[prac.i] : null;
     if (ring) {   // the practice target
@@ -663,7 +742,7 @@
       var fk = falling[f], fa = Math.max(0, 1 - fk.t / 160);
       g.save(); g.globalAlpha = fa; g.strokeStyle = '#3a1d2e'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(fk.x, fk.y);
       for (var w = 1; w <= 8; w++) g.lineTo(fk.x + Math.sin(fk.t / 9 + w) * w * 1.6, fk.y + w * 11); g.stroke(); g.restore();
-      drawKite(g, fk.x, fk.y, fk.rot / (Math.PI * 2) * 1024, fk.pal, fk.pat, false, now, f, fa, true);
+      drawKite(g, fk.x, fk.y, fk.rot / (Math.PI * 2) * 1024, fk.pal, fk.pat, false, now, f, fa, true, fk.sc);
     }
     VIEW = {};
     for (var r = 0; r < sim.rivals.length; r++) {
@@ -677,9 +756,9 @@
       // the threat: lining up on your line (red guide), or darting (red streak)
       if (!rr.pull && rr.think > 0) drawGuide(g, VIEW[rr.id].x, VIEW[rr.id].y, VIEW[rr.id].h, 90, '#ff4d6d', 0.5 + 0.4 * Math.sin(now / 60));
       if (rr.pull) { g.save(); g.globalAlpha = 0.5; g.strokeStyle = '#ff4d6d'; g.lineWidth = 3; var ra = VIEW[rr.id].h / 1024 * Math.PI * 2; g.beginPath(); g.moveTo(VIEW[rr.id].x - Math.sin(ra) * 26, VIEW[rr.id].y + Math.cos(ra) * 26); g.lineTo(VIEW[rr.id].x - Math.sin(ra) * 52, VIEW[rr.id].y + Math.cos(ra) * 52); g.stroke(); g.restore(); }
-      drawKite(g, VIEW[rr.id].x, VIEW[rr.id].y, VIEW[rr.id].h, rr.big === 2 ? 2 : rr.big === 1 ? 6 : lk.pal, rr.big ? 1 : lk.pat, false, now, rr.id, 1, !rr.pull, [1, 1.3, 1.65][rr.big]);
+      drawKite(g, VIEW[rr.id].x, VIEW[rr.id].y, VIEW[rr.id].h, rr.big ? lk.tv : lk.pal, rr.big ? 9 : lk.pat, false, now, rr.id, 1, !rr.pull, kiteScale(rr));
       if (rr.pm) { g.save(); g.strokeStyle = '#7b2cbf'; g.lineWidth = 2.5; g.globalAlpha = 0.8; g.beginPath(); g.arc(VIEW[rr.id].x, VIEW[rr.id].y, 30, 0, Math.PI * 2); g.stroke(); g.restore(); }
-      if (rr.big) { var lb = 'x' + PK.SIZE_PTS[rr.big], ly = VIEW[rr.id].y - (rr.big === 2 ? 52 : 42); g.save(); g.font = '14px PKTitan, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#5b2340'; g.strokeText(lb, VIEW[rr.id].x, ly); g.fillStyle = '#ffd23f'; g.fillText(lb, VIEW[rr.id].x, ly); g.restore(); }
+      if (rr.big) { var lb = 'x' + PK.SIZE_PTS[rr.big], ly = VIEW[rr.id].y - 40 * kiteScale(rr) - 8; g.save(); g.font = '14px PKTitan, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#5b2340'; g.strokeText(lb, VIEW[rr.id].x, ly); g.fillStyle = '#ffd23f'; g.fillText(lb, VIEW[rr.id].x, ly); g.restore(); }
       if (rr.hunter) { g.save(); g.fillStyle = '#e5243b'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(VIEW[rr.id].x, VIEW[rr.id].y - KH - 10, 5, 0, Math.PI * 2); g.fill(); g.stroke(); g.restore(); }
     }
     for (var q = 0; q < fx.length; q++) { var p = fx[q]; g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.c; g.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
@@ -765,8 +844,8 @@
     g.strokeStyle = 'rgba(255,210,63,' + (0.28 + 0.3 * pulse) + ')'; g.lineWidth = 13;
     g.beginPath(); g.moveTo(ax, ay); g.lineTo(rx, ry); g.stroke();
     g.restore();
-    var lx = rx + (ax - rx) * 0.5, ly = ry + (ay - ry) * 0.5;
-    if (!r.lock) pill(g, 'THEIR STRING', lx - 64, ly, '#c0265f');
+    var lx = rx + (ax - rx) * 0.14, ly = ry + (ay - ry) * 0.14;
+    if (!r.lock) pill(g, 'THEIR STRING', lx + 70, ly, '#c0265f');
     if (!r.lock && p.live < 120) {
       var x = me.x / U, y = me.y / U, a = me.h / 1024 * Math.PI * 2, dx = Math.sin(a), dy = -Math.cos(a);
       var hit = intersect(x, y, x + dx * 100, y + dy * 100, ax, ay, rx, ry);
@@ -784,7 +863,7 @@
       pill(g, 'KEEP HOLDING!', 207, 196, '#c0265f');
     }
   }
-  var HEADS = [['HOLD TO FLY UP', 'Press and keep your finger down'], ['LET GO TO SPIN', 'Lift your finger: the kite turns'], ['POINT, THEN HOLD', 'The kite flies where its nose points'], ['CUT THEIR STRING', 'Hold to cross it, keep holding until it snaps']];
+  var HEADS = [['HOLD TO FLY UP', 'Press and keep your finger down'], ['LET GO TO SPIN', 'Lift your finger: the kite turns'], ['POINT, THEN HOLD', 'The kite flies where its nose points'], ['HOLD TO CUT', 'Hold to pull across their string']];
   function drawPrac(g, now) {
     var p = prac; if (!p) return;
     if (p.phase === 'ready') {
@@ -797,6 +876,11 @@
     var want = p.want, head = HEADS[p.i], sub = head[1], title = head[0], hot = '#ffffff';
     if (p.i === 0 && p.live > 0 && want === 'hold') title = 'KEEP HOLDING';
     if (p.i === 2 && !want && !me.pull && !fingerDown) { title = 'WAIT FOR THE ARROW'; sub = 'The kite is turning toward the star'; }
+    if (p.i === 3) { title = want ? 'HOLD TO CUT' : 'KEEP HOLDING'; sub = want ? 'Hold to pull across their string' : 'Pull through their string until it snaps'; hot = '#ffd23f'; }
+    if (p.i === 1) {
+      if (want === 'let') { title = 'LET GO!'; sub = 'Take your finger off the screen'; }
+      else { title = 'SEE IT SPIN'; sub = 'No pull: the kite spins on the spot'; hot = '#ffd23f'; }
+    }
     if (want === 'now') { title = 'HOLD NOW!'; sub = 'The arrow faces the star'; hot = '#ffd23f'; }
     var rr = p.phase === 'run' || p.phase === 'gap';
     if (rr) {
@@ -807,6 +891,11 @@
       }
       g.save(); g.globalAlpha = al; caption(g, title, 207, 94, 1, hot);
       g.font = '16px PKTitan, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#5b2340'; g.strokeText(sub, 207, 120); g.fillStyle = '#fff'; g.fillText(sub, 207, 120); g.restore();
+    }
+    if (p.i === 1 && !want && !me.pull && rr) {          // how far round it has spun, filling gold
+      var sx = lerp(prev.x, me.x, 1) / U, sy = me.y / U, fr = Math.min(1, p.slip / SPIN_STEPS);
+      g.save(); g.lineCap = 'round'; g.lineWidth = 9; g.strokeStyle = 'rgba(91,35,64,0.7)'; g.beginPath(); g.arc(sx, sy, 50, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 6; g.strokeStyle = '#ffd23f'; g.beginPath(); g.arc(sx, sy, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fr); g.stroke(); g.restore();
     }
     if (!want) return;
     var fade = Math.min(1, (now - p.shownAt) / 180), k = ((now - p.shownAt) % 1400) / 1400;
@@ -825,15 +914,19 @@
       while (acc >= STEP_MS && state === 'play') { acc -= STEP_MS; stepRun(); stepFx(); }
       if (waveBanner) waveBanner.t++;
     } else if (state === 'prac') {
+      if (prac) pracSync();
       acc += dt;
-      // the moment the strings touch runs in slow motion, so the sawing can be watched
-      var slow = prac && sim.rivals[0] && sim.rivals[0].lock ? 4 : 1, sms = STEP_MS * slow;
-      while (acc >= sms) { acc -= sms; stepPrac(); stepFx(); sms = STEP_MS * (sim.rivals[0] && sim.rivals[0].lock ? 4 : 1); }
+      while (acc >= STEP_MS) { acc -= STEP_MS; stepPrac(); stepFx(); }
       // only a frozen practice (waiting for the player) drops its spare time, and then
       // the drawn kite is parked exactly on the simulated one, so nothing snaps back
-      if (prac && (prac.want || prac.phase === 'ready' || prac.phase === 'gap')) { acc = 0; prev = snap(sim); }
+      // The sparks, texts and shake still settle meanwhile, on a clock of their own: held at zero
+      // with the rest they never ended on a fast screen (the screen shook for good after the cut).
+      if (prac && (prac.want || prac.phase === 'ready' || prac.phase === 'gap')) {
+        acc = 0; prev = snap(sim);
+        fxAcc += dt; while (fxAcc >= STEP_MS) { fxAcc -= STEP_MS; stepFx(); }
+      } else fxAcc = 0;
     } else if (state === 'dying' || state === 'over') {
-      acc += dt; while (acc >= STEP_MS) { acc -= STEP_MS; stepFx(); } acc = 0;
+      acc += dt; while (acc >= STEP_MS) { acc -= STEP_MS; stepFx(); }          // the remainder is kept: zeroing it each frame never let a fast screen reach a step
     }
     render(now);
   }
@@ -872,6 +965,6 @@
   window.addEventListener('resize', function () { boxW = 0; });
   setInterval(function () { if (canvas.clientWidth !== boxW || canvas.clientHeight !== boxH) boxW = 0; }, 500);
   resize();
-  if (!EMBED || window.__pkHarness) window.__pk = { get sim() { return sim; }, get state() { return state; }, get prac() { return prac; } };
+  if (!EMBED || window.__pkHarness) window.__pk = { get shake() { return shake; }, get sim() { return sim; }, get state() { return state; }, get prac() { return prac; } };
   requestAnimationFrame(frame);
 })();

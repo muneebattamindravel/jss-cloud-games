@@ -97,7 +97,7 @@
       function emit(p) { try { if (typeof window.kjEmit === 'function') window.kjEmit('input', p); } catch (_e) {} }
 
       window.__kjGameStart = function (tHint, want) {
-        var v = Number(want) >= 2 ? 2 : 1;
+        var v = Number(want) >= 3 ? 3 : Number(want) >= 2 ? 2 : 1;
         emit({ kind: 'start', v: v, tHint: typeof tHint === 'number' ? tHint : performance.now() });
         return v;
       };
