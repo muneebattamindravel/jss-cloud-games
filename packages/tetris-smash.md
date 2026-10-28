@@ -98,11 +98,11 @@ anticlockwise turns and timer locks.
 
 | Suite | Tests |
 |---|---|
-| tetrisSmashParity | 86 |
-| tetrisSmashAdversarial | 48 |
-| tetrisSmashRender | 21 |
+| tetrisSmashParity | 90 |
+| tetrisSmashAdversarial | 51 |
+| tetrisSmashRender | 22 |
 | tetrisSmashReplay | 13 |
-| **total** | **168**, all passing (`npx jest --runInBand shared/tests/tetrisSmash`, about 45 s) |
+| **total** | **176**, all passing (`npx jest --runInBand shared/tests/tetrisSmash`, about 50 s) |
 
 Admin replay: a stored trace played back through the real game.js reproduces
 the world after every step, the score and the end step, for seven pilot
@@ -113,7 +113,38 @@ exactly what the validator applies (test: "a stored trace full of junk").
 
 ## 7. Mutation battery
 
-PENDING (filled in when the battery finishes).
+`shared/tests/lib/tetrisSmashMutate.js`, 141 mutations (constants, every
+table, rules logic, validator guards, client input and bridge paths), run from
+scratch copies of the tree only, 3 shards, jest `--runInBand`, pins ON:
+
+**139 caught, 2 inert, 0 survivors.**
+
+The first pass left 15 survivors; each was a hole, now closed:
+- two pairs of validator guards masked each other (the rewind check and the
+  "act lands on its named step" check). Merged into one guard that still
+  reports `frame_regressed` for a rewind;
+- a malformed field (a fractional or string step) moved the server's clock
+  forward before being refused, which could cost the player a real act. Now
+  tested: a malformed event never moves the clock;
+- test holes: the elapsed cap (the test's run topped out before the cap
+  bound), the suspicious mark at exactly 10 refusals, a step's acts starting on
+  a fresh event list, tap wander under 14 px, the 12 px axis lock, the 300 ms
+  swipe limit, a second finger during a drag, and the practice opened after a
+  run;
+- the PLAY button's own session check and newRun's masked each other; the
+  button's copy was removed, so newRun is the one gate and its removal is caught.
+
+Inert, with measurements:
+- `v: string accepted`: isInt's `Math.floor(v) === v` is a strict compare and
+  refuses every string even with the typeof test loosened (`Math.floor('60')
+  === '60'` is false). Large variant `v: fraction accepted` is caught.
+- `c: replay takes real input`: in a replay processStep reads only the replay
+  cursor, never the live input queue. Large variant `c: replay skips the guard`
+  is caught.
+
+Not yet run: the `--nopin` pass (pins off, behaviour alone). The pin table
+catches the constant-only mutations; whether behaviour alone catches each of
+them is not yet measured. Run it in kj-platform or here before going live.
 
 ## 8. Ladder and `max_score_per_sec`
 
@@ -153,7 +184,23 @@ rotation until there is real data.
 
 ## 10. Draw cost
 
-PENDING (re-measured once the battery stops loading the CPU).
+Headless Chromium in a container with NO GPU (ANGLE on SwiftShader, software
+rasterisation; `--disable-gpu` was NOT used), DPR 2, 6x CPU throttle, the
+time of every animation-frame callback (steps plus drawing), 12 s of play:
+
+| screen | ordinary play, mean / p95 | a four every 1.2 s (worst case), mean / p95 |
+|---|---|---|
+| 375x812 | 8.2 / 17.6 ms | 21.0 / 58.1 ms |
+| 320x568 | 5.7 / 10.1 ms | 10.4 / 19.8 ms |
+| 1440x780 | 5.9 / 10.7 ms | 26.5 / 74.0 ms |
+
+Unthrottled, the worst case is about 1.2 ms mean, 1.8 ms p95 at every size.
+The cost is the clear burst (about 300 particles for a four, the chunks drawn
+with rotate); ordinary play is cheap. If a real low-end phone stutters on a
+four, the particle counts in `crumble` and `burst` are the knob (cosmetic, no
+rules change). **No real phone was measured.**
+
+Game folder: 5 files, about 90 KB (112 KB on disk).
 
 ## 11. Registration, icon, assets, integration hunks
 

@@ -576,7 +576,7 @@
   window.addEventListener('blur', function () { das = null; if (st && st.sim && st.sim.soft) act(G.A_SOFT_OFF); });
   playBtn.addEventListener('click', function () {
     unlock();
-    if (!sessionReady) return;
+    // newRun itself waits for the session; the practice may open before it.
     var showTut = !RP && !Q.match(/[?&]tut=0/) && window.KJTut && window.KJTut.shouldShow();
     if (showTut) startTut(true); else newRun();
   });

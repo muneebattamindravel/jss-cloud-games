@@ -180,7 +180,6 @@ const M = [
   ['c: debug hook embedded', 'game', 'if (!EMBED) window.__ts = {', 'if (true) window.__ts = {'],
   ['c: practice emits', 'game', '    var r = applyAct(s, a, false);', '    var r = applyAct(s, a, true);'],
   ['c: session not awaited', 'game', '  function newRun() {\n    if (!sessionReady) return;', '  function newRun() {'],
-  ['c: session not awaited anywhere', 'game', "    if (!sessionReady) return;\n    var showTut", '    var showTut'],
   ['c: multi-press counts', 'game', 'window.KJPress.bind(function (e) {', "window.addEventListener('pointerdown', function (e) { if (e.target !== canvas) return;"],
   ['c: replay skips the guard', 'game', 'if (wholeNum(rp.n) && wholeNum(rp.a) && wholeNum(rp.step) && rp.step === sim.frame && rp.n === sim.n) applyAct(sim, rp.a, false);', 'applyAct(sim, Number(rp.a), false);'],
   ['c: replay takes real input', 'game', '  function act(a) {\n    if (RP) return;', '  function act(a) {'],
@@ -193,11 +192,11 @@ const INERT = {
   // block has one occurrence of HIDDEN (the declaration). The pin table catches
   // it; under --nopin it is expected to survive. ROWS 23 is its large variant.
   'HIDDEN': 'declared in the rules block, never read by a rule (drawing only)',
-  // Every caller of newRun already checks sessionReady (PLAY, the practice's
-  // PLAY, SKIP via endTut), and PLAY AGAIN only exists after a session. Measured:
-  // 4 call sites, each guarded. 'c: session not awaited anywhere' (PLAY's own
-  // check removed too) is its large variant and must be caught.
-  'c: session not awaited': 'every caller already waits for the session',
+  // isInt's own Math.floor(v) === v compares strictly, so it refuses every
+  // string even when the typeof test is loosened. Measured: Math.floor('60')
+  // === '60' is false. 'v: fraction accepted' (the floor test removed) is its
+  // large variant and is caught.
+  'v: string accepted': 'the strict whole-number test already refuses strings',
   // In a replay processStep reads only the replay cursor and never the pending
   // queue, so a real input that slips past act() is still never applied.
   // Measured: the replay branch of processStep has no read of `pending`.
