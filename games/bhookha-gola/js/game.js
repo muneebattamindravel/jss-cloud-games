@@ -665,7 +665,7 @@ function stepSim(s, sx, sy) {
   }
 
   // ---------- the camera: a tilted perspective over the fixed arena (presentation only) ----------
-  var TILT_C = 0.5, TILT_Q = 0.866;   // sin and cos of the camera tilt
+  var TILT_C = 0.26, TILT_Q = 0.966;  // sin and cos of the camera tilt (15 degrees)
   var V = { cx: 0, cy: 0, F: 1, Z0: 1, ox: 0, oy: 0 };
   var PX_ = 0, PY_ = 0, PK_ = 1;
   function P(x, y) {
@@ -1075,7 +1075,7 @@ function stepSim(s, sx, sy) {
     cy = lo < hi ? clamp(cy, lo, hi) : (lo + hi) / 2;
     cam.shake *= Math.pow(0.0015, dt);
     var shx = (Math.random() - 0.5) * cam.shake * 2, shy = (Math.random() - 0.5) * cam.shake * 2;
-    V.cx = cx; V.cy = cy; V.Z0 = vh * 1.4; V.F = V.Z0 * sc; V.ox = cw / 2 + shx; V.oy = ch * 0.6 + shy;
+    V.cx = cx; V.cy = cy; V.Z0 = vh * 2.4; V.F = V.Z0 * sc; V.ox = cw / 2 + shx; V.oy = ch * 0.6 + shy;
     // what part of the arena can be on screen
     var vt = vOfScreenY(-10), vb = vOfScreenY(ch + 10);
     P(cx, cy + vt); var halfT = (cw / 2 + 40) / PK_;
