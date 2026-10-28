@@ -86,15 +86,19 @@ exactly; one second of frames is 58 to 62 steps at 30, 60, 120 and 144 Hz;
 ten hidden seconds are 598 to 603 steps.
 
 ## 6. Suite counts
-- Parity: 66 tests. Adversarial: 48. Render: 20 (page contract, session gate,
+- Parity: 67 tests. Adversarial: 48. Render: 20 (page contract, session gate,
   one run per session, submit after the end screen, hidden-tab submit, QA
   switches, the practice, strict canvas at 3 viewports, gradients per frame).
-  Replay: 9. Total 143, about 150 s with `npx jest --runInBand rangBharo`.
+  Replay: 9. Total 144, about 150 s with `npx jest --runInBand rangBharo`.
 - Cross-engine: `scripts/rb-cross-engine.js` hashes the world after every step
   of the 10 golden schedules in Node and headless Chrome: 10/10 identical.
 - Golden runs: 10 (v1, `shared/tests/fixtures/rangBharoGolden.json`):
   flawless, good x2, average, novice, bot, greedy, spammer, idle, cycler.
   Regenerate only with a version bump (`node shared/tests/lib/rangBharoGoldenGen.js`).
+- Golden mazes: 9 (`shared/tests/fixtures/rangBharoGoldenMazes.json`), chosen by
+  measurement because they sit on rare generator branches (the 38% floor gate,
+  the minimum-par cap at maze 16): 8 and 1 of 4800 mazes change when those
+  constants move.
 
 ## 7. Mutation battery
 `shared/tests/lib/rangBharoMutate.js`, 126 mutations over the constants, the
