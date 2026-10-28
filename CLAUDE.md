@@ -36,6 +36,12 @@ Read `docs/HANDBOOK.md` fully before writing game code. It is the process.
 10. Jest: `npx jest --runInBand <pattern>`. If npm complains about its cache
     permissions use `--cache /tmp/npmcache`.
 
+11. **Game first, anti-cheat later (founder's standing order).** Build and iterate
+    the playable game only, until the founder says it is ready. Seed wiring, the
+    rules block, validator, parity, replay, adversarial, render and mutation suites,
+    and all anti-cheat and anti-fraud work wait until then. Keep game logic integer
+    and grid or fixed-step anyway, so that later stage stays cheap.
+
 ## Layout
 
 The tree mirrors `kj-platform`, so a package copies over unchanged:
