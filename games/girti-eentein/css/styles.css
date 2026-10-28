@@ -1,0 +1,26 @@
+@font-face{font-family:'Titan One';font-weight:400;font-display:block;src:url(../fonts/titan-one-400-latin.woff2) format('woff2');}
+html,body{margin:0;height:100%;background:#2a140d;overflow:hidden;font-family:'Titan One',system-ui,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.g-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(30,12,6,.66);padding:20px;box-sizing:border-box;animation:gfade .3s ease-out}
+.g-screen.is-hidden{display:none}
+@keyframes gfade{from{opacity:0}to{opacity:1}}
+@keyframes gpop{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+.g-card{width:100%;max-width:330px;box-sizing:border-box;padding:26px 24px 22px;border-radius:26px;background:linear-gradient(#8a3a22,#5e2414);border:2px solid #c9714a;box-shadow:0 6px 0 #3a1408,0 20px 40px rgba(0,0,0,.5);text-align:center;animation:gpop .35s cubic-bezier(.2,1.4,.4,1)}
+.g-logo{margin:0 0 16px;line-height:.92}
+.g-l1{display:block;font-size:60px;letter-spacing:2px;color:#ffd9a3;text-shadow:0 3px 0 #e2944f,0 7px 0 #6e2a12}
+.g-l2{display:block;font-size:46px;letter-spacing:3px;color:#fff3e2;text-shadow:0 3px 0 #f0b56a,0 6px 0 #6e2a12}
+.g-tag{margin:0 0 20px;font-size:16px;color:#ffd9a3}
+.g-btn{font:inherit;font-size:24px;width:100%;color:#3a1608;background:linear-gradient(#ffd27a,#f0a23a);border:0;border-radius:18px;padding:14px 0;box-shadow:0 6px 0 #a3561a;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.g-btn:active{transform:translateY(4px);box-shadow:0 2px 0 #a3561a}
+.g-btn[disabled]{font-size:17px;padding:19px 0;opacity:.75;cursor:default}
+.g-link{display:inline-block;margin-top:16px;font:inherit;font-size:16px;color:#ffd9a3;background:none;border:0;text-decoration:underline;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.g-kicker{font-size:34px;color:#ffd27a;text-shadow:0 4px 0 #a3561a;margin-bottom:12px}
+.g-label{font-size:13px;color:#ffd9a3;letter-spacing:2px}
+.g-score{display:block;font-weight:400;font-size:64px;line-height:1.1;color:#fff;text-shadow:0 4px 0 rgba(0,0,0,.3)}
+.g-row{display:flex;justify-content:space-between;align-items:center;margin:14px 0 18px;padding:12px 16px;border-radius:14px;background:rgba(0,0,0,.22);font-size:16px;color:#ffd9a3}
+.g-row strong{font-weight:400;font-size:22px;color:#fff}
+#skipBtn{position:fixed;top:max(14px,env(safe-area-inset-top));right:14px;font:inherit;font-size:15px;color:#ffd9a3;background:rgba(40,14,6,.7);border:1.5px solid #c9714a;border-radius:14px;padding:8px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#skipBtn.is-hidden,#readyBox.is-hidden{display:none}
+#readyBox{position:fixed;left:0;right:0;bottom:16%;display:flex;flex-direction:column;align-items:center;gap:14px;animation:gpop .35s cubic-bezier(.2,1.4,.4,1)}
+#readyBox .g-kicker{font-size:40px;margin:0;-webkit-text-stroke:0}
+#readyBox .g-btn{max-width:280px}
