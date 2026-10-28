@@ -1,12 +1,13 @@
 # Package report: Pearls Connect (pearls-connect)
 
 Status: game approved for feel by the founder; anti-cheat stage built and tested
-in the workshop. NOT ready to feature: one scoring decision is open (section 12).
+in the workshop. Scoring decided (section 12). The battery is being re-run on the
+final scoring; see section 7.
 
 ## 1. The game
 A 6 x 6 board of pearls in five colours. Drag through pearls of one colour, up,
 down or sideways; lifting the finger clears the chain, and n pearls pay
-n(n+1)/2 (2: 3, 4: 10, 6: 21, 10: 55). Closing a loop (back onto a pearl at
+n(n-1)/2 (2: 1, 4: 6, 6: 15, 10: 45). Closing a loop (back onto a pearl at
 least four back) clears every pearl of that colour on the board and pays double.
 Pearls above fall, new ones drop in (never the loop's colour right after a
 loop), and a board with no pair reshuffles. Five minutes on the clock; the score
@@ -23,7 +24,8 @@ shown as 00:00, then the new name. "Rest all is good."
   lifted (applied before step + 1), `down` the step it began, `cells` the board
   cells (index r * 6 + c) in drag order, a loop ending on its closing pearl.
 - Rules version 2 is the first (v1 is the platform's "not a replay" marker and
-  scores 0). No version history yet.
+  scores 0). The points table changed from n(n+1)/2 to n(n-1)/2 on 28 Oct, in
+  place, before any run was scored anywhere; from here a change is a bump.
 - One chain at most a step; a second on the same step is refused on both sides.
 
 ## 3. The rules block
@@ -89,27 +91,30 @@ cannot close 3 back) and is caught only by the pin table; 2 and 5 are caught by
 behaviour. A `--nopin` pass (behaviour alone) has NOT been run yet.
 
 ## 8. Ladder and bound
-24 seeds, full 5 minute runs, the real game.js flown by human-model pilots:
+24 seeds, full 5 minute runs, the real game.js flown by human-model pilots
+(scoring n(n-1)/2):
 
 | pilot | median | p25 | p75 | chains | best 60 s, /sec |
 |---|---|---|---|---|---|
 | idle | 0 | 0 | 0 | 0 | 0 |
-| novice | 475 | 424 | 507 | 73 | 5.53 |
-| average | 967 | 884 | 1137 | 124 | 15.67 |
-| good | 2177 | 1771 | 2721 | 208 | 39.95 |
-| pairs (fast, no planning) | 2034 | 2025 | 2049 | 678 | 7.40 |
-| spammer (random pairs, not human-paced) | 852 | 786 | 927 | 284 | 4.75 |
-| flawless (best move, fast hand) | 17467 | 14773 | 19140 | 1265 | 194.80 |
-| bot (best move every step) | 235014 | 227676 | 247871 | 17995 | 1140.57 |
+| novice | 253 | 214 | 293 | 73 | 4.08 |
+| average | 566 | 492 | 716 | 124 | 12.45 |
+| good | 1433 | 1109 | 1894 | 208 | 33.48 |
+| pairs (fast, no planning) | 678 | 675 | 683 | 678 | 2.47 |
+| spammer (random pairs, not human-paced) | 284 | 262 | 309 | 284 | 1.58 |
+| flawless (best move, fast hand) | 12444 | 10095 | 13962 | 1265 | 161.95 |
+| bot (best move every step) | 165265 | 159248 | 176961 | 17995 | 865.57 |
 
-good/average 2.25, average/novice 2.04: skill decides between planners. But see
-section 12: a pair-swiper matches a good planner.
+good/average 2.53, average/novice 2.24: skill decides, with a wide spread inside
+each style. A fast pair-swiper beats a slow average planner (678 vs 566) but a
+good planner scores 2.1x the pair-swiper. Under the first table, n(n+1)/2, the
+pair-swiper scored 2034 against good 2177; that is why the table changed.
 
-`max_score_per_sec` = 585 = 3 x 194.80 (flawless pilot's best 60 s window).
+`max_score_per_sec` = 486 = 3 x 161.95 (flawless pilot's best 60 s window).
 
 ## 9. Bot gap
 The board is a pure function of the seed, so a program plays perfectly: the
-flawless pilot scores 8x a good human, a one-chain-a-step bot 108x. Replay
+flawless pilot scores 8.7x a good human, a one-chain-a-step bot 115x. Replay
 cannot stop that. The validator records, never gates: decision time between
 chains (gapMean, gapSd, gapCv), hand speed (dragMean, dragSd: steps a pearl),
 chain length (lenMean, lenMax), loops taken, and loopSkipped (a 2 x 2 loop was
@@ -124,7 +129,7 @@ proves every frame draws without a bad value. Measure at integration.
 
 ## 11. Integration
 - Migration draft: `migrations-draft/NNN_register_pearls_connect.sql` (inactive,
-  sort_order 62, bound 585, durations 1 to 3600, claimed-match off, humanness record).
+  sort_order 62, bound 486, durations 1 to 3600, claimed-match off, humanness record).
 - Icon: `web/public/games/pearls-connect.png`, 512 px, 256 colours, from the founder's artwork (28 Oct). Store
   screenshots in `packages/pearls-connect-media/` (not part of the package).
 - The five hunks:
@@ -132,18 +137,11 @@ proves every frame draws without a bad value. Measure at integration.
   2. `humanness/features.js` GAME_INPUTS: `'pearls-connect': { kinds: ['chain'], time: 'step' },`
   3. `adminReplay.js` PLAYBACK_GAMES: `'pearls-connect'` (the replay suite passes)
   4. `sessionLifetime.test.js`: add the validator
-  5. `seeds/index.js`: the seed entry, bound 585
+  5. `seeds/index.js`: the seed entry, bound 486
 
-## 12. Open items for the founder
-1. **Pair-swiping nearly matches skill.** A quick player who swipes the first
-   pair they see, without planning, scores a median 2034; a good planner 2177.
-   Grind should not tie skill on a cash board. Options (each is a rules change,
-   cheap now because the game is not live):
-   a. pay n(n-1)/2 instead (a pair 1, 4: 6, 6: 15, 10: 45): pair-swiping drops to
-      about a third, long chains and loops keep their weight;
-   b. the shortest chain is 3 pearls;
-   c. keep it, and accept speed as a skill.
-   Recommendation: (a), the removal of most of a pair's value, nothing added.
+## 12. Decisions and open items
+1. Decided 28 Oct: pair-swiping nearly matched skill (2034 vs 2177); the founder
+   chose option (a), n(n-1)/2. Now good scores 2.1x a pair-swiper (section 8).
 2. The run starts with a 1 s READY / GO on the client; the server clock starts at
    GO. Fine for fairness, noted for the record.
 3. Not measured here: a real phone, draw cost with GPU throttling.

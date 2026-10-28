@@ -3,7 +3,7 @@
 --
 -- A 6 x 6 board of pearls in five colours. Drag through pearls of one colour,
 -- up, down or sideways; lifting the finger clears the chain, and n pearls pay
--- n(n+1)/2. Closing a loop clears every pearl of that colour and pays double.
+-- n(n-1)/2 (a pair 1, six 15, ten 45). Closing a loop clears every pearl of that colour and pays double.
 -- Pearls fall, new ones drop in, a board with no pair reshuffles. Five minutes.
 --
 -- The server replays the chains against the session seed
@@ -11,11 +11,11 @@
 -- word the one in games/pearls-connect/js/game.js. Integer rules, no trig, no
 -- dmath. Trace v2: { kind: 'chain', n, step, down, cells }.
 --
--- max_score_per_sec = 585: 3x the best 60 s window (194.80/sec) of a flawless
+-- max_score_per_sec = 486: 3x the best 60 s window (161.95/sec) of a flawless
 -- pilot that plays the best chain or loop on the board with a fast hand
 -- (2 steps a pearl, 8 steps between chains), 24 seeds of full 5 minute runs.
 -- A backstop: replay already computes the score from the inputs. Honest pilots
--- peak far lower (good 39.95/sec, average 15.67, novice 5.53).
+-- peak far lower (good 33.48/sec, average 12.45, novice 4.08).
 --
 -- Registered INACTIVE with require_claimed_match OFF and bot detection in RECORD
 -- mode, for play test. Going live is the founder's call.
@@ -30,7 +30,7 @@ VALUES (
   1500000,   -- Rs. 15,000
   false,
   62,
-  585,
+  486,
   1,
   3600
 )
