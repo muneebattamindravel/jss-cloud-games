@@ -259,7 +259,7 @@
     for (var i = 0; i < n + 1; i++) bell(noteHz(k + i), 0.6, 0.075, i * 0.055, (i % 2 ? 0.25 : -0.25));
     noise(0.5, 9000, 6000, 0.025, 0.05, 'highpass', 0.6, 1);
   }
-  function sChaar() {
+  function sSmash() {
     tone(90, 0.8, 'sine', 0.42, 0, 32); noise(0.7, 700, 90, 0.2, 0, 'lowpass', 0.6, 1);
     [0, 4, 7, 12, 16, 19].forEach(function (n, i) { bell(523 * Math.pow(2, n / 12), 1.1, 0.07, 0.06 + i * 0.05, (i % 2 ? 0.35 : -0.35)); });
     noise(0.9, 10000, 5000, 0.04, 0.1, 'highpass', 0.5, 1);
@@ -407,7 +407,7 @@
       var cy = cellY(e.rows[0]) + CELL * e.rows.length / 2;
       floats.push({ x: WX + WW / 2, y: cy, txt: '+' + e.gained.toLocaleString('en-US'), t: now, size: e.rows.length === 4 ? 38 : 28, col: e.rows.length === 4 ? C_EMBER : C_INK });
       sClear(e.rows.length, e.combo);
-      if (e.rows.length === 4) { sChaar(); shake = 11; flashA = 0.6; flashCol = '#ffb35c'; burst(WX + WW / 2, cy, 60, 520); banner = { t: now, txt: 'CHAAR!', col: C_EMBER, size: 78, dur: 1300 }; }
+      if (e.rows.length === 4) { sSmash(); shake = 11; flashA = 0.6; flashCol = '#ffb35c'; burst(WX + WW / 2, cy, 60, 520); banner = { t: now, txt: 'SMASH!', col: C_EMBER, size: 78, dur: 1300 }; }
       else if (e.rows.length === 3) { shake = Math.max(shake, 5); burst(WX + WW / 2, cy, 20, 320); }
       else if (e.rows.length === 2) shake = Math.max(shake, 2.5);
       if (e.combo >= 1) holder.comboPop = now;
@@ -932,6 +932,6 @@
   if (typeof window.__kjOnSessionReady === 'function') window.__kjOnSessionReady(onSessionReady); else onSessionReady();
   if (RP) menu.classList.add('is-hidden');
   if (!EMBED) window.__ts = { get st() { return st; }, get tut() { return tut; }, get mode() { return mode; }, act: act, G: G,
-    sfx: { move: sMove, turn: sTurn, blocked: sBlocked, lock: function () { sLock(false); }, hardDrop: function () { sHard(); sLock(true); }, clear1: function () { sClear(1, 0); }, clear2: function () { sClear(2, 0); }, clear3: function () { sClear(3, 0); }, combo3: function () { sClear(1, 3); }, chaar: function () { sClear(4, 0); sChaar(); }, levelUp: sLevel, tick: function () { sTick(false); }, lastTicks: function () { sTick(true); }, warn: sWarn, start: sStart, end: sEnd, ready: sReady } };
+    sfx: { move: sMove, turn: sTurn, blocked: sBlocked, lock: function () { sLock(false); }, hardDrop: function () { sHard(); sLock(true); }, clear1: function () { sClear(1, 0); }, clear2: function () { sClear(2, 0); }, clear3: function () { sClear(3, 0); }, combo3: function () { sClear(1, 3); }, smash: function () { sClear(4, 0); sSmash(); }, levelUp: sLevel, tick: function () { sTick(false); }, lastTicks: function () { sTick(true); }, warn: sWarn, start: sStart, end: sEnd, ready: sReady } };
   resize(); requestAnimationFrame(frame);
 })();
