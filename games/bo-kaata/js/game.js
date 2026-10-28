@@ -342,7 +342,10 @@
 
   // ── the trace: a mark when the finger goes down and when it comes up ────
   function feedInputs(record) {
-    if (wantTouch) { wantTouch = false; if (record && window.__kjMark && state === 'play') window.__kjMark('touch', sim.frames); PK.touch(sim); }
+    if (wantTouch) {
+      wantTouch = false; if (record && window.__kjMark && state === 'play') window.__kjMark('touch', sim.frames); PK.touch(sim);
+      if (wantLift && !fingerDown) return;            // a quick tap: the kite gets one step of pull, the lift lands on the next step
+    }
     if (wantLift && !fingerDown) { wantLift = false; if (record && window.__kjMark && state === 'play') window.__kjMark('lift', sim.frames); PK.lift(sim); }
   }
 
@@ -493,7 +496,7 @@
     pracSetup(0);
   }
   function pracSetup(i) {
-    texts = []; falling = []; prac.i = i; prac.live = 0; prac.slip = 0; prac.want = ''; prac.shownAt = performance.now(); prac.phase = 'run';
+    texts = []; falling = []; prac.i = i; prac.live = 0; prac.slip = 0; prac.hold = 0; prac.want = ''; prac.shownAt = performance.now(); prac.phase = 'run';
     var s = sim;
     s.dead = ''; s.events = []; s.kites = PK.KITES; s.respawn = 0; s.safe = 0; s.rivals = [];
     if (fingerDown) PK.touch(s); else PK.lift(s);
@@ -516,16 +519,16 @@
   function pracNext(delay) { prac.phase = 'gap'; prac.nextAt = performance.now() + delay; }
   // what the practice is waiting for, or '' when it may run
   function pracWants() {
-    var p = prac, me = sim.me;
-    if (p.i === 0) return fingerDown ? '' : 'hold';
+    var p = prac, me = sim.me, down = fingerDown || wantTouch;       // a tap counts as a press
+    if (p.i === 0) return down ? '' : 'hold';
     if (p.i === 1) return fingerDown ? 'let' : '';
     if (p.i === 2) {
       if (me.pull) return '';
       var aimed = PK.aimedAt(me.h, RINGS[2].x * U - me.x, RINGS[2].y * U - me.y, 6);
-      if (fingerDown) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
+      if (down) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
       return aimed ? 'now' : '';
     }
-    if (p.i === 3) return fingerDown || p.live > 0 ? '' : 'cut';
+    if (p.i === 3) return down || p.live > 0 ? '' : 'cut';
     return '';
   }
   function stepPrac() {
@@ -535,7 +538,10 @@
     var want = pracWants();
     if (want) { if (want !== p.want) { p.want = want; p.shownAt = performance.now(); } silence(); return false; }
     p.want = '';
-    feedInputs(false);
+    // on a trackpad a tap is over in a blink: in the flying lessons a press keeps pulling for a moment
+    if (wantTouch && p.i !== 1) p.hold = p.i === 3 ? 140 : 45;
+    if (p.hold > 0 && wantLift && !fingerDown) { p.hold--; var wl = wantLift; wantLift = false; feedInputs(false); wantLift = wl; }
+    else feedInputs(false);
     var before = sim.rivals;
     prev = snap(sim);
     var pin = sim.rivals[0] ? { x: sim.rivals[0].x, y: sim.rivals[0].y } : null;
