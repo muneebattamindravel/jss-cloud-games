@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/games/_shared/no-touch-ui.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1226" />
+  <title>Moti Jor</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0e1226; overflow: hidden; color: #fff;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
+      user-select: none; -webkit-user-select: none; }
+    canvas#scene { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; box-sizing: border-box; transition: opacity .25s ease; background: rgba(10,13,30,.72); }
+    .screen.is-hidden { opacity: 0; pointer-events: none; }
+    h1 { font-size: min(64px, 15vw); white-space: nowrap; text-align: center; margin: 0; letter-spacing: 4px; font-weight: 900;
+      background: linear-gradient(180deg, #fff3d6, #ffc23d); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sub { margin: 6px 0 56px; letter-spacing: 4px; font-size: 14px; color: rgba(255,255,255,.65); text-transform: uppercase; }
+    .btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 800; letter-spacing: 3px; font-size: 20px;
+      color: #2a1a00; background: linear-gradient(180deg, #ffe08a, #ffb22e); border-radius: 999px; padding: 17px 0;
+      width: min(74vw, 290px); box-shadow: 0 10px 28px rgba(255,180,40,.3); }
+    .btn:active { transform: scale(.96); }
+    .link { appearance: none; border: 0; background: none; color: rgba(255,255,255,.75); font: inherit; font-size: 13px;
+      letter-spacing: 2px; text-transform: uppercase; padding: 14px; cursor: pointer; }
+    .how { max-width: 320px; font-size: 17px; line-height: 1.5; color: rgba(255,255,255,.9); margin: 0 0 36px; }
+    .how b { color: #ffc23d; }
+    .how p { margin: 0 0 14px; }
+    .label { font-size: 13px; letter-spacing: 5px; color: rgba(255,255,255,.65); margin: 0; }
+    .big { font-size: 96px; font-weight: 900; margin: 6px 0 4px; color: #fff3d6; }
+    .best { font-size: 14px; letter-spacing: 2px; color: rgba(255,255,255,.6); margin: 0 0 40px; }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Drag through pearls of one colour to clear them."></canvas>
+
+  <section id="menu" class="screen">
+    <h1>MOTI JOR</h1>
+    <p class="sub">Chain the pearls</p>
+    <button class="btn" id="playBtn" type="button">PLAY</button>
+    <button class="link" id="howBtn" type="button">How to play</button>
+  </section>
+
+  <section id="how" class="screen is-hidden">
+    <div class="how">
+      <p><b>Drag</b> through pearls of the <b>same colour</b>, up, down or sideways.</p>
+      <p>Longer chains score <b>much more</b>.</p>
+      <p>Close a <b>loop</b> and every pearl of that colour clears.</p>
+      <p>You have <b>90 seconds</b>.</p>
+    </div>
+    <button class="btn" id="howPlayBtn" type="button">PLAY</button>
+  </section>
+
+  <section id="over" class="screen is-hidden">
+    <p class="label">SCORE</p>
+    <p class="big" id="overScore">0</p>
+    <p class="best" id="overBest"></p>
+    <button class="btn" id="againBtn" type="button">PLAY AGAIN</button>
+    <button class="link" id="homeBtn" type="button">Menu</button>
+  </section>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
