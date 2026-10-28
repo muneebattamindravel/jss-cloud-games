@@ -1,37 +1,167 @@
 /*
- * Pearls Connect: drag through pearls of one colour to clear them. Close a loop and
- * every pearl of that colour goes. 5 minutes.
+ * Pearls Connect: drag through pearls of one colour to clear them. Close a loop
+ * and every pearl of that colour goes. Five minutes.
  *
- * Phase 1 playable core: no session, no platform seed, no trace yet.
- * The board logic is integer and grid based and the clock runs on fixed
- * 1/60 s steps, so the later rules block can be lifted out of the RULES part.
- * Everything else is presentation: it reads the board and never decides a score.
+ * Scored by the SERVER, which replays the chains this file records against the
+ * session seed (shared/anticheat/validators/pearlsConnect.js). The rules block
+ * below is carried word for word in that validator. A gameplay change is a
+ * trace version bump, never an edit in place.
+ *
+ * Everything below the rules block is presentation. It reads the sim and never
+ * writes it; its randomness is Math.random, which cannot reach a score.
  */
 (function () {
   'use strict';
 
-  // ── rules (phase 1; becomes the deterministic block later) ─────────────────
-  var N = 6;                  // 6 x 6 board
-  var KINDS = 5;              // pearl colours
-  var RUN_STEPS = 300 * 60;   // 5 minutes on fixed steps
-  var WARN_STEPS = 10 * 60;   // last 10 s: the clock warns
+// ==== PEARLS CONNECT RULES BEGIN ====
+// The board is N x N cells, index i = r * N + c, row 0 at the top, and each
+// cell holds a pearl kind 0..KINDS-1. A chain is the list of cells the finger
+// passed through, in order; it clears when the finger lifts. Pearl number k
+// to enter column c is a pure function of (seed, c, k), so a refill never
+// depends on how many draws came before it. Integers only.
+var RULES_VERSION = 2;      // trace v2 (v1 is the platform's "not a replay")
+var N = 6;
+var CELLS = 36;
+var KINDS = 5;
+var RUN_STEPS = 18000;      // 5 minutes of fixed 1/60 s steps
+var MIN_CHAIN = 2;          // the shortest chain that clears
+var LOOP_MIN = 4;           // the smallest loop, in pearls
+var LOOP_MULT = 2;          // a loop pays double
+var SHUFFLE_TRIES = 64;
+var SHUFFLE_ROW = 100;      // hash row of the first shuffle, above every column
+var SEED_MIX = 0x85EBCA6B;
+var HASH_K = 0x9E3779B1;
+var HASH_J = 0x85EBCA77;
+var MIX_A = 0x7FEB352D;
+var MIX_B = 0x846CA68B;
 
-  function rng(seed) {
-    var s = seed >>> 0;
-    return function () {
-      s = (s + 0x6D2B79F5) >>> 0;
-      var t = Math.imul(s ^ (s >>> 15), 1 | s);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+function seedToInt(seedHex) {
+  if (typeof seedHex !== 'string' || !/^[0-9a-f]{16}/i.test(seedHex)) return 0;
+  return (parseInt(seedHex.slice(0, 8), 16) + Math.imul(parseInt(seedHex.slice(8, 16), 16) >>> 0, SEED_MIX)) >>> 0;
+}
+
+// Draw j of row k: a pure function of (seed, k, j).
+function hash(seed, k, j) {
+  var h = (seed ^ Math.imul(k + 1, HASH_K) ^ Math.imul(j + 1, HASH_J)) | 0;
+  h = Math.imul(h ^ (h >>> 16), MIX_A);
+  h = Math.imul(h ^ (h >>> 15), MIX_B);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+// n pearls pay 1 + 2 + ... + n; a loop pays that twice.
+function chainPoints(n, loop) { return n * (n + 1) / 2 * (loop ? LOOP_MULT : 1); }
+
+function adjacent(a, b) {
+  var ra = Math.floor(a / N), rb = Math.floor(b / N), ca = a - ra * N, cb = b - rb * N;
+  if (ra === rb) return ca - cb === 1 || cb - ca === 1;
+  return ca === cb && (ra - rb === 1 || rb - ra === 1);
+}
+
+function hasPair(grid) {
+  for (var i = 0; i < CELLS; i++) {
+    if (i % N < N - 1 && grid[i] === grid[i + 1]) return true;
+    if (i + N < CELLS && grid[i] === grid[i + N]) return true;
   }
-  var rand = rng(1);
-  function pick(not) {
-    var k = Math.floor(rand() * KINDS);
-    if (not >= 0 && k === not) k = (k + 1 + Math.floor(rand() * (KINDS - 1))) % KINDS;
-    return k;
+  return false;
+}
+
+// Pearl number k to enter column c. `avoid` (a loop's colour, or -1) is
+// stepped past with the same single draw, so every index costs one draw.
+function spawnKind(seed, c, k, avoid) {
+  var h = hash(seed, c, k), kind = h % KINDS;
+  if (avoid >= 0 && kind === avoid) kind = (kind + 1 + (h >>> 8) % (KINDS - 1)) % KINDS;
+  return kind;
+}
+
+// No pair anywhere: the pearls are shuffled in place (seeded Fisher-Yates,
+// one hash row per attempt) until there is one.
+function reshuffle(sim) {
+  var grid = sim.grid.slice(), t, i, j, x;
+  for (t = 0; t < SHUFFLE_TRIES; t++) {
+    var row = SHUFFLE_ROW + sim.shuffles;
+    sim.shuffles++;
+    for (i = CELLS - 1; i > 0; i--) { j = hash(sim.seed, row, i) % (i + 1); x = grid[i]; grid[i] = grid[j]; grid[j] = x; }
+    if (hasPair(grid)) break;
   }
-  function chainPoints(n) { return n * (n + 1) / 2; }   // 2:3, 4:10, 6:21, 10:55
+  if (!hasPair(grid)) grid[1] = grid[0];
+  sim.grid = grid;
+}
+
+function initSim(seedHex, version) {
+  var sim = {
+    version: version, seed: seedToInt(seedHex), step: 0, score: 0, over: false,
+    grid: [], spawned: [], shuffles: 0, chains: 0, lastStep: -1, events: []
+  };
+  var grid = [], spawned = [], r, c;
+  for (c = 0; c < N; c++) spawned.push(N);
+  // each column fills from the bottom: the bottom pearl is its number 0
+  for (r = 0; r < N; r++) for (c = 0; c < N; c++) grid.push(spawnKind(sim.seed, c, N - 1 - r, -1));
+  sim.grid = grid; sim.spawned = spawned;
+  if (!hasPair(sim.grid)) reshuffle(sim);
+  return sim;
+}
+
+// Reads a chain: cells on the board, each next to the one before, all one
+// colour, none twice, except that the last may close a loop onto a cell at
+// least LOOP_MIN back. Returns null for anything else.
+function readChain(grid, cells) {
+  if (!Array.isArray(cells) || cells.length < MIN_CHAIN) return null;
+  var seen = [], i, a, kind = -1, loopAt = -1;
+  for (i = 0; i < CELLS; i++) seen.push(-1);
+  for (i = 0; i < cells.length; i++) {
+    a = cells[i];
+    // a whole number on the board (this also refuses strings, null and NaN)
+    if (a !== Math.floor(a) || a < 0 || a >= CELLS) return null;
+    if (i === 0) kind = grid[a];
+    else if (!adjacent(cells[i - 1], a) || grid[a] !== kind) return null;
+    if (seen[a] >= 0) {
+      if (i !== cells.length - 1 || i - seen[a] < LOOP_MIN) return null;
+      loopAt = seen[a];
+    } else seen[a] = i;
+  }
+  return { kind: kind, loop: loopAt >= 0, n: loopAt >= 0 ? cells.length - 1 : cells.length };
+}
+
+// A chain clears at the step the finger lifts. Refused (and never recorded)
+// once the run is over, on a step another chain already used, or when
+// readChain refuses it. A loop clears every pearl of its colour.
+function chainSim(sim, cells) {
+  if (sim.over || sim.step <= sim.lastStep) return false;
+  var ch = readChain(sim.grid, cells);
+  if (!ch) return false;
+  var gone = [], clear = [], i, r, c;
+  for (i = 0; i < CELLS; i++) gone.push(false);
+  for (i = 0; i < ch.n; i++) { gone[cells[i]] = true; clear.push(cells[i]); }
+  if (ch.loop) for (i = 0; i < CELLS; i++) if (!gone[i] && sim.grid[i] === ch.kind) { gone[i] = true; clear.push(i); }
+  var pts = chainPoints(clear.length, ch.loop);
+  // Gravity: in each column the pearls left fall to the bottom in order and
+  // new ones enter from the top; after a loop no new pearl is its colour.
+  var grid = [], from = [], spawned = sim.spawned.slice();
+  for (i = 0; i < CELLS; i++) { grid.push(0); from.push(-1); }
+  for (c = 0; c < N; c++) {
+    var to = N - 1;
+    for (r = N - 1; r >= 0; r--) {
+      if (!gone[r * N + c]) { grid[to * N + c] = sim.grid[r * N + c]; from[to * N + c] = r * N + c; to--; }
+    }
+    for (; to >= 0; to--) { grid[to * N + c] = spawnKind(sim.seed, c, spawned[c], ch.loop ? ch.kind : -1); spawned[c]++; }
+  }
+  sim.grid = grid; sim.spawned = spawned;
+  sim.score += pts; sim.chains++; sim.lastStep = sim.step;
+  var shuffled = !hasPair(sim.grid);
+  if (shuffled) reshuffle(sim);
+  sim.events = [{ t: 'clear', kind: ch.kind, loop: ch.loop, cells: clear, pts: pts, from: from, shuffled: shuffled }];
+  return true;
+}
+
+function stepSim(sim) {
+  sim.events = [];
+  if (sim.over) return;
+  sim.step++;
+  if (sim.step >= RUN_STEPS) sim.over = true;
+}
+// ==== PEARLS CONNECT RULES END ====
+
+  var WARN_STEPS = 10 * 60;   // last 10 s: the clock warns (presentation)
 
   // ── layout: a fixed 414 x 736 design space ─────────────────────────────────
   var W = 414, H = 736;
@@ -197,9 +327,10 @@
   resize();
 
   // ── state ──────────────────────────────────────────────────────────────────
-  // state: menu | ready | play | timeup | over
-  var board = [], state = 'menu', step = 0, score = 0, shownTarget = 0, shown = 0, best = 0;
-  var chain = [], loop = false, dragging = false;
+  // state: menu | ready | play | timeup | over. `sim` is the rules' world;
+  // `board[c][r]` holds only how each pearl is DRAWN (fall, squash, lift).
+  var sim = initSim(null, RULES_VERSION), board = [], state = 'menu', shownTarget = 0, shown = 0, best = 0;
+  var chain = [], loop = false, dragging = false, downStep = 0;
   var stats = { pearls: 0, chain: 0, loops: 0, move: 0 };
   var fx = { parts: [], ghosts: [], orbs: [], texts: [], rings: [], confetti: [], bokeh: [],
     shake: 0, flash: 0, flashRGB: '255,255,255', banner: null, scoreBump: 0, readyT: 0, timeupT: 0, loopT: 0, idle: 0, hint: null };
@@ -208,42 +339,33 @@
 
   function cellCX(c) { return GX + c * CELL + CELL / 2; }
   function cellCY(r) { return GY + r * CELL + CELL / 2; }
+  function kindAt(c, r) { return sim.grid[r * N + c]; }
   function pearlY(c, r) { return cellCY(r) + board[c][r].dy; }
-  function mkPearl(k, dy) { return { k: k, dy: dy, v: 0, sq: 0, sqv: 0, s: 0, sv: 0, flip: 0, ok: k, landed: dy === 0 }; }
+  function mkPearl(dy) { return { dy: dy, v: 0, sq: 0, sqv: 0, s: 0, sv: 0, flip: 0, landed: dy === 0 }; }
 
   function newBoard(drop) {
     board = [];
     for (var c = 0; c < N; c++) {
       var col = [];
       for (var r = 0; r < N; r++) {
-        var p = mkPearl(pick(-1), drop ? -(N + 1) * CELL - (N - r) * 18 - c * 26 : 0);
+        var p = mkPearl(drop ? -(N + 1) * CELL - (N - r) * 18 - c * 26 : 0);
         p.v = drop ? 200 : 0; col.push(p);
       }
       board.push(col);
     }
-    if (!hasMove()) shuffle(false);
   }
-  function hasMove() { return !!findPair(); }
   function findPair() {
     for (var c = 0; c < N; c++) for (var r = 0; r < N; r++) {
-      var k = board[c][r].k;
-      if (c + 1 < N && board[c + 1][r].k === k) return [{ c: c, r: r }, { c: c + 1, r: r }];
-      if (r + 1 < N && board[c][r + 1].k === k) return [{ c: c, r: r }, { c: c, r: r + 1 }];
+      var k = kindAt(c, r);
+      if (c + 1 < N && kindAt(c + 1, r) === k) return [{ c: c, r: r }, { c: c + 1, r: r }];
+      if (r + 1 < N && kindAt(c, r + 1) === k) return [{ c: c, r: r }, { c: c, r: r + 1 }];
     }
     return null;
   }
-  function shuffle(show) {
-    var all = [], c, r, i;
-    for (c = 0; c < N; c++) for (r = 0; r < N; r++) all.push(board[c][r].k);
-    do {
-      for (i = all.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)), t = all[i]; all[i] = all[j]; all[j] = t; }
-      for (c = 0; c < N; c++) for (r = 0; r < N; r++) board[c][r].k = all[c * N + r];
-    } while (!hasMove());
-    if (show) {
-      for (c = 0; c < N; c++) for (r = 0; r < N; r++) { board[c][r].flip = 0.5 + (c + r) * 0.03; }
-      fx.banner = { text: 'NO MOVES! SHUFFLE', t: 0 };
-      audio.shuffle();
-    }
+  function showShuffle() {
+    for (var c = 0; c < N; c++) for (var r = 0; r < N; r++) board[c][r].flip = 0.5 + (c + r) * 0.03;
+    fx.banner = { text: 'NO MOVES! SHUFFLE', t: 0 };
+    audio.shuffle();
   }
 
   // ── the chain ──────────────────────────────────────────────────────────────
@@ -252,23 +374,22 @@
     if (c < 0 || r < 0 || c >= N || r >= N) return null;
     var dx = x - cellCX(c), dy = y - cellCY(r);
     if (dx * dx + dy * dy > HIT_R * HIT_R) return null;
-    if (!board[c][r].landed || board[c][r].flip > 0) return null;   // still falling in
     return { c: c, r: r };
   }
   function same(a, b) { return a.c === b.c && a.r === b.r; }
   function adj(a, b) { return Math.abs(a.c - b.c) + Math.abs(a.r - b.r) === 1; }
   function inChain(c, r) { for (var i = 0; i < chain.length; i++) if (chain[i].c === c && chain[i].r === r) return true; return false; }
-  function chainKind() { return chain.length ? board[chain[0].c][chain[0].r].k : -1; }
-  function countKind(k) { var n = 0; for (var c = 0; c < N; c++) for (var r = 0; r < N; r++) if (board[c][r].k === k) n++; return n; }
+  function chainKind() { return chain.length ? kindAt(chain[0].c, chain[0].r) : -1; }
+  function countKind(k) { var n = 0; for (var i = 0; i < CELLS; i++) if (sim.grid[i] === k) n++; return n; }
   function preview() {
     if (chain.length < 2) return null;
     var n = loop ? countKind(chainKind()) : chain.length;
-    return { n: n, pts: chainPoints(n) * (loop ? 2 : 1) };
+    return { n: n, pts: chainPoints(n, loop) };
   }
 
   function begin(p) {
     if (!p) return;
-    chain = [p]; loop = false; dragging = true; fx.hint = null;
+    chain = [p]; loop = false; dragging = true; fx.hint = null; downStep = sim.step;
     audio.note(0);
     buzz(6);
   }
@@ -283,7 +404,7 @@
       if (wasLoop) fx.loopT = 0;
       return;
     }
-    if (loop || !adj(p, last) || board[p.c][p.r].k !== chainKind()) return;
+    if (loop || !adj(p, last) || kindAt(p.c, p.r) !== chainKind()) return;
     if (inChain(p.c, p.r)) {
       if (chain.length >= 4) {
         chain.push(p); loop = true; fx.loopT = 0.0001;
@@ -300,37 +421,40 @@
   function release() {
     if (!dragging) return;
     dragging = false;
-    var k = chainKind(), wasLoop = loop, len = chain.length, gone = [], c, r;
-    if (state === 'play') {
-      if (wasLoop) {
-        // the loop's own pearls first (in order), then the rest of the colour
-        for (var i = 0; i < chain.length - 1; i++) gone.push(chain[i]);
-        for (c = 0; c < N; c++) for (r = 0; r < N; r++) if (board[c][r].k === k && !inChain(c, r)) gone.push({ c: c, r: r });
-      } else if (chain.length >= 2) gone = chain.slice();
-    }
+    var cells = [], len = chain.length;
+    for (var i = 0; i < len; i++) cells.push(chain[i].r * N + chain[i].c);
     chain = []; loop = false; fx.loopT = 0;
-    if (gone.length) clear(gone, k, wasLoop);
-    else if (len === 1) audio.cancel();
+    if (state !== 'play' || len < 2) { if (len === 1) audio.cancel(); return; }
+    applyChain(cells, downStep, true);
+  }
+  // One path for a live chain and a replayed one. The rules decide; only a
+  // chain they accepted is recorded, and the record is the ACTION (the cells
+  // in drag order, the step it lifted, the step it began), never its result.
+  function applyChain(cells, down, live) {
+    var n = sim.chains, step = sim.step;
+    if (!chainSim(sim, cells)) { audio.cancel(); return false; }
+    if (live) { try { if (typeof window.__kjChain === 'function') window.__kjChain(performance.now(), n, step, down, cells); } catch (_e) {} }
+    clearFx(sim.events[0]);
+    return true;
   }
 
-  function clear(cells, k, wasLoop) {
-    var n = cells.length, pts = chainPoints(n) * (wasLoop ? 2 : 1);
-    score += pts;
+  // Effects for a clear, then the drawing state follows the rules' gravity:
+  // `from[i]` is the cell each pearl came from, -1 for a new one.
+  function clearFx(ev) {
+    var k = ev.kind, wasLoop = ev.loop, n = ev.cells.length, pts = ev.pts, c, r, i, sx = 0, sy = 0;
     stats.pearls += n; stats.move = Math.max(stats.move, pts); if (wasLoop) stats.loops++; else stats.chain = Math.max(stats.chain, n);
-    var dead = [], c, r, i, sx = 0, sy = 0;
-    for (c = 0; c < N; c++) { dead.push([]); for (r = 0; r < N; r++) dead[c].push(false); }
     var step0 = Math.min(0.045, 0.5 / n);
     var nOrbs = Math.min(n, 14), per = Math.floor(pts / nOrbs), rem = pts - per * nOrbs;
     for (i = 0; i < n; i++) {
-      var p = cells[i], x = cellCX(p.c), y = pearlY(p.c, p.r);
-      dead[p.c][p.r] = true; sx += x; sy += y;
+      c = ev.cells[i] % N; r = Math.floor(ev.cells[i] / N);
+      var x = cellCX(c), y = pearlY(c, r);
+      sx += x; sy += y;
       var delay = i * step0;
       fx.ghosts.push({ x: x, y: y, k: k, t: -delay, i: i, n: n, big: wasLoop || n >= 6 });
       if (i < nOrbs) fx.orbs.push({ x0: x, y0: y, k: k, t: -delay - 0.12, dur: 0.55 + Math.random() * 0.15, val: per + (i === nOrbs - 1 ? rem : 0),
         cx: x + (Math.random() - 0.5) * 160, cy: Math.min(y, SCORE_Y) - 60 - Math.random() * 80, trail: [] });
     }
-    var mx = sx / n, my = sy / n;
-    var word = '';
+    var mx = sx / n, my = sy / n, word = '';
     if (wasLoop) word = 'LOOP!';
     else for (i = 0; i < PRAISE.length; i++) if (n >= PRAISE[i][0]) { word = PRAISE[i][1]; break; }
     fx.texts.push({ text: '+' + pts, x: mx, y: my, t: -0.05, size: pts >= 100 ? 54 : pts >= 21 ? 46 : 36, col: '#ffffff', edge: GEMS[k].dark });
@@ -340,33 +464,33 @@
     audio.clearSeq(n, step0, wasLoop);
     if (word) audio.praise(wasLoop);
     buzz(wasLoop ? [30, 40, 30] : n >= 6 ? 30 : 15);
-    // gravity: survivors fall, new pearls drop in from above; after a loop the
-    // refill avoids the colour just cleared
+    var old = board, nb = [];
     for (c = 0; c < N; c++) {
-      var keep = [];
-      for (r = N - 1; r >= 0; r--) if (!dead[c][r]) keep.push({ old: r, p: board[c][r] });
-      var col = new Array(N), nr = N - 1;
-      for (i = 0; i < keep.length; i++, nr--) {
-        var q = keep[i].p, fall = (keep[i].old - nr) * CELL;
-        if (fall < 0) { q.dy += fall; q.landed = false; q.v = Math.min(q.v, 0); }
-        col[nr] = q;
+      var col = [], fresh = 0;
+      for (r = 0; r < N; r++) if (ev.from[r * N + c] < 0) fresh++;
+      for (r = 0; r < N; r++) {
+        var f = ev.from[r * N + c];
+        if (f >= 0) {
+          var q = old[f % N][Math.floor(f / N)], fall = (Math.floor(f / N) - r) * CELL;
+          if (fall < 0) { q.dy += fall; q.landed = false; q.v = Math.min(q.v, 0); }
+          col.push(q);
+        } else { var np = mkPearl(-fresh * CELL - 30 - (fresh - r) * 8); np.landed = false; col.push(np); }
       }
-      var fresh = nr + 1;
-      for (; nr >= 0; nr--) { var np = mkPearl(pick(wasLoop ? k : -1), -fresh * CELL - 30 - (fresh - nr) * 8); np.landed = false; col[nr] = np; }
-      board[c] = col;
+      nb.push(col);
     }
-    if (!hasMove()) shuffle(true);
+    board = nb;
+    if (ev.shuffled) showShuffle();
   }
 
   // ── input ──────────────────────────────────────────────────────────────────
   function toDesign(e) {
-    var rc = canvas.getBoundingClientRect();
+    var rc = typeof canvas.getBoundingClientRect === 'function' ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
     return { x: ((e.clientX - rc.left) - ox) / sc, y: ((e.clientY - rc.top) - oy) / sc };
   }
   var activeId = null;
   canvas.addEventListener('pointerdown', function (e) {
     audio.unlock();
-    if (state !== 'play' || activeId !== null) return;
+    if (RP || state !== 'play' || activeId !== null) return;
     activeId = e.pointerId;
     try { canvas.setPointerCapture(e.pointerId); } catch (_e) {}
     finger = toDesign(e); lastInput = clock;
@@ -388,7 +512,8 @@
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
   ['touchstart', 'touchmove'].forEach(function (n) { canvas.addEventListener(n, function (e) { e.preventDefault(); }, { passive: false }); });
-  window.addEventListener('keydown', function (e) { if (e.target && e.target.tagName !== 'BUTTON') e.preventDefault(); });
+  // No keyboard controls: a key must never press a focused button by accident.
+  window.addEventListener('keydown', function (e) { if (!e.target || e.target.tagName !== 'BUTTON') { if (e.preventDefault) e.preventDefault(); } });
 
   function buzz(p) { try { if (!muted && navigator.vibrate) navigator.vibrate(p); } catch (_e) {} }
 
@@ -401,15 +526,49 @@
   }
   refreshMenuBest();
 
+  // ── platform ───────────────────────────────────────────────────────────────
+  var Q = /[?&]/.test(location.search) ? location.search : '';
+  var EMBED = !!window.__kjEmbed;
+  // QA switches (?seed=) are dead inside the platform.
+  function qp(name) { if (EMBED) return null; var m = new RegExp('[?&]' + name + '=([^&]*)').exec(Q); return m ? decodeURIComponent(m[1]) : null; }
+  var RP = (window.KJReplay && window.KJReplay.active()) ? window.KJReplay : null;
+  var replayChains = null, traceVersion = 0, submitted = false, sessionReady = false;
+  if (RP) RP.ready('pearls-connect');
+  function onSessionReady() {
+    sessionReady = true;
+    var b = $('playBtn');
+    b.disabled = false; b.textContent = 'PLAY';
+    if (RP) start();
+  }
+  function localSeed() {
+    var s = qp('seed');
+    if (s && /^[0-9a-f]{16}/i.test(s)) return s;
+    var h = '';
+    for (var i = 0; i < 16; i++) h += Math.floor(Math.random() * 16).toString(16);
+    return h;
+  }
+  function shouldTutorial() { return !RP && !!window.KJTut && window.KJTut.shouldShow(); }
+
+  // The world is built once, from the session's seed, when the run starts.
   function start() {
+    if (!sessionReady || state === 'ready' || state === 'play' || state === 'timeup') return;
+    if (EMBED && submitted) return;   // one run per session: the Result screen owns "play again"
     show('menu', false); show('how', false); show('over', false);
-    rand = rng((Math.random() * 4294967296) >>> 0);
+    traceVersion = (typeof window.__kjGameStart === 'function')
+      ? (Number(window.__kjGameStart(performance.now(), RULES_VERSION)) || 0) : RULES_VERSION;
+    if (RP) {
+      traceVersion = RP.capVersion(traceVersion);
+      replayChains = RP.cursor('chain', function (e) { return Number(e.step); });
+      RP.started(traceVersion);
+    }
+    sim = initSim(window.__kjSeed || (EMBED ? null : localSeed()), RULES_VERSION);
     newBoard(true);
-    state = 'ready'; step = 0; score = 0; shown = 0; shownTarget = 0; chain = []; loop = false; dragging = false; activeId = null;
+    state = RP ? 'play' : 'ready'; shown = 0; shownTarget = 0; chain = []; loop = false; dragging = false; activeId = null;
+    submitted = false; acc = 0;
     stats = { pearls: 0, chain: 0, loops: 0, move: 0 };
     fx.parts = []; fx.ghosts = []; fx.orbs = []; fx.texts = []; fx.rings = []; fx.confetti = []; fx.banner = null; fx.hint = null;
-    fx.readyT = 0; fx.timeupT = 0; fx.loopT = 0; lastSec = -1; lastInput = clock;
-    audio.ready();
+    fx.readyT = RP ? 2 : 0; fx.timeupT = 0; fx.loopT = 0; lastSec = -1; lastInput = clock;
+    if (!RP) audio.ready();
   }
   function timeUp() {
     state = 'timeup'; fx.timeupT = 0;
@@ -421,10 +580,20 @@
       var p = board[c][r];
       p.spill = { vx: (Math.random() - 0.5) * 260 + (c - 2.5) * 30, vy: -120 - Math.random() * 260, rot: 0, vr: (Math.random() - 0.5) * 8, x: 0, y: 0, delay: 0.55 + (N - 1 - r) * 0.06 + Math.random() * 0.1 };
     }
+    // The score goes once TIME'S UP has played; a hidden tab draws no frames,
+    // so a timer backs the frame clock up.
+    setTimeout(finishRun, 3000);
+  }
+  function finishRun() {
+    if (state !== 'timeup') return;
+    state = 'over'; submitted = true;
+    if (RP) RP.setStep(sim.step);
+    try { if (typeof window.__kjSubmit === 'function') window.__kjSubmit(sim.score); } catch (_e) {}
+    if (!EMBED) showOver();
   }
   function showOver() {
     state = 'over';
-    var isBest = score > best;
+    var score = sim.score, isBest = score > best;
     if (isBest) { best = score; try { localStorage.setItem('pearlsConnectBest', String(best)); } catch (_e) {} }
     $('overNew').hidden = !isBest;
     $('overBest').textContent = isBest ? '' : 'BEST ' + best;
@@ -458,15 +627,21 @@
     }
   }
   function click() { audio.unlock(); audio.ui(); }
-  $('playBtn').onclick = function () { click(); start(); };
+  // HOW TO PLAY is a static panel: it opens before the run, never inside it.
+  $('playBtn').onclick = function () {
+    click();
+    if (!sessionReady) return;
+    if (shouldTutorial()) { window.KJTut.markSeen(); show('how', true); return; }
+    start();
+  };
   $('howBtn').onclick = function () { click(); show('how', true); };
-  $('howPlayBtn').onclick = function () { click(); if (state === 'menu') start(); else show('how', false); };
+  $('howPlayBtn').onclick = function () { click(); show('how', false); if (state === 'menu' && sessionReady) start(); };
   $('againBtn').onclick = function () { click(); start(); };
   $('homeBtn').onclick = function () { click(); state = 'menu'; fx.confetti = []; show('over', false); show('menu', true); };
 
   var muted = false;
   try { muted = localStorage.getItem('pearlsConnectMute') === '1'; } catch (_e) {}
-  function applyMute() { $('mute').classList.toggle('is-muted', muted); audio.setMuted(muted); }
+  function applyMute() { $('mute').classList[muted ? 'add' : 'remove']('is-muted'); audio.setMuted(muted); }
   $('mute').onclick = function () {
     muted = !muted; try { localStorage.setItem('pearlsConnectMute', muted ? '1' : '0'); } catch (_e) {}
     audio.unlock(); applyMute(); if (!muted) audio.ui();
@@ -633,7 +808,7 @@
         if (p.dy >= 0) { p.dy = 0; p.landed = true; p.sqv = Math.min(5, p.v / 260); p.v = 0; }
       }
       var sq = spring(p.sq, p.sqv, 0, 520, 16, dt); p.sq = sq[0]; p.sqv = sq[1];
-      var want = inChain(c, r) || (loop && p.k === k0) ? 1 : 0;
+      var want = inChain(c, r) || (loop && kindAt(c, r) === k0) ? 1 : 0;
       var ss = spring(p.s, p.sv, want, 700, 22, dt); p.s = ss[0]; p.sv = ss[1];
       if (p.flip > 0) p.flip = Math.max(0, p.flip - dt);
       if (p.spill && state === 'timeup') {
@@ -655,7 +830,7 @@
       }
       if (o.t >= o.dur) { shownTarget += o.val; fx.scoreBump = 1; audio.coin(); fx.orbs.splice(i, 1); }
     }
-    if (!fx.orbs.length) shownTarget = score;
+    if (!fx.orbs.length) shownTarget = sim.score;
     for (i = fx.parts.length - 1; i >= 0; i--) {
       var q = fx.parts[i]; q.t += dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 620 * dt; q.vx *= 0.985; q.rot += q.vr * dt;
       if (q.t > q.dur) fx.parts.splice(i, 1);
@@ -751,9 +926,9 @@
     }
 
     // last seconds: red vignette pulse and a big count
-    var left = RUN_STEPS - step;
+    var left = RUN_STEPS - sim.step;
     if (state === 'play' && left <= WARN_STEPS) {
-      var ph = (step % 60) / 60, pulse = Math.max(0, 1 - ph * 2.5);
+      var ph = (sim.step % 60) / 60, pulse = Math.max(0, 1 - ph * 2.5);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 0.25 + 0.45 * pulse * (1 - left / WARN_STEPS * 0.5);
       ctx.drawImage(SPR.vigRed, 0, 0, canvas.width, canvas.height);
@@ -784,16 +959,16 @@
     ctx.restore();
     if (best > 0) {
       text('BEST', W - GX - 26, SCORE_Y - 20, 11, 'rgba(255,240,215,0.5)');
-      text(String(Math.max(best, score)), W - GX - 26, SCORE_Y + 2, 20, score > best ? '#ffd257' : 'rgba(255,240,215,0.85)');
+      text(String(Math.max(best, sim.score)), W - GX - 26, SCORE_Y + 2, 20, sim.score > best ? '#ffd257' : 'rgba(255,240,215,0.85)');
     }
     // timer bar
-    var left = Math.max(0, RUN_STEPS - step), frac = left / RUN_STEPS, warn = left <= WARN_STEPS && state === 'play';
+    var left = Math.max(0, RUN_STEPS - sim.step), frac = left / RUN_STEPS, warn = left <= WARN_STEPS && state === 'play';
     var bx = GX + 4, bw = BOARD - 100, bh = 16, by = BAR_Y;
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; rrect(ctx, bx, by, bw, bh, 8); ctx.fill();
     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,220,140,0.25)'; ctx.stroke();
     if (frac > 0) {
       var fw = Math.max(bh, bw * frac);
-      var beat = warn ? 0.5 + 0.5 * Math.max(0, 1 - ((step % 60) / 60) * 3) : 0;
+      var beat = warn ? 0.5 + 0.5 * Math.max(0, 1 - ((sim.step % 60) / 60) * 3) : 0;
       ctx.fillStyle = warn ? (beat > 0.6 ? '#ff6a85' : '#ff2d55') : frac < 0.33 ? '#ff9a2e' : '#ffc93c';
       rrect(ctx, bx + 2, by + 2, fw - 4, bh - 4, 6); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.35)'; rrect(ctx, bx + 5, by + 3.5, Math.max(0, fw - 10), 3.5, 2); ctx.fill();
@@ -802,7 +977,7 @@
     // the clock, mm:ss in a pill
     var cx = GX + BOARD - 42, cy = by + bh / 2, sec = Math.ceil(left / 60);
     var clockTxt = pad2(Math.floor(sec / 60)) + ':' + pad2(sec % 60);
-    var sb = warn ? 1 + 0.14 * Math.max(0, 1 - ((step % 60) / 60) * 4) : 1;
+    var sb = warn ? 1 + 0.14 * Math.max(0, 1 - ((sim.step % 60) / 60) * 4) : 1;
     ctx.save(); ctx.translate(cx, cy); ctx.scale(sb, sb);
     rrect(ctx, -42, -20, 84, 40, 20); ctx.fillStyle = warn ? '#5a0f24' : '#24185a'; ctx.fill();
     ctx.lineWidth = 2.5; ctx.strokeStyle = warn ? '#ff2d55' : '#ffc93c'; ctx.stroke();
@@ -862,7 +1037,7 @@
       var pos = pearlPos(c, r), x = pos.x, y = pos.y;
       if (state !== 'timeup' && y < GY - 30) continue;
       var lift = p.s, sx = 1 + p.sq * 0.08 + lift * 0.16, sy = 1 - p.sq * 0.08 + lift * 0.16;
-      var kk = p.k;
+      var kk = kindAt(c, r);
       if (p.flip > 0) { var fl = Math.min(1, p.flip / 0.5); var e = Math.abs(Math.cos(fl * Math.PI)); sx *= e; sy *= e; }
       if (p.spill && state === 'timeup' && p.spill.delay <= 0) { ctx.save(); ctx.translate(x, y); ctx.rotate(p.spill.rot); ctx.translate(-x, -y); }
       ctx.globalAlpha = 0.6 - lift * 0.25;
@@ -1000,7 +1175,7 @@
   }
 
   // ── loop: fixed 1/60 s steps for the clock, real time for effects ──────────
-  var STEP_MS = 1000 / 60, acc = 0, lastT = null;
+  var STEP_MS = 1000 / 60, MAX_CATCHUP = 3, acc = 0, lastT = null;
   function frame(t) {
     requestAnimationFrame(frame);
     if (lastT === null) lastT = t;
@@ -1012,19 +1187,24 @@
     }
     if (state === 'play') {
       if (fx.readyT < 1.6) fx.readyT += dts;
-      acc += dt;
-      var n = 0;
-      while (acc >= STEP_MS && n < 3) { step++; acc -= STEP_MS; n++; }
-      if (n >= 3 && acc > STEP_MS) acc = 0;
-      var left = RUN_STEPS - step;
-      if (left <= WARN_STEPS) {
+      acc += RP ? RP.elapsed(dt, STEP_MS * MAX_CATCHUP) : dt;
+      var n = 0, cap = RP ? MAX_CATCHUP * Math.max(1, RP.speed()) : MAX_CATCHUP;
+      while (acc >= STEP_MS && n < cap) {
+        if (replayChains) { var due = replayChains.due(sim.step); for (var ri = 0; ri < due.length; ri++) applyChain(due[ri].cells, due[ri].down, false); }
+        stepSim(sim); acc -= STEP_MS; n++;
+        if (sim.over) break;
+      }
+      if (RP) RP.report(sim.step, sim.score);
+      if (n >= cap && acc > STEP_MS) acc = 0;
+      var left = RUN_STEPS - sim.step;
+      if (left <= WARN_STEPS && !RP) {
         var sec = Math.ceil(left / 60);
         if (sec !== lastSec) { lastSec = sec; if (sec > 0) { audio.tick(sec <= 3); if (sec <= 3) buzz(20); } }
       }
-      if (step >= RUN_STEPS) timeUp();
+      if (sim.over) timeUp();
     } else if (state === 'timeup') {
       fx.timeupT += dts;
-      if (fx.timeupT >= 2.3) showOver();
+      if (fx.timeupT >= 2.3) finishRun();
     }
     if (state === 'menu' && !board.length) newBoard(false);
     animate(dts);
@@ -1033,8 +1213,11 @@
   }
   requestAnimationFrame(frame);
 
-  // standalone QA only: ?debug=1 lets a test read the board
-  if (/[?&]debug=1(&|$)/.test(location.search)) {
-    window.__mj = { get board() { return board; }, get score() { return score; }, get state() { return state; }, end: function () { step = RUN_STEPS - 1; } };
+  if (typeof window.__kjOnSessionReady === 'function') window.__kjOnSessionReady(onSessionReady);
+  else onSessionReady();
+
+  // the harness (tests) reads the sim; standalone only otherwise
+  if (!EMBED || window.__pcHarness) {
+    window.__pc = { get sim() { return sim; }, get state() { return state; }, get board() { return board; } };
   }
 })();
