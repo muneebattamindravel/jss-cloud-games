@@ -471,7 +471,7 @@
   var prac = null, handImg = null;
   var HAND_W = 64, HAND_H = 100;
   var RINGS = { 0: { x: 207, y: 270 }, 2: { x: 320, y: 300 } };
-  var SPIN_STEPS = 34;                                // lesson 1 is done after this much spinning
+  var SPIN_STEPS = 60;                                // lesson 1 is done after this much spinning
   function buildHandSprite() {
     var k = 4, c = layer(HAND_W * k, HAND_H * k), g = c.getContext('2d'); g.scale(k, k);
     g.lineWidth = 3.2; g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = '#5b2340';
@@ -525,8 +525,9 @@
     if (p.i === 2) {
       if (me.pull) return '';
       var aimed = PK.aimedAt(me.h, RINGS[2].x * U - me.x, RINGS[2].y * U - me.y, 6);
-      if (down) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
-      return aimed ? 'now' : '';
+      if (fingerDown) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
+      if (!aimed) { wantTouch = false; return ''; }   // a tap while it still turns does nothing (the lift it brought still lands)
+      return down ? '' : 'now';
     }
     if (p.i === 3) return down ? '' : 'cut';                 // the cut needs a hold the whole way: it waits for one
     return '';
@@ -808,6 +809,10 @@
     if (p.i === 0 && p.live > 0 && want === 'hold') title = 'KEEP HOLDING';
     if (p.i === 2 && !want && !me.pull && !fingerDown) { title = 'WAIT FOR THE ARROW'; sub = 'The kite is turning toward the star'; }
     if (p.i === 3) { title = want ? 'HOLD TO CUT' : 'KEEP HOLDING'; sub = want ? 'Hold to pull across their string' : 'Pull through their string until it snaps'; hot = '#ffd23f'; }
+    if (p.i === 1) {
+      if (want === 'let') { title = 'LET GO!'; sub = 'Take your finger off the screen'; }
+      else { title = 'SEE IT SPIN'; sub = 'No pull: the kite spins on the spot'; hot = '#ffd23f'; }
+    }
     if (want === 'now') { title = 'HOLD NOW!'; sub = 'The arrow faces the star'; hot = '#ffd23f'; }
     var rr = p.phase === 'run' || p.phase === 'gap';
     if (rr) {
@@ -818,6 +823,11 @@
       }
       g.save(); g.globalAlpha = al; caption(g, title, 207, 94, 1, hot);
       g.font = '16px PKTitan, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#5b2340'; g.strokeText(sub, 207, 120); g.fillStyle = '#fff'; g.fillText(sub, 207, 120); g.restore();
+    }
+    if (p.i === 1 && !want && !me.pull && rr) {          // how far round it has spun, filling gold
+      var sx = lerp(prev.x, me.x, 1) / U, sy = me.y / U, fr = Math.min(1, p.slip / SPIN_STEPS);
+      g.save(); g.lineCap = 'round'; g.lineWidth = 9; g.strokeStyle = 'rgba(91,35,64,0.7)'; g.beginPath(); g.arc(sx, sy, 50, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 6; g.strokeStyle = '#ffd23f'; g.beginPath(); g.arc(sx, sy, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fr); g.stroke(); g.restore();
     }
     if (!want) return;
     var fade = Math.min(1, (now - p.shownAt) / 180), k = ((now - p.shownAt) % 1400) / 1400;
@@ -838,9 +848,7 @@
     } else if (state === 'prac') {
       if (prac) pracSync();
       acc += dt;
-      // the moment the strings touch runs in slow motion, so the sawing can be watched
-      var slow = prac && sim.rivals[0] && sim.rivals[0].lock ? 4 : 1, sms = STEP_MS * slow;
-      while (acc >= sms) { acc -= sms; stepPrac(); stepFx(); sms = STEP_MS * (sim.rivals[0] && sim.rivals[0].lock ? 4 : 1); }
+      while (acc >= STEP_MS) { acc -= STEP_MS; stepPrac(); stepFx(); }
       // only a frozen practice (waiting for the player) drops its spare time, and then
       // the drawn kite is parked exactly on the simulated one, so nothing snaps back
       if (prac && (prac.want || prac.phase === 'ready' || prac.phase === 'gap')) { acc = 0; prev = snap(sim); }
