@@ -2,8 +2,9 @@
 // the block below word for word. The page reads it as window.TS.
 (function (root) {
   'use strict';
-  // ==== TETRIS SMASH RULES BEGIN (word for word in games/tetris-smash/js/rules.js and shared/anticheat/validators/tetrisSmash.js) ====
-  // Integers only. No clock, no screen, no Math.random. Every action is applied
+  // ==== TETRIS SMASH RULES BEGIN ====
+  // Carried word for word in shared/anticheat/validators/tetrisSmash.js.
+  // Integers only. No clock, no screen, no random numbers. Every action is applied
   // before the fixed 1/60 s step it names; piece K comes from a 7-bag shuffled
   // by a pure function of (seed, bag index) with six draws on every bag.
   var RULES_VERSION = 2;
@@ -23,8 +24,8 @@
   var COMBO_POINTS = 50;
   var HARD_POINTS = 2;           // a hard drop scores 2 a row fallen
   // Actions: 0 left, 1 right, 2 turn clockwise, 3 turn anticlockwise,
-  // 4 soft drop on, 5 soft drop off, 6 hard drop, 7 hold.
-  var A_LEFT = 0, A_RIGHT = 1, A_CW = 2, A_CCW = 3, A_SOFT_ON = 4, A_SOFT_OFF = 5, A_HARD = 6, A_HOLD = 7;
+  // 4 soft drop on, 5 soft drop off, 6 hard drop.
+  var A_LEFT = 0, A_RIGHT = 1, A_CW = 2, A_CCW = 3, A_SOFT_ON = 4, A_SOFT_OFF = 5, A_HARD = 6;
   // Pieces 0..6: I O T S Z J L. Rotation 0 cells (x, y) inside a box of BOX[t].
   var BOX = [4, 4, 3, 3, 3, 3, 3];
   var BASE = [
@@ -104,17 +105,18 @@
     var b = [], i;
     for (i = 0; i < COLS * ROWS; i++) b.push(0);
     var sim = {
-      seed: seedInt >>> 0, board: b, cur: null, hold: -1, holdUsed: false, k: 0,
+      seed: seedInt >>> 0, board: b, cur: null, k: 0,
       frame: 0, gc: 0, lockT: 0, resets: 0, soft: false, wait: 0,
       score: 0, lines: 0, level: 1, combo: -1, b2b: false, n: 0,
       dead: false, end: '', ev: []
     };
-    spawn(sim, -1);
+    spawn(sim);
     return sim;
   }
-  // Put a piece in the well: the next one from the bags, or type `t` from hold.
-  function spawn(sim, t) {
-    if (t < 0) { t = pieceAt(sim.seed, sim.k); sim.k = sim.k + 1; }
+  // Put the next piece from the bags in the well.
+  function spawn(sim) {
+    var t = pieceAt(sim.seed, sim.k);
+    sim.k = sim.k + 1;
     var p = { t: t, r: 0, x: SPAWN_X, y: SPAWN_Y };
     sim.gc = 0; sim.lockT = 0; sim.resets = 0;
     if (!fits(sim.board, p.t, p.r, p.x, p.y)) { sim.cur = null; sim.dead = true; sim.end = 'topout'; sim.ev = sim.ev.concat([{ e: 'topout' }]); return; }
@@ -156,7 +158,6 @@
     sim.board = nb;
     sim.score = sim.score + gained;
     sim.cur = null;
-    sim.holdUsed = false;
     sim.wait = full.length ? CLEAR_STEPS : SPAWN_STEPS;
     sim.ev = sim.ev.concat([{ e: 'lock', t: p.t, r: p.r, x: p.x, y: p.y, rows: full, gained: gained, combo: sim.combo, hard: !!hard, level: sim.level, levelUp: sim.level > level }]);
   }
@@ -164,7 +165,7 @@
   // refusal changes nothing.
   function actSim(sim, a) {
     if (sim.dead) return 'dead';
-    if (a !== 0 && a !== 1 && a !== 2 && a !== 3 && a !== 4 && a !== 5 && a !== 6 && a !== 7) return 'bad_action';
+    if (a !== 0 && a !== 1 && a !== 2 && a !== 3 && a !== 4 && a !== 5 && a !== 6) return 'bad_action';
     if (sim.n >= MAX_ACTS) return 'act_cap';
     if (a === A_SOFT_ON) { if (sim.soft) return 'no_change'; sim.soft = true; sim.n = sim.n + 1; return true; }
     if (a === A_SOFT_OFF) { if (!sim.soft) return 'no_change'; sim.soft = false; sim.n = sim.n + 1; return true; }
@@ -192,22 +193,12 @@
       }
       return 'blocked';
     }
-    if (a === A_HARD) {
-      var d = dropDistance(sim.board, p);
-      sim.cur = { t: p.t, r: p.r, x: p.x, y: p.y + d };
-      sim.score = sim.score + HARD_POINTS * d;
-      sim.n = sim.n + 1;
-      lockPiece(sim, true);
-      return true;
-    }
-    // A_HOLD: once per piece.
-    if (sim.holdUsed) return 'hold_used';
-    var held = sim.hold;
-    sim.hold = p.t;
+    // A_HARD: straight down and locked at once.
+    var d = dropDistance(sim.board, p);
+    sim.cur = { t: p.t, r: p.r, x: p.x, y: p.y + d };
+    sim.score = sim.score + HARD_POINTS * d;
     sim.n = sim.n + 1;
-    spawn(sim, held);
-    sim.holdUsed = true;
-    sim.ev = sim.ev.concat([{ e: 'hold', t: p.t }]);
+    lockPiece(sim, true);
     return true;
   }
   // One fixed step: the spawn wait, gravity and the lock, then the clock.
@@ -217,7 +208,7 @@
     if (sim.dead) return;
     if (!sim.cur) {
       if (sim.wait > 0) sim.wait = sim.wait - 1;
-      if (sim.wait === 0) spawn(sim, -1);
+      if (sim.wait === 0) spawn(sim);
     } else {
       var g = gravityFor(sim.level);
       if (sim.soft && SOFT_G < g) g = SOFT_G;
@@ -245,7 +236,7 @@
     RULES_VERSION: RULES_VERSION, COLS: COLS, ROWS: ROWS, HIDDEN: HIDDEN, RUN_STEPS: RUN_STEPS,
     LOCK_STEPS: LOCK_STEPS, LOCK_RESETS: LOCK_RESETS, CLEAR_STEPS: CLEAR_STEPS, SPAWN_STEPS: SPAWN_STEPS,
     A_LEFT: A_LEFT, A_RIGHT: A_RIGHT, A_CW: A_CW, A_CCW: A_CCW, A_SOFT_ON: A_SOFT_ON, A_SOFT_OFF: A_SOFT_OFF,
-    A_HARD: A_HARD, A_HOLD: A_HOLD, BOX: BOX,
+    A_HARD: A_HARD, BOX: BOX,
     hash32: hash32, seedToInt: seedToInt, pieceCells: pieceCells, pieceAt: pieceAt, fits: fits,
     dropDistance: dropDistance, gravityFor: gravityFor, initSim: initSim, actSim: actSim, stepSim: stepSim, beginStep: beginStep,
     spawn: spawn, lockPiece: lockPiece

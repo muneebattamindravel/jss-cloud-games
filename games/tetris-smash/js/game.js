@@ -4,8 +4,7 @@
   // ===================== client (cosmetic below here; the rules are in rules.js) =====================
   // Full-screen well: a thin top bar, then the 10 x 20 well edge to edge.
   var W = 372, H = 820, CELL = 36, WX = 6, WY = 94, WW = G.COLS * CELL, WH = (G.ROWS - G.HIDDEN) * CELL;
-  var HOLD_BOX = { x: 6, y: 8, w: 62, h: 76 };
-  var SCORE_BOX = { x: 74, y: 8, w: 136, h: 76 };
+  var SCORE_BOX = { x: 6, y: 8, w: 204, h: 76 };
   var NEXT_BOX = { x: 216, y: 8, w: 150, h: 76 };
   var TAP_MOVE = 14, SOFT_MS = 180, SWIPE_DY = 34, SWIPE_MS = 300, AXIS_PX = 12, MOVE_PX = 24;   // touch gestures, design px and ms
   var DAS_STEPS = 10, ARR_STEPS = 2;                                    // keyboard auto-repeat, in steps
@@ -25,7 +24,6 @@
   var bricks = null, ghosts = null, minis = null, glows = null, backImg = null, wellImg = null, vig = null, handImg = null;
   var SPR = {};                              // pre-rendered effect sprites (ember, streak, heat, danger, shock)
   var parts = [], floats = [], trails = [], shocks = [], flashes = [], embers = null, banner = null, flashA = 0, flashCol = '#fff', shake = 0, nudgeX = 0;
-  var holdPop = 0;
   var pending = [], buffered = null, das = null, gesture = null, tapMark = null;
 
   // I O T S Z J L: our own kiln-glazed brick colours.
@@ -254,7 +252,6 @@
   }
   // a short air whoosh down the well
   function sHard(x) { noise(0.1, 4000, 500, 0.07, 0, 'bandpass', 1.1, 0, colPan(x)); }
-  function sHold() { noise(0.12, 1200, 3200, 0.04, 0, 'bandpass', 1.5); bell(660, 0.25, 0.05, 0.01); bell(880, 0.3, 0.045, 0.07); }
   // rows clear: a rising run of bells, higher with each combo; a shimmer on top
   function sClear(n, combo) {
     var k = Math.min(16, 2 + Math.max(0, combo) * 2);
@@ -327,7 +324,7 @@
     if (mode !== 'play' || !st || st.over) return;
     pending.push(a);
   }
-  var BUFFERABLE = { 0: 1, 1: 1, 2: 1, 3: 1, 6: 1, 7: 1 };
+  var BUFFERABLE = { 0: 1, 1: 1, 2: 1, 3: 1, 6: 1 };
   function applyAct(sim, a, live) {
     var n = sim.n, step = sim.frame;
     var r = G.actSim(sim, a);
@@ -341,15 +338,21 @@
     }
     if (live && r === 'no_piece' && BUFFERABLE[a]) buffered = { a: a, until: step + G.CLEAR_STEPS + 4 };
     else if (r === 'blocked' && (a === G.A_LEFT || a === G.A_RIGHT)) { nudgeX = a === G.A_LEFT ? -3 : 3; sBlocked(sim.cur && sim.cur.x); }
-    else if (r === 'blocked' || r === 'no_turn' || r === 'hold_used') sBlocked();
+    else if (r === 'blocked' || r === 'no_turn') sBlocked();
     return r;
   }
+  function wholeNum(v) { return typeof v === 'number' && isFinite(v) && v >= 0 && Math.floor(v) === v; }
   function processStep() {
     var sim = st.sim;
     G.beginStep(sim);
     if (replayCur) {
+      // Exactly what the validator applies: whole numbers, this step, the next
+      // index. Anything else in a stored trace is skipped, as the server refused it.
       var due = replayCur.due(sim.frame);
-      for (var di = 0; di < due.length && !sim.dead; di++) applyAct(sim, Number(due[di].a), false);
+      for (var di = 0; di < due.length && !sim.dead; di++) {
+        var rp = due[di];
+        if (wholeNum(rp.n) && wholeNum(rp.a) && wholeNum(rp.step) && rp.step === sim.frame && rp.n === sim.n) applyAct(sim, rp.a, false);
+      }
     } else {
       if (buffered && sim.cur) { var b = buffered; buffered = null; applyAct(sim, b.a, true); }
       else if (buffered && sim.frame > buffered.until) buffered = null;
@@ -374,7 +377,6 @@
     for (var i = 0; i < sim.ev.length; i++) {
       var e = sim.ev[i];
       if (e.e === 'spawn') { holder.dispX = sim.cur ? sim.cur.x : 0; holder.dispY = sim.cur ? sim.cur.y : 0; holder.spawnAt = now; if (holder.clearAnim) holder.clearAnim.done = true; }
-      else if (e.e === 'hold') { sHold(); holdPop = now; }
       else if (e.e === 'lock') onLock(e, holder, now);
       else if (e.e === 'topout') { shake = 6; }
     }
@@ -480,7 +482,7 @@
   function tutAct(a) {
     if (!tut || tut.wait) return;
     var s = tut.sim; G.beginStep(s);
-    if (a === G.A_HOLD || a === G.A_SOFT_ON || a === G.A_SOFT_OFF) return;   // not taught here
+    if (a === G.A_SOFT_ON || a === G.A_SOFT_OFF) return;   // not taught here
     if (a === G.A_HARD) tut.dropFrom = s.cur ? s.cur.y : null;
     var r = applyAct(s, a, false);
     if (r !== true) return;
@@ -511,7 +513,6 @@
 
   // ---- input ----
   function designPt(e) { return KJFit.toDesign(fit, e.clientX, e.clientY); }
-  function inHold(p) { return p.x >= HOLD_BOX.x && p.x <= HOLD_BOX.x + HOLD_BOX.w && p.y >= HOLD_BOX.y && p.y <= HOLD_BOX.y + HOLD_BOX.h; }
   if (window.KJPress) {
     window.KJPress.bind(function (e) {
       if (mode !== 'play' && mode !== 'tut') return;
@@ -544,7 +545,6 @@
     var g = gesture; gesture = null;
     if (g.soft) { act(G.A_SOFT_OFF); return; }
     if (g.used || g.axis || cancelled || g.travel > TAP_MOVE) return;
-    if (inHold({ x: g.x, y: g.y })) { act(G.A_HOLD); return; }
     tapMark = { t: performance.now(), x: g.x, y: g.y };
     act(G.A_CW);
   }
@@ -556,7 +556,7 @@
   }
   canvas.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
   canvas.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
-  var KEYMAP = { ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R', ArrowUp: 'CW', KeyX: 'CW', KeyW: 'CW', KeyZ: 'CCW', ControlLeft: 'CCW', ControlRight: 'CCW', ArrowDown: 'SOFT', KeyS: 'SOFT', Space: 'HARD', KeyC: 'HOLD', ShiftLeft: 'HOLD', ShiftRight: 'HOLD' };
+  var KEYMAP = { ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R', ArrowUp: 'CW', KeyX: 'CW', KeyW: 'CW', KeyZ: 'CCW', ControlLeft: 'CCW', ControlRight: 'CCW', ArrowDown: 'SOFT', KeyS: 'SOFT', Space: 'HARD' };
   window.addEventListener('keydown', function (e) {
     var k = KEYMAP[e.code]; if (!k || e.metaKey) return;
     if (mode !== 'play' && mode !== 'tut') return;
@@ -567,7 +567,6 @@
     else if (k === 'CCW') act(G.A_CCW);
     else if (k === 'SOFT') act(G.A_SOFT_ON);
     else if (k === 'HARD') hardDrop();
-    else if (k === 'HOLD') act(G.A_HOLD);
   });
   window.addEventListener('keyup', function (e) {
     var k = KEYMAP[e.code]; if (!k) return;
@@ -602,7 +601,7 @@
     rr(ctx, x, y, w, h, 16); ctx.fillStyle = '#1c1f27'; ctx.fill();
     if (hot) { ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,179,71,' + hot + ')'; rr(ctx, x + 1, y + 1, w - 2, h - 2, 15); ctx.stroke(); }
   }
-  function label(s, x, y, col) { ctx.font = '11px ' + FONT; ctx.textAlign = 'center'; ctx.fillStyle = col || C_LABEL; ctx.letterSpacing = '1px'; ctx.fillText(s, x, y); }
+  function label(s, x, y, col, align) { ctx.font = '11px ' + FONT; ctx.textAlign = align || 'center'; ctx.fillStyle = col || C_LABEL; ctx.letterSpacing = '1px'; ctx.fillText(s, x, y); }
   // A whole piece as small bricks, centred on (cx, cy).
   function drawMini(t, cx, cy, size, alpha) {
     var c = G.pieceCells(t, 0), minX = 9, maxX = -9, minY = 9, maxY = -9, i;
@@ -736,41 +735,33 @@
   }
   function drawHud(sim, now) {
     var holder = st && sim === st.sim ? st : tut;
-    // hold
-    var hp = Math.max(0, 1 - (now - holdPop) / 300);
-    panel(HOLD_BOX.x, HOLD_BOX.y, HOLD_BOX.w, HOLD_BOX.h, hp > 0 ? hp : 0); label('HOLD', HOLD_BOX.x + HOLD_BOX.w / 2, HOLD_BOX.y + 19);
-    if (sim && sim.hold >= 0) {
-      ctx.save(); ctx.translate(HOLD_BOX.x + HOLD_BOX.w / 2, HOLD_BOX.y + 48); var hs = 1 + 0.2 * hp; ctx.scale(hs, hs);
-      drawMini(sim.hold, 0, 0, 13, sim.holdUsed ? 0.35 : 1); ctx.restore();
-    }
-    // score, clock and level
-    var B = SCORE_BOX, cx = B.x + B.w / 2;
+    // score on the left, the clock on the right, level progress along the bottom
+    var B = SCORE_BOX, L = B.x + 14, Rt = B.x + B.w - 14;
     panel(B.x, B.y, B.w, B.h);
     var sc = sim ? sim.score : 0;
     if (st && sim === st.sim) {
       if (sc !== st.scoreTarget) { st.scoreTarget = sc; st.bump = 1; }
       st.scoreShown += (sc - st.scoreShown) * 0.18; if (Math.abs(sc - st.scoreShown) < 1) st.scoreShown = sc; st.bump *= 0.88;
     }
-    label('SCORE', cx, B.y + 17);
-    ctx.save(); ctx.translate(cx, B.y + 41); var bs = 1 + 0.12 * (st && sim === st.sim ? st.bump : 0); ctx.scale(bs, bs);
-    txt(Math.round(st && sim === st.sim ? st.scoreShown : sc).toLocaleString('en-US'), 0, 0, 24, C_INK); ctx.restore();
-    var lvl = sim ? sim.level : 1, lines = sim ? sim.lines : 0;
-    // level progress: a thin bar under the score
-    var px0 = B.x + 12, pw = B.w - 24, prog = (lines % 10) / 10;
-    rr(ctx, px0, B.y + 47, pw, 4, 2); ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill();
-    if (prog > 0) { rr(ctx, px0, B.y + 47, Math.max(4, pw * prog), 4, 2); ctx.fillStyle = C_GREEN; ctx.fill(); }
+    label('SCORE', L, B.y + 19, null, 'left');
+    ctx.save(); ctx.translate(L, B.y + 49); var bs = 1 + 0.12 * (st && sim === st.sim ? st.bump : 0); ctx.scale(bs, bs);
+    txt(Math.round(st && sim === st.sim ? st.scoreShown : sc).toLocaleString('en-US'), 0, 0, 25, C_INK, 'left'); ctx.restore();
     // the clock: big, with a dial icon; amber at 1 minute, red at 30 seconds, pulsing at 10
     var rem = sim ? Math.max(0, G.RUN_STEPS - sim.frame) : G.RUN_STEPS, secs = Math.ceil(rem / 60);
     var tcol = secs <= 30 ? C_HOT : secs <= 60 ? C_EMBER : C_INK;
     var pulse = (mode === 'play' && secs <= 10) ? 1.08 + 0.08 * Math.abs(Math.sin(now / 160)) : 1;
-    ctx.save(); ctx.translate(B.x + 20, B.y + 66); ctx.scale(pulse, pulse);
-    ctx.lineWidth = 2; ctx.strokeStyle = tcol; ctx.beginPath(); ctx.arc(0, 0, 7, 0, 6.2832); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -4.5); ctx.moveTo(0, 0); ctx.lineTo(3.5, 1.5); ctx.stroke();
+    label('TIME', Rt, B.y + 19, null, 'right');
+    ctx.save(); ctx.translate(Rt, B.y + 49); ctx.scale(pulse, pulse);
+    txt(Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2), 0, 0, 25, tcol, 'right');
+    ctx.font = '25px ' + FONT; var tw = ctx.measureText('0:00').width;
+    ctx.lineWidth = 2; ctx.strokeStyle = tcol; ctx.beginPath(); ctx.arc(-tw - 12, -9, 7, 0, 6.2832); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-tw - 12, -9); ctx.lineTo(-tw - 12, -13.5); ctx.moveTo(-tw - 12, -9); ctx.lineTo(-tw - 8.5, -7.5); ctx.stroke();
     ctx.restore();
-    ctx.save(); ctx.translate(B.x + 31, B.y + 74); ctx.scale(pulse, pulse);
-    txt(Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2), 0, 0, 21, tcol, 'left'); ctx.restore();
+    var lvl = sim ? sim.level : 1, lines = sim ? sim.lines : 0, prog = (lines % 10) / 10, pw = B.w - 28 - 44;
+    rr(ctx, L, B.y + 60, pw, 5, 2.5); ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill();
+    if (prog > 0) { rr(ctx, L, B.y + 60, Math.max(5, pw * prog), 5, 2.5); ctx.fillStyle = C_GREEN; ctx.fill(); }
     var lp = Math.min(1, (now - ((holder && holder.levelPop) || 0)) / 400), ls = 1 + 0.35 * Math.sin(lp * Math.PI);
-    ctx.save(); ctx.translate(B.x + B.w - 24, B.y + 73); ctx.scale(ls, ls); txt('LV ' + lvl, 0, 0, 13, C_GREEN); ctx.restore();
+    ctx.save(); ctx.translate(Rt, B.y + 67); ctx.scale(ls, ls); txt('LV ' + lvl, 0, 0, 13, C_GREEN, 'right'); ctx.restore();
     // next three, sliding left when a piece is taken
     var N = NEXT_BOX; panel(N.x, N.y, N.w, N.h); label('NEXT', N.x + N.w / 2, N.y + 19);
     var slide = holder && holder.spawnAt ? (1 - ease(Math.min(1, (now - holder.spawnAt) / 200))) : 0;
@@ -944,6 +935,6 @@
   if (typeof window.__kjOnSessionReady === 'function') window.__kjOnSessionReady(onSessionReady); else onSessionReady();
   if (RP) menu.classList.add('is-hidden');
   if (!EMBED) window.__ts = { get st() { return st; }, get tut() { return tut; }, get mode() { return mode; }, act: act, G: G,
-    sfx: { move: sMove, turn: sTurn, blocked: sBlocked, lock: function () { sLock(false); }, hardDrop: function () { sHard(); sLock(true); }, hold: sHold, clear1: function () { sClear(1, 0); }, clear2: function () { sClear(2, 0); }, clear3: function () { sClear(3, 0); }, combo3: function () { sClear(1, 3); }, chaar: function () { sClear(4, 0); sChaar(); }, levelUp: sLevel, tick: function () { sTick(false); }, lastTicks: function () { sTick(true); }, warn: sWarn, start: sStart, end: sEnd, ready: sReady } };
+    sfx: { move: sMove, turn: sTurn, blocked: sBlocked, lock: function () { sLock(false); }, hardDrop: function () { sHard(); sLock(true); }, clear1: function () { sClear(1, 0); }, clear2: function () { sClear(2, 0); }, clear3: function () { sClear(3, 0); }, combo3: function () { sClear(1, 3); }, chaar: function () { sClear(4, 0); sChaar(); }, levelUp: sLevel, tick: function () { sTick(false); }, lastTicks: function () { sTick(true); }, warn: sWarn, start: sStart, end: sEnd, ready: sReady } };
   resize(); requestAnimationFrame(frame);
 })();
