@@ -140,6 +140,9 @@ describe('rang-bharo interactive practice (outside the run)', () => {
     expect(g.probe().mode).toBe('pready');
     expect(g.trace.length).toBe(0);
     expect(g.results.length).toBe(0);
+    g.advance(3000);   // the practice world stops at its clear: no next maze
+    expect(g.probe().sim.maze.w).toBe(5);
+    expect(g.probe().sim.n).toBe(1);
     g.click('pplayBtn');
     const pr = g.probe();
     expect(pr.mode).toBe('ready');
@@ -154,7 +157,7 @@ describe('rang-bharo interactive practice (outside the run)', () => {
     const g = H.boot({ seed: H.seedHex(6), tutorial: true });
     g.clickPlay();
     const pr = g.probe();
-    g.swipe(0); g.swipe(3); g.advance(500);
+    g.swipe(0); g.advance(100); g.swipe(3); g.advance(100); g.swipe(2); g.advance(500);   // down is open, but not the guided way
     expect(pr.sim.bx).toBe(0); expect(pr.sim.by).toBe(0);
     expect(pr.sim.totalMoves).toBe(0);
     g.swipe(1); g.advance(1000);
