@@ -114,7 +114,7 @@ proves every frame draws without a bad value. Measure at integration.
 ## 11. Integration
 - Migration draft: `migrations-draft/NNN_register_pearls_connect.sql` (inactive,
   sort_order 62, bound 585, durations 1 to 3600, claimed-match off, humanness record).
-- Icon: `web/public/games/pearls-connect.png`, 512 px, 256 colours. Store
+- Icon: `web/public/games/pearls-connect.png`, 512 px, 256 colours, from the founder's artwork (28 Oct). Store
   screenshots in `packages/pearls-connect-media/` (not part of the package).
 - The five hunks:
   1. `validators/index.js`: `'pearls-connect': require('./pearlsConnect'),`
