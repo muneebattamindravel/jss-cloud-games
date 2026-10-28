@@ -631,12 +631,11 @@ function stepSim(sim) {
   // HOW TO PLAY is a static panel: it opens before the run, never inside it.
   $('playBtn').onclick = function () {
     click();
-    if (!sessionReady) return;
     if (shouldTutorial()) { window.KJTut.markSeen(); show('how', true); return; }
     start();
   };
   $('howBtn').onclick = function () { click(); show('how', true); };
-  $('howPlayBtn').onclick = function () { click(); show('how', false); if (state === 'menu' && sessionReady) start(); };
+  $('howPlayBtn').onclick = function () { click(); show('how', false); if (state === 'menu') start(); };   // start() waits for the session
   $('againBtn').onclick = function () { click(); start(); };
   $('homeBtn').onclick = function () { click(); state = 'menu'; fx.confetti = []; show('over', false); show('menu', true); };
 
