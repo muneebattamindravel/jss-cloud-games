@@ -529,8 +529,9 @@ function stepSim(sim) {
   // ── platform ───────────────────────────────────────────────────────────────
   var Q = /[?&]/.test(location.search) ? location.search : '';
   var EMBED = !!window.__kjEmbed;
-  // QA switches (?seed=) are dead inside the platform.
-  function qp(name) { if (EMBED) return null; var m = new RegExp('[?&]' + name + '=([^&]*)').exec(Q); return m ? decodeURIComponent(m[1]) : null; }
+  // QA switches (?seed=): read only by localSeed, which only a standalone page
+  // reaches; inside the platform start() never borrows a seed.
+  function qp(name) { var m = new RegExp('[?&]' + name + '=([^&]*)').exec(Q); return m ? decodeURIComponent(m[1]) : null; }
   var RP = (window.KJReplay && window.KJReplay.active()) ? window.KJReplay : null;
   var replayChains = null, traceVersion = 0, submitted = false, sessionReady = false;
   if (RP) RP.ready('pearls-connect');

@@ -118,8 +118,8 @@ describe('pearls-connect session and submit', () => {
     g.toPlay();
     expect(g.probe().sim.grid).toEqual(g.probe().rules.initSim(H.seedHex(5), 2).grid);
   });
-  test('a run with no session seed inside the platform never borrows one', () => {
-    const g = H.boot({ seed: null });
+  test('a run with no session seed inside the platform never borrows one, not even from ?seed', () => {
+    const g = H.boot({ seed: null, search: '?seed=00112233445566778899' });
     g.toPlay();
     expect(g.probe().sim.seed).toBe(0);
   });

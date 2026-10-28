@@ -139,7 +139,7 @@ const M = [
   ['c: submit at once', 'game', '    setTimeout(finishRun, 3000);\n', '    finishRun();\n'],
   ['c: no submit timer', 'game', '    setTimeout(finishRun, 3000);\n', ''],
   ['c: a second run embedded', 'game', '    if (EMBED && submitted) return;   // one run per session', '    // one run per session'],
-  ['c: qa switches embedded', 'game', 'function qp(name) { if (EMBED) return null;', 'function qp(name) {'],
+  ['c: qa seed embedded', 'game', 'sim = initSim(window.__kjSeed || (EMBED ? null : localSeed()), RULES_VERSION);', 'sim = initSim(window.__kjSeed || localSeed(), RULES_VERSION);'],
   ['c: session not awaited', 'game', "if (!sessionReady || state === 'ready' || state === 'play' || state === 'timeup') return;", "if (state === 'ready' || state === 'play' || state === 'timeup') return;"],
   ['c: tutorial never shown', 'game', 'function shouldTutorial() { return !RP && !!window.KJTut && window.KJTut.shouldShow(); }', 'function shouldTutorial() { return false; }'],
   ['c: a second finger takes over', 'game', "if (RP || state !== 'play' || activeId !== null) return;", "if (RP || state !== 'play') return;"],
