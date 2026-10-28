@@ -196,6 +196,30 @@ describe('Pearls Connect validator: attacks that try to buy a better run', () =>
     expect(bot.loopSkipped).toBe(0);
     expect(hand.loopSkipped + hand.loops).toBeGreaterThan(0);
   });
+  test('a loop left on the board is recorded, exactly once per chain that ignored it', () => {
+    // find an opening board with a 2 x 2 loop, then take a pair of another colour
+    for (let i = 0; i < 2000; i++) {
+      const seed = H.seedHex(70000 + i), g = S.initSim(seed, 2).grid;
+      if (!S.squareLoop(g)) continue;
+      let sq = -1;
+      for (let r = 0; r < 5 && sq < 0; r++) for (let c = 0; c < 5; c++) { const j = r * 6 + c; if (g[j] === g[j + 1] && g[j] === g[j + 6] && g[j] === g[j + 7]) { sq = j; break; } }
+      let pr = null;
+      for (let j = 0; j < 36 && !pr; j++) { if (g[j] === g[sq]) continue; if (j % 6 < 5 && g[j] === g[j + 1]) pr = [j, j + 1]; else if (j + 6 < 36 && g[j] === g[j + 6]) pr = [j, j + 6]; }
+      if (!pr) continue;
+      const st = V.init({ seed });
+      V.processEvent(st, start());
+      V.processEvent(st, chn(0, 10, pr));
+      expect(V.finalize(st).debug.loopSkipped).toBe(1);
+      const st2 = V.init({ seed });
+      V.processEvent(st2, start());
+      V.processEvent(st2, chn(0, 10, [sq, sq + 1, sq + 7, sq + 6, sq]));
+      const d2 = V.finalize(st2).debug;
+      expect(d2.loopSkipped).toBe(0);
+      expect(d2.loops).toBe(1);
+      return;
+    }
+    throw new Error('no opening board with a 2 x 2 loop in 2000 seeds');
+  });
   test('the humanness extractor reads every chain as one input', () => {
     const prev = F.GAME_INPUTS['pearls-connect'];
     F.GAME_INPUTS['pearls-connect'] = { kinds: ['chain'], time: 'step' };   // the one-line hunk for integration
