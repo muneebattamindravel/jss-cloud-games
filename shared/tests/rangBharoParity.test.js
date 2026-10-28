@@ -293,6 +293,15 @@ describe('Rang Bharo input: one move at a time, one swipe one move', () => {
     expect(m.length).toBe(2);
     expect(m[1].step).toBe(m[0].step + 1);
   });
+  test('three swipes inside one frame keep the latest two (the first is dropped)', () => {
+    const { g, pr, open } = atRest();
+    const a = open[0], b = (open[0] + 1) & 3, c = (open[0] + 2) & 3;
+    g.swipe(a); g.swipe(b); g.swipe(c);
+    g.advance(1000 / 60 * 3);
+    const m = W.movesOf(g.trace);
+    expect(m.map((x) => x.dir)).toEqual([b, c]);
+    expect(pr.sim.inputs).toBe(2);
+  });
   test('a short flick counts, a jitter does not', () => {
     const { g, pr, open } = atRest();
     g.swipe(open[0], { flickOnly: true, len: 9 });
