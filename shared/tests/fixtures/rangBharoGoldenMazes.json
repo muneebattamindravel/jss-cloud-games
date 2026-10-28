@@ -1,0 +1,60 @@
+{
+ "version": 1,
+ "note": "Mazes that sit on rare generator branches (the 38% floor gate, the minimum-par cap at maze 16), found by measuring 4800 mazes. A change here is a rules version bump.",
+ "mazes": [
+  {
+   "seed": "g80",
+   "n": 15,
+   "par": 18,
+   "digest": "4ed4cbf0f84d771e"
+  },
+  {
+   "seed": "g116",
+   "n": 11,
+   "par": 22,
+   "digest": "a444e593150f5fba"
+  },
+  {
+   "seed": "g152",
+   "n": 5,
+   "par": 11,
+   "digest": "c2a3263ff0f026b7"
+  },
+  {
+   "seed": "g203",
+   "n": 5,
+   "par": 11,
+   "digest": "b94dd9738978ece2"
+  },
+  {
+   "seed": "g210",
+   "n": 14,
+   "par": 17,
+   "digest": "78f92b614720e8d4"
+  },
+  {
+   "seed": "g261",
+   "n": 7,
+   "par": 14,
+   "digest": "9588a8432db51cdf"
+  },
+  {
+   "seed": "g267",
+   "n": 9,
+   "par": 15,
+   "digest": "9b2f8499bcb86768"
+  },
+  {
+   "seed": "g278",
+   "n": 13,
+   "par": 20,
+   "digest": "062d02e89410003f"
+  },
+  {
+   "seed": "g232",
+   "n": 16,
+   "par": 22,
+   "digest": "786a4f2b22924c7f"
+  }
+ ]
+}

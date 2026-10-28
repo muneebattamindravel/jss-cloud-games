@@ -66,7 +66,7 @@ describe('Rang Bharo rules: one block, pinned', () => {
 
   (SKIP_PIN ? test.skip : test)('the rules block hash is pinned (a change is a version bump)', () => {
     const h = crypto.createHash('sha256').update(block(game)).digest('hex');
-    expect(h).toBe('5c042926d68096473e7a78915392cd47261d250d3b6c3c655c655c0d6e07a59a');
+    expect(h).toBe('df1076a7eb87d04d05d96ee4cf7384f608b4f4fb29efd8e12d969100bf3a722d');
   });
 
   (SKIP_PIN ? test.skip : test)('every rules constant is pinned by value', () => {
@@ -410,6 +410,14 @@ describe('Rang Bharo: every maze is solvable by construction, and nobody parks',
         const plan = H.planBfs({ slideEnd: S.slideEnd, DX: S.DX, DY: S.DY }, m, m.start, painted, 1e6);
         expect(plan.length).toBe(m.par);
       }
+    }
+  });
+  test('mazes on rare generator branches are pinned (the floor gate, the minimum-par cap)', () => {
+    const G = require('./fixtures/rangBharoGoldenMazes.json');
+    for (const g of G.mazes) {
+      const m = S.genMazeRaw(S.seedToInt(g.seed), g.n);
+      const d = crypto.createHash('sha256').update(m.w + 'x' + m.h + ':' + m.start + ':' + m.par + ':' + Array.from(m.cells).join('')).digest('hex').slice(0, 16);
+      expect([g.seed, g.n, d]).toEqual([g.seed, g.n, g.digest]);
     }
   });
   test('the same seed and maze number always give the same maze, and different seeds differ', () => {

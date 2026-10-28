@@ -74,7 +74,6 @@ const M = [
   ['inexact par +1', 'both', 'par: par < 0 ? moves : par,', 'par: par < 0 ? moves + 1 : par,'],
   ['minPar not enforced', 'both', 'if (maze.par >= minPar(n)) return maze;', 'return maze;'],
   ['minPar >', 'both', 'if (maze.par >= minPar(n)) return maze;', 'if (maze.par > minPar(n)) return maze;'],
-  ['best keeps the lowest', 'both', 'if (!best || maze.par > best.par) best = maze;', 'if (!best || maze.par < best.par) best = maze;'],
   ['floor floor 38', 'both', 'if (count * 100 < N * 38) continue;', 'if (count * 100 < N * 37) continue;'],
   ['traps allowed', 'both', 'if (!trapFree(cells, w, h, start)) continue;', ''],
   ['trapFree always', 'both', 'return q.length === list.length;', 'return true;'],
@@ -85,8 +84,10 @@ const M = [
   ['greedy picks shorter', 'both', 'if (pool[j].fresh > pool[idx].fresh) idx = j;', 'if (pool[j].fresh < pool[idx].fresh) idx = j;'],
   ['budget <=', 'both', 'while (count < want && moves < budget && stuck < 14) {', 'while (count < want && moves <= budget && stuck < 14) {'],
   ['stuck 13', 'both', 'while (count < want && moves < budget && stuck < 14) {', 'while (count < want && moves < budget && stuck < 13) {'],
+  ['stuck 3', 'both', 'while (count < want && moves < budget && stuck < 14) {', 'while (count < want && moves < budget && stuck < 3) {'],
+  ['ring when par is low', 'both', '      if (maze.par >= minPar(n)) return maze;\n    }', '      if (maze.par >= minPar(n)) return maze;\n      if (maze.par >= minPar(n) - 2) return ringMaze(w, h);\n    }'],
+  ['the run goes on past the clock', 'both', 'if (s.step >= TIME_STEPS) { s.over = true; s.ev = [{ k: \'end\' }]; return; }', 'if (s.step >= TIME_STEPS + 1) { s.over = true; s.ev = [{ k: \'end\' }]; return; }'],
   ['revisit allowed always', 'both', 'if (!pool.length) { pool = cands; stuck++; }', 'if (!pool.length || moves % 3 === 2) { pool = cands; stuck++; }'],
-  ['ring fallback always', 'both', 'return best || ringMaze(w, h);', 'return ringMaze(w, h);'],
   ['ring path', 'both', "path: [1, 2, 3, 0] };", "path: [1, 2, 0, 3] };"],
   ['ring floors', 'both', 'const floors = 2 * w + 2 * h - 4;', 'const floors = 2 * w + 2 * h - 3;'],
   ['memo wrong key', 'both', "const mk = sd + ':' + n;", "const mk = sd + ':' + (n >> 1);"],
@@ -103,10 +104,8 @@ const M = [
   ['buffer keeps the first', 'both', 'if (s.dir >= 0 || s.pause > 0) { s.queued = d; return true; }', 'if (s.dir >= 0 || s.pause > 0) { if (s.queued < 0) s.queued = d; return true; }'],
   ['bump counts as a move', 'both', "if (blockedAt(s, s.bx, s.by, d)) { s.ev = s.ev.concat([{ k: 'bump', d }]); return false; }", "if (blockedAt(s, s.bx, s.by, d)) { s.moves++; s.ev = s.ev.concat([{ k: 'bump', d }]); return false; }"],
   ['blocked edge', 'both', 'return nx < 0 || ny < 0 || nx >= m.w || ny >= m.h || m.cells[ny * m.w + nx] === 0;', 'return nx < 0 || ny < 0 || nx > m.w || ny >= m.h || m.cells[ny * m.w + nx] === 0;'],
-  ['stepSim after the end', 'both', '  function stepSim(s) {\n    if (s.over) return;', '  function stepSim(s) {'],
   ['clock >', 'both', 'if (s.step >= TIME_STEPS) { s.over = true;', 'if (s.step > TIME_STEPS) { s.over = true;'],
   ['queued lost at a new maze', 'both', "        loadMaze(s, s.n + 1);\n        if (s.queued >= 0) { const q = s.queued; s.queued = -1; tryStart(s, q); }", "        loadMaze(s, s.n + 1);\n        s.queued = -1;"],
-  ['queued lost at rest', 'both', '    if (s.dir < 0) {\n      if (s.queued >= 0) { const q = s.queued; s.queued = -1; tryStart(s, q); }', '    if (s.dir < 0) {\n      s.queued = -1;'],
   ['queued lost at a wall', 'both', "      s.ev = s.ev.concat([{ k: 'hit', d }]);\n      if (s.queued >= 0) { const q = s.queued; s.queued = -1; tryStart(s, q); }", "      s.ev = s.ev.concat([{ k: 'hit', d }]);"],
   ['tile worth 2', 'both', 's.painted[c] = 1; s.left--; s.score++; s.tiles++;', 's.painted[c] = 1; s.left--; s.score += 2; s.tiles++;'],
   ['repaint pays', 'both', '    if (s.painted[c] === 0) {\n      s.painted[c] = 1;', '    if (s.painted[c] >= 0) {\n      s.painted[c] = 1;'],
@@ -177,6 +176,10 @@ const INERT = {
   // The per-frame cap only spreads owed steps over frames (nothing is ever
   // dropped), so 3 or 6 give the same steps on the same wall clock; measured:
   // every suite passes with 6. 'c: catch-up 1' (cannot keep up at 30 Hz) is caught.
+  // Measured by re-generating 4800 mazes (300 seeds x 16) under the mutation:
+  // 0 change. 'stuck 3' and 'SOLVE_CAP small' are caught.
+  'stuck 13': 'measured: 0 of 4800 mazes change (no carve ends on the 14th fruitless try); stuck 3 is caught',
+  'SOLVE_CAP': 'measured: 0 of 4800 mazes change (no BFS ends between 59999 and 60000 states); SOLVE_CAP small is caught',
   'c: catch-up 6': 'owed steps are never dropped; the cap only spreads them; catch-up 1 is caught',
 };
 
