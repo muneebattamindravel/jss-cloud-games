@@ -746,16 +746,13 @@
     label('SCORE', L, B.y + 19, null, 'left');
     ctx.save(); ctx.translate(L, B.y + 49); var bs = 1 + 0.12 * (st && sim === st.sim ? st.bump : 0); ctx.scale(bs, bs);
     txt(Math.round(st && sim === st.sim ? st.scoreShown : sc).toLocaleString('en-US'), 0, 0, 25, C_INK, 'left'); ctx.restore();
-    // the clock: big, with a dial icon; amber at 1 minute, red at 30 seconds, pulsing at 10
+    // the clock: big; amber at 1 minute, red at 30 seconds, pulsing at 10
     var rem = sim ? Math.max(0, G.RUN_STEPS - sim.frame) : G.RUN_STEPS, secs = Math.ceil(rem / 60);
     var tcol = secs <= 30 ? C_HOT : secs <= 60 ? C_EMBER : C_INK;
     var pulse = (mode === 'play' && secs <= 10) ? 1.08 + 0.08 * Math.abs(Math.sin(now / 160)) : 1;
     label('TIME', Rt, B.y + 19, null, 'right');
     ctx.save(); ctx.translate(Rt, B.y + 49); ctx.scale(pulse, pulse);
     txt(Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2), 0, 0, 25, tcol, 'right');
-    ctx.font = '25px ' + FONT; var tw = ctx.measureText('0:00').width;
-    ctx.lineWidth = 2; ctx.strokeStyle = tcol; ctx.beginPath(); ctx.arc(-tw - 12, -9, 7, 0, 6.2832); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-tw - 12, -9); ctx.lineTo(-tw - 12, -13.5); ctx.moveTo(-tw - 12, -9); ctx.lineTo(-tw - 8.5, -7.5); ctx.stroke();
     ctx.restore();
     var lvl = sim ? sim.level : 1, lines = sim ? sim.lines : 0, prog = (lines % 10) / 10, pw = B.w - 28 - 44;
     rr(ctx, L, B.y + 60, pw, 5, 2.5); ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill();
