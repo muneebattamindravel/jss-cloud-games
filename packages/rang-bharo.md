@@ -14,11 +14,15 @@ carved corridors, truck-art lights and diamonds, five truck-art palettes),
 Web Audio only. Mechanic of a well known sliding-paint maze game; no name, art
 or sound taken. The founder's icon artwork is the platform icon.
 
-Founder's feel verdict: not yet given in words. The founder moved the session
-to the server stage ("use this icon and then start the server ... get
-everything ready") without writing the agreed phrase "the game is ready".
-**The founder has not yet said it is fun in so many words: confirm before
-featuring.**
+Founder's feel verdict, after playing the build with the interactive
+practice: **"okay i think this game is perfect."** One round of feedback came
+before it: "the game has a pop up tutorial. i don't want pop up tutorials, i
+want interactive tutorial". The fix was a removal (the HOW TO PLAY popup and
+its demo) and a replacement inside the platform's rules: a guided practice
+maze the player solves with real swipes before the first run (an arrow of
+chevrons and a flicking finger show each swipe, a wrong one bumps and says
+TRY RIGHT, SKIP any time), outside the run, never traced or scored, gated by
+KJTut once per rotation; HOW TO PLAY on the menu replays it.
 
 ## 2. Trace and versions
 - Trace v1: `{kind:'start', v:1, tHint}` then one `{kind:'move', n, dir, step, tHint}`
@@ -82,14 +86,42 @@ exactly; one second of frames is 58 to 62 steps at 30, 60, 120 and 144 Hz;
 ten hidden seconds are 598 to 603 steps.
 
 ## 6. Suite counts
-- Parity: PARITY_COUNT tests. Adversarial: ADV_COUNT. Render: RENDER_COUNT. Replay: REPLAY_COUNT.
-  Total TOTAL_COUNT, about TIME_S s with `npx jest --runInBand rangBharo`.
+- Parity: 66 tests. Adversarial: 48. Render: 20 (page contract, session gate,
+  one run per session, submit after the end screen, hidden-tab submit, QA
+  switches, the practice, strict canvas at 3 viewports, gradients per frame).
+  Replay: 9. Total 143, about 150 s with `npx jest --runInBand rangBharo`.
+- Cross-engine: `scripts/rb-cross-engine.js` hashes the world after every step
+  of the 10 golden schedules in Node and headless Chrome: 10/10 identical.
 - Golden runs: 10 (v1, `shared/tests/fixtures/rangBharoGolden.json`):
   flawless, good x2, average, novice, bot, greedy, spammer, idle, cycler.
   Regenerate only with a version bump (`node shared/tests/lib/rangBharoGoldenGen.js`).
 
 ## 7. Mutation battery
-MUTATION_RESULT
+`shared/tests/lib/rangBharoMutate.js`, 126 mutations over the constants, the
+seed and hash, the difficulty curve, the generator (stop pinning, trap check,
+solver, fallback ring, memo key), the sim (buffering, one input a step, the
+clock, scoring, PERFECT), the validator interface (rewind, index, typeof,
+input cap, elapsed cap, start marker, claimed score, debug fields) and the
+client (emit order and fields, swipe and flick thresholds, fingers, key
+repeat, READY input, inbox, backup clock and catch-up, submit timing, one run
+per session, session gate, ?seed, trace marker, replay, the practice). Run
+from scratch copies only, 4 shards.
+
+- With the pin tables: **125 live caught, 1 inert, 0 survivors.**
+- Behaviour only (`--nopin`): NOPIN_RESULT
+- Inert, with a measurement: `c: catch-up 6` (owed steps are never dropped,
+  so a per-frame cap of 3 or 6 runs the same steps on the same wall clock;
+  every suite passes with 6). Its large variant `c: catch-up 1` is caught.
+  `GEN_ATTEMPTS` 60 to 59 is listed as possibly inert (no measured maze needs
+  the 60th attempt); it was caught by the pin table, and `GEN_ATTEMPTS small`
+  (1) is caught by behaviour.
+- Survivors found and fixed on the way (all holes in the tests or guards that
+  masked each other): the validator's direction check (duplicated the rules'
+  own, removed); the client's end-of-run, replay-input and second-run guards
+  (shadowed by one central guard each, removed); a swipe firing mid-move,
+  two and three swipes inside one frame, a swipe in READY held over into the
+  run, a wrong practice swipe in an open direction, the practice world
+  stopping at its clear (tests added).
 
 ## 8. Ladder and `max_score_per_sec`
 24 seeds, 3 minute runs, the real game.js, the validator agreeing on every run:
@@ -130,9 +162,21 @@ Keep humanness in record mode and the game out of paid rotation until there
 is real data.
 
 ## 10. Draw cost and size
-DRAW_COST
+Headless Chromium, GPU rasterization on, CPU throttled 6x, DPR 2, a run
+playing (time inside each animation-frame callback):
 
-Folder size: `games/rang-bharo` is FOLDER_KB KB (index.html, js/game.js, the
+| viewport | median | p95 | max |
+|---|---|---|---|
+| 375x812 | 6.2 ms | 13.1 ms | 319 ms |
+| 320x568 | 4.2 ms | 9.8 ms | 25 ms |
+| 1440x780 | 5.5 ms | 11.7 ms | 18 ms |
+
+The one long frame is the maze change (the next maze and its board sprite are
+built while the clear celebration plays); everything else fits a 60 Hz frame
+with room. Generating a large maze takes up to about 0.2 s on a desktop core
+(next maze is generated during the confetti).
+
+Folder size: `games/rang-bharo` is 108 KB (index.html, js/game.js, the
 Titan One subset). **A real phone was not measured.**
 
 ## 11. Registration and integration
@@ -150,14 +194,13 @@ Titan One subset). **A real phone was not measured.**
   5. `shared/db/seeds/index.js`: a seed entry with `max_score_per_sec: 212`.
 
 ## 12. Open items for the founder
-1. Say whether the game is fun (the agreed phrase was never written).
-2. The scoring numbers (tile 1, clear 10 x n, PERFECT 25 + 5 x n, 3 minutes)
+1. The scoring numbers (tile 1, clear 10 x n, PERFECT 25 + 5 x n, 3 minutes)
    were proposed, not tuned with you.
-3. The lazy no-plan strategy reaches 0.69 x average. If you want planning to
+2. The lazy no-plan strategy reaches 0.69 x average. If you want planning to
    matter more, options: a bigger PERFECT bonus, a small cost per move over
    par, or fewer floor tiles worth points (more of the score in clears).
-4. The bot gap (1.6 x good) is the humanness layer's job; record mode first.
-5. Big-maze par is an upper bound on a few percent of mazes (section 4).
+3. The bot gap (1.6 x good) is the humanness layer's job; record mode first.
+4. Big-maze par is an upper bound on a few percent of mazes (section 4).
 
 ## Platform snapshot notes
 - `docs/HANDBOOK.md` and the session brief reference `games/pearls-connect`,
