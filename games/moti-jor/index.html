@@ -4,59 +4,191 @@
   <script src="/games/_shared/no-touch-ui.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0e1226" />
+  <meta name="theme-color" content="#0b0920" />
   <title>Moti Jor</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #0e1226; overflow: hidden; color: #fff;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
-      user-select: none; -webkit-user-select: none; }
+    @font-face { font-family: 'Titan One'; src: url('fonts/titan-one-400-latin.woff2') format('woff2'); font-display: swap; }
+    :root { --bg: #0b0920; --ink: #1d1033; --gold1: #fff3c4; --gold2: #ffc93c; --gold3: #e0820f; --muted: rgba(255,240,215,.62);
+      --ruby: #ff3d6e; --emerald: #22d58a; --sapphire: #3f8cff; --topaz: #ffbe2e; --amethyst: #b265ff; color-scheme: dark; }
+    html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; color: #fff;
+      font-family: 'Titan One', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
+      user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
     canvas#scene { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
-    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 24px; box-sizing: border-box; transition: opacity .25s ease; background: rgba(10,13,30,.72); }
-    .screen.is-hidden { opacity: 0; pointer-events: none; }
-    h1 { font-size: min(64px, 15vw); white-space: nowrap; text-align: center; margin: 0; letter-spacing: 4px; font-weight: 900;
-      background: linear-gradient(180deg, #fff3d6, #ffc23d); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .sub { margin: 6px 0 56px; letter-spacing: 4px; font-size: 14px; color: rgba(255,255,255,.65); text-transform: uppercase; }
-    .btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 800; letter-spacing: 3px; font-size: 20px;
-      color: #2a1a00; background: linear-gradient(180deg, #ffe08a, #ffb22e); border-radius: 999px; padding: 17px 0;
-      width: min(74vw, 290px); box-shadow: 0 10px 28px rgba(255,180,40,.3); }
-    .btn:active { transform: scale(.96); }
-    .link { appearance: none; border: 0; background: none; color: rgba(255,255,255,.75); font: inherit; font-size: 13px;
-      letter-spacing: 2px; text-transform: uppercase; padding: 14px; cursor: pointer; }
-    .how { max-width: 320px; font-size: 17px; line-height: 1.5; color: rgba(255,255,255,.9); margin: 0 0 36px; }
-    .how b { color: #ffc23d; }
-    .how p { margin: 0 0 14px; }
-    .label { font-size: 13px; letter-spacing: 5px; color: rgba(255,255,255,.65); margin: 0; }
-    .big { font-size: 96px; font-weight: 900; margin: 6px 0 4px; color: #fff3d6; }
-    .best { font-size: 14px; letter-spacing: 2px; color: rgba(255,255,255,.6); margin: 0 0 40px; }
+    canvas#top { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; pointer-events: none; z-index: 50; }
+
+    .screen { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: max(24px, env(safe-area-inset-top)) 22px max(28px, env(safe-area-inset-bottom)); box-sizing: border-box;
+      transition: opacity .35s ease, visibility .35s; }
+    .screen.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .screen.is-hidden * { animation-play-state: paused; }
+
+    /* ── menu ─────────────────────────────────────────────── */
+    #menu { justify-content: space-between; background: radial-gradient(ellipse at 50% 46%, rgba(11,9,32,0) 0%, rgba(11,9,32,.5) 75%); }
+    .menu-mid { display: flex; flex-direction: column; align-items: center; margin-top: 24vh; }
+    .logo { font-size: min(78px, 20vw); line-height: .95; text-align: center; letter-spacing: 3px; color: #ffd257;
+      text-shadow: 0 .07em 0 #9b4d00, 0 .1em 0 #5c2a00, 0 .2em .5em rgba(0,0,0,.55); }
+    .logo .row { display: flex; align-items: center; justify-content: center; }
+    .logo .row + .row { margin-top: -.04em; }
+    .pearl { display: inline-block; width: .74em; height: .74em; border-radius: 50%; margin: 0 .03em; position: relative; top: .02em;
+      box-shadow: inset -.06em -.09em .14em rgba(0,0,0,.45), inset .05em .06em .12em rgba(255,255,255,.35), 0 .09em 0 rgba(0,0,0,.45);
+      animation: bob 2.6s ease-in-out infinite; }
+    .pearl::after { content: ""; position: absolute; left: 18%; top: 14%; width: 34%; height: 22%; border-radius: 50%;
+      background: rgba(255,255,255,.85); transform: rotate(-30deg); filter: blur(.5px); }
+    .p-ruby { background: radial-gradient(circle at 35% 30%, #ffd0dc 0 6%, #ff4a78 32%, #a3123d 100%); }
+    .p-sapph { background: radial-gradient(circle at 35% 30%, #d6e6ff 0 6%, #4a93ff 32%, #1a3fa8 100%); animation-delay: -1.3s; }
+    @keyframes bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-.06em) } }
+    .tag { margin: 18px 0 0; font-size: 14px; letter-spacing: 6px; color: var(--muted); }
+    .best-chip { margin-top: 22px; display: inline-flex; gap: 8px; align-items: center; padding: 8px 18px; border-radius: 999px;
+      background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1.5px rgba(255,210,90,.35); font-size: 15px; letter-spacing: 2px; color: var(--gold1); }
+    .best-chip[hidden] { display: none; }
+    .best-chip .cr { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff 0 10%, #ffc93c 40%, #b06a00); }
+    .foot { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+
+    .btn { appearance: none; border: 0; cursor: pointer; font: inherit; letter-spacing: 4px; font-size: 24px; color: #4a2300;
+      width: min(76vw, 300px); padding: 18px 0 20px; border-radius: 999px; position: relative; overflow: hidden;
+      background: linear-gradient(180deg, #fff1b0 0%, #ffd04a 45%, #f39a17 100%);
+      box-shadow: inset 0 -5px 0 rgba(150,60,0,.35), inset 0 2px 0 rgba(255,255,255,.8), 0 8px 0 #8a4200, 0 16px 34px rgba(255,160,30,.35);
+      transition: transform .1s ease, box-shadow .1s ease; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+    .btn::before { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
+      background: linear-gradient(100deg, transparent, rgba(255,255,255,.65), transparent); animation: shine 3.2s ease-in-out infinite; }
+    @keyframes shine { 0%, 55% { left: -60% } 100% { left: 130% } }
+    .btn:active { transform: translateY(6px); box-shadow: inset 0 -5px 0 rgba(150,60,0,.35), inset 0 2px 0 rgba(255,255,255,.8), 0 2px 0 #8a4200, 0 6px 16px rgba(255,160,30,.3); }
+    .btn.breathe { animation: breathe 1.8s ease-in-out infinite; }
+    @keyframes breathe { 0%, 100% { scale: 1 } 50% { scale: 1.04 } }
+    .btn-ghost { background: rgba(255,255,255,.08); color: #fff; text-shadow: none; font-size: 17px; padding: 14px 0 15px;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.28), 0 6px 0 rgba(0,0,0,.35); }
+    .btn-ghost::before { display: none; }
+    .btn-ghost:active { box-shadow: inset 0 0 0 2px rgba(255,255,255,.28), 0 1px 0 rgba(0,0,0,.35); }
+    .link { appearance: none; border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px;
+      letter-spacing: 3px; padding: 14px 18px; cursor: pointer; }
+    .btn:focus-visible, .link:focus-visible, #mute:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+    /* ── how to play ──────────────────────────────────────── */
+    #how { background: rgba(8,6,24,.82); z-index: 30; }
+    .card { width: min(88vw, 360px); border-radius: 28px; padding: 26px 22px 24px; box-sizing: border-box;
+      background: linear-gradient(180deg, #2a1d5a, #1a1240); box-shadow: inset 0 0 0 2px rgba(255,210,90,.35), 0 24px 60px rgba(0,0,0,.6);
+      animation: cardIn .45s cubic-bezier(.2,1.4,.4,1) both; }
+    @keyframes cardIn { from { transform: translateY(40px) scale(.9); opacity: 0 } }
+    .card h2 { margin: 0 0 18px; text-align: center; font-weight: 400; font-size: 26px; letter-spacing: 3px; color: var(--gold2); }
+    .step { display: flex; align-items: center; gap: 16px; padding: 12px 0; }
+    .step + .step { border-top: 1px solid rgba(255,255,255,.08); }
+    .step svg { flex: 0 0 auto; width: 92px; height: 64px; }
+    .step p { margin: 0; font-size: 16px; line-height: 1.35; color: #f3eaff; letter-spacing: .5px; }
+    .step p b { font-weight: 400; color: var(--gold2); }
+    .card .btn { display: block; margin: 20px auto 6px; font-size: 21px; }
+
+    /* ── game over ────────────────────────────────────────── */
+    #over { background: radial-gradient(ellipse at 50% 40%, rgba(30,18,70,.93), rgba(8,6,24,.98)); z-index: 30; }
+    .eyebrow { margin: 0; font-size: 18px; letter-spacing: 8px; color: var(--muted); animation: rise .5s ease both; }
+    .final { margin: 4px 0 0; font-size: min(108px, 27vw); line-height: 1; color: var(--gold1); font-variant-numeric: tabular-nums;
+      text-shadow: 0 6px 0 #9b4d00, 0 12px 40px rgba(255,180,40,.35); animation: pop .6s .15s cubic-bezier(.2,1.6,.4,1) both; }
+    .newbest { margin: 14px 0 0; padding: 7px 18px 8px; border-radius: 999px; font-size: 16px; letter-spacing: 3px; color: #3b1700;
+      background: linear-gradient(180deg, #fff3b8, #ffb21f); box-shadow: 0 4px 0 #8a4200, 0 0 30px rgba(255,200,60,.6);
+      animation: pop .5s .9s cubic-bezier(.2,1.8,.4,1) both, glow 1.4s 1.4s ease-in-out infinite; }
+    .newbest[hidden] { display: none; }
+    .bestline { margin: 12px 0 0; font-size: 14px; letter-spacing: 3px; color: var(--muted); animation: rise .5s .5s ease both; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: min(86vw, 330px); margin: 28px 0 30px; }
+    .stat { border-radius: 18px; padding: 12px 10px 11px; text-align: center; background: rgba(255,255,255,.06);
+      box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.09); animation: rise .45s ease both; }
+    .stat:nth-child(1) { animation-delay: .55s } .stat:nth-child(2) { animation-delay: .62s }
+    .stat:nth-child(3) { animation-delay: .69s } .stat:nth-child(4) { animation-delay: .76s }
+    .stat b { display: block; font-weight: 400; font-size: 26px; color: #fff; font-variant-numeric: tabular-nums; }
+    .stat span { display: block; margin-top: 2px; font-size: 11px; letter-spacing: 2.5px; color: var(--muted); }
+    #over .btn { animation: rise .45s .85s ease both; }
+    #over .btn-ghost { margin-top: 14px; animation-delay: .92s; }
+    @keyframes rise { from { transform: translateY(18px); opacity: 0 } }
+    @keyframes pop { from { transform: scale(.3); opacity: 0 } }
+    @keyframes glow { 50% { box-shadow: 0 4px 0 #8a4200, 0 0 46px rgba(255,210,80,.95) } }
+
+    /* ── mute ─────────────────────────────────────────────── */
+    #mute { position: fixed; z-index: 40; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
+      width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; display: grid; place-items: center;
+      background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.18); color: #fff; }
+    #mute svg { width: 22px; height: 22px; }
+    #mute .off { display: none; }
+    #mute.is-muted .on { display: none; } #mute.is-muted .off { display: block; }
+
+    @media (prefers-reduced-motion: reduce) { .pearl, .btn::before, .btn.breathe { animation: none; } }
   </style>
 </head>
 <body>
-  <canvas id="scene" aria-label="Drag through pearls of one colour to clear them."></canvas>
+  <canvas id="scene" aria-label="Drag through pearls of one colour to clear them. Close a loop to clear every pearl of that colour."></canvas>
+  <canvas id="top" aria-hidden="true"></canvas>
+
+  <button id="mute" type="button" aria-label="Sound on or off">
+    <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+    <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+  </button>
 
   <section id="menu" class="screen">
-    <h1>MOTI JOR</h1>
-    <p class="sub">Chain the pearls</p>
-    <button class="btn" id="playBtn" type="button">PLAY</button>
-    <button class="link" id="howBtn" type="button">How to play</button>
+    <div></div>
+    <div class="menu-mid">
+      <div class="logo" aria-label="Moti Jor">
+        <div class="row">M<span class="pearl p-ruby"></span>TI</div>
+        <div class="row">J<span class="pearl p-sapph"></span>R</div>
+      </div>
+      <p class="tag">CHAIN THE PEARLS</p>
+      <div class="best-chip" id="menuBest" hidden><span class="cr"></span><span id="menuBestVal">BEST 0</span></div>
+    </div>
+    <div class="foot">
+      <button class="btn breathe" id="playBtn" type="button">PLAY</button>
+      <button class="link" id="howBtn" type="button">HOW TO PLAY</button>
+    </div>
   </section>
 
   <section id="how" class="screen is-hidden">
-    <div class="how">
-      <p><b>Drag</b> through pearls of the <b>same colour</b>, up, down or sideways.</p>
-      <p>Longer chains score <b>much more</b>.</p>
-      <p>Close a <b>loop</b> and every pearl of that colour clears.</p>
-      <p>You have <b>90 seconds</b>.</p>
+    <div class="card">
+      <h2>HOW TO PLAY</h2>
+      <div class="step">
+        <svg viewBox="0 0 92 64" aria-hidden="true">
+          <path d="M16 46 L46 46 L46 18" stroke="#ff3d6e" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="46" r="11" fill="#ff3d6e"/><circle cx="46" cy="46" r="11" fill="#ff3d6e"/><circle cx="46" cy="18" r="11" fill="#ff3d6e"/>
+          <circle cx="76" cy="46" r="11" fill="#3f8cff" opacity=".5"/><circle cx="76" cy="18" r="11" fill="#22d58a" opacity=".5"/>
+          <circle cx="12" cy="42" r="3" fill="#fff" opacity=".8"/><circle cx="42" cy="42" r="3" fill="#fff" opacity=".8"/><circle cx="42" cy="14" r="3" fill="#fff" opacity=".8"/>
+        </svg>
+        <p><b>Drag</b> through pearls of one colour. Up, down or sideways.</p>
+      </div>
+      <div class="step">
+        <svg viewBox="0 0 92 64" aria-hidden="true">
+          <path d="M10 46 L30 46 L30 22 L50 22 L50 46 L70 46 L70 22" stroke="#ffbe2e" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <g fill="#ffbe2e"><circle cx="10" cy="46" r="8"/><circle cx="30" cy="46" r="8"/><circle cx="30" cy="22" r="8"/><circle cx="50" cy="22" r="8"/><circle cx="50" cy="46" r="8"/><circle cx="70" cy="46" r="8"/><circle cx="70" cy="22" r="8"/></g>
+          <text x="84" y="16" fill="#fff" font-size="13" text-anchor="middle" font-family="Titan One, sans-serif">+28</text>
+        </svg>
+        <p><b>Longer chains</b> score far more.</p>
+      </div>
+      <div class="step">
+        <svg viewBox="0 0 92 64" aria-hidden="true">
+          <rect x="22" y="12" width="30" height="30" stroke="#b265ff" stroke-width="7" fill="none" stroke-linejoin="round"/>
+          <g fill="#b265ff"><circle cx="22" cy="12" r="9"/><circle cx="52" cy="12" r="9"/><circle cx="52" cy="42" r="9"/><circle cx="22" cy="42" r="9"/><circle cx="80" cy="54" r="7"/><circle cx="76" cy="20" r="7"/><circle cx="8" cy="58" r="6"/></g>
+          <circle cx="37" cy="27" r="22" stroke="#b265ff" stroke-width="2" fill="none" opacity=".45"/>
+        </svg>
+        <p>Close a <b>loop</b> to clear every pearl of that colour.</p>
+      </div>
+      <div class="step">
+        <svg viewBox="0 0 92 64" aria-hidden="true">
+          <circle cx="46" cy="32" r="24" stroke="rgba(255,255,255,.15)" stroke-width="7" fill="none"/>
+          <path d="M46 8 A24 24 0 1 1 25 44" stroke="#ffc93c" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <text x="46" y="38" fill="#fff" font-size="16" text-anchor="middle" font-family="Titan One, sans-serif">90</text>
+        </svg>
+        <p>You have <b>90 seconds</b>. Make them count.</p>
+      </div>
+      <button class="btn" id="howPlayBtn" type="button">GOT IT</button>
     </div>
-    <button class="btn" id="howPlayBtn" type="button">PLAY</button>
   </section>
 
-  <section id="over" class="screen is-hidden">
-    <p class="label">SCORE</p>
-    <p class="big" id="overScore">0</p>
-    <p class="best" id="overBest"></p>
+  <section id="over" class="screen is-hidden" aria-live="polite">
+    <p class="eyebrow">TIME UP</p>
+    <p class="final" id="overScore">0</p>
+    <p class="newbest" id="overNew" hidden>NEW BEST!</p>
+    <p class="bestline" id="overBest"></p>
+    <div class="stats">
+      <div class="stat"><b id="stPearls">0</b><span>PEARLS</span></div>
+      <div class="stat"><b id="stChain">0</b><span>LONGEST CHAIN</span></div>
+      <div class="stat"><b id="stLoops">0</b><span>LOOPS</span></div>
+      <div class="stat"><b id="stMove">0</b><span>BEST MOVE</span></div>
+    </div>
     <button class="btn" id="againBtn" type="button">PLAY AGAIN</button>
-    <button class="link" id="homeBtn" type="button">Menu</button>
+    <button class="btn btn-ghost" id="homeBtn" type="button">MENU</button>
   </section>
 
   <script src="js/game.js"></script>
