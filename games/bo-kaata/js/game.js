@@ -19,7 +19,7 @@
   var pskip = $('pskip'), pplay = $('pplay');
 
   var state = 'menu';         // menu | prac | play | dying | over
-  var sim = null, prev = null, acc = 0, lastT = null;
+  var sim = null, prev = null, acc = 0, fxAcc = 0, lastT = null;
   var fit = null, dpr = 1, boxW = 0, boxH = 0;
 
   function randomSeed() { var s = ''; for (var i = 0; i < 16; i++) s += Math.floor(Math.random() * 16).toString(16); return s; }
@@ -851,7 +851,12 @@
       while (acc >= STEP_MS) { acc -= STEP_MS; stepPrac(); stepFx(); }
       // only a frozen practice (waiting for the player) drops its spare time, and then
       // the drawn kite is parked exactly on the simulated one, so nothing snaps back
-      if (prac && (prac.want || prac.phase === 'ready' || prac.phase === 'gap')) { acc = 0; prev = snap(sim); }
+      // The sparks, texts and shake still settle meanwhile, on a clock of their own: held at zero
+      // with the rest they never ended on a fast screen (the screen shook for good after the cut).
+      if (prac && (prac.want || prac.phase === 'ready' || prac.phase === 'gap')) {
+        acc = 0; prev = snap(sim);
+        fxAcc += dt; while (fxAcc >= STEP_MS) { fxAcc -= STEP_MS; stepFx(); }
+      } else fxAcc = 0;
     } else if (state === 'dying' || state === 'over') {
       acc += dt; while (acc >= STEP_MS) { acc -= STEP_MS; stepFx(); } acc = 0;
     }
@@ -892,6 +897,6 @@
   window.addEventListener('resize', function () { boxW = 0; });
   setInterval(function () { if (canvas.clientWidth !== boxW || canvas.clientHeight !== boxH) boxW = 0; }, 500);
   resize();
-  if (!EMBED || window.__pkHarness) window.__pk = { get sim() { return sim; }, get state() { return state; }, get prac() { return prac; } };
+  if (!EMBED || window.__pkHarness) window.__pk = { get shake() { return shake; }, get sim() { return sim; }, get state() { return state; }, get prac() { return prac; } };
   requestAnimationFrame(frame);
 })();
