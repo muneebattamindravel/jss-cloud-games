@@ -198,7 +198,7 @@
     noiseBuf = AC.createBuffer(1, Math.floor(AC.sampleRate * 0.5), AC.sampleRate);
     var nd = noiseBuf.getChannelData(0), ns = 12345;
     for (var i = 0; i < nd.length; i++) { ns = (Math.imul(ns, 1664525) + 1013904223) >>> 0; nd[i] = ns / 2147483648 - 1; }   // fixed noise, never Math.random
-    loadSong();
+    loadSong(); loadClips();
     return AC;
   }
   ['pointerdown', 'touchend', 'click', 'keydown'].forEach(function (t) { window.addEventListener(t, function () { audio(); }, { passive: true }); });
@@ -268,10 +268,31 @@
   function loadSong() {
     if (songAsked || !AC || typeof fetch !== 'function') return;
     songAsked = true;
-    fetch('audio/basant.mp3?v=1').then(function (r) { if (!r.ok) throw new Error('song'); return r.arrayBuffer(); })
+    fetchAudio('audio/basant.mp3?v=1')
       .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
       .then(function (buf) { songBuf = buf; if (musicOn && !songSrc) swapToSong(); })
       .catch(function () {});
+  }
+  function fetchAudio(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error('audio'); return r.arrayBuffer(); }); }
+  // The shout is the founder's recorded "Bo Kaata!" (two takes, used in turn). Until they have
+  // loaded, or if they never do, the synthesised shout below stands in.
+  var clips = {}, clipsAsked = false, shoutNo = 0;
+  function loadClips() {
+    if (clipsAsked || !AC || typeof fetch !== 'function') return;
+    clipsAsked = true;
+    ['bokaata1', 'bokaata2'].forEach(function (n) {
+      fetchAudio('audio/' + n + '.mp3?v=1')
+        .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
+        .then(function (buf) { clips[n] = buf; })
+        .catch(function () {});
+    });
+  }
+  function playClip(n, when, vol, rate) {
+    var buf = clips[n]; if (!buf || !audio()) return false;
+    var src = AC.createBufferSource(), g = AC.createGain();
+    src.buffer = buf; src.playbackRate.value = rate || 1; g.gain.value = vol;
+    src.connect(g); g.connect(master); src.start(AC.currentTime + (when || 0));
+    return true;
   }
   function playSong() {
     var src = AC.createBufferSource(); src.buffer = songBuf; src.loop = true;
@@ -334,14 +355,16 @@
   }
   var SFX = {
     cut: function (mult, big) {
-      shout(0, 1, 1); if (mult > 1 || big) shout(0.03, 1.06, 0.7);                                // a crowd joins in on a streak or a big kite
+      var take = shoutNo++ % 2 ? 'bokaata2' : 'bokaata1', other = take === 'bokaata1' ? 'bokaata2' : 'bokaata1';
+      if (playClip(take, 0, 1, 1)) { if (mult > 1 || big) playClip(other, 0.09, 0.45, 1.05); }   // a second voice joins in on a streak or a big kite
+      else { shout(0, 1, 1); if (mult > 1 || big) shout(0.03, 1.06, 0.7); }
       dholRoll(0.1, big ? 12 : mult > 1 ? 8 : 5, 0.7);
       note(784, 0.05, 0.35, 0.1); note(1175, 0.12, 0.45, 0.09); if (mult > 1) note(1568, 0.19, 0.5, 0.08);
     },
     pench: function () { note(1320, 0, 0.12, 0.05); },
     warn: function () { note(440, 0, 0.18, 0.07); note(440, 0.16, 0.18, 0.07); },
     lost: function (why) {
-      if (why !== 'roof') shout(0.12, 1.28, 0.55);                                                // the rival shouts it back at you
+      if (why !== 'roof' && !playClip(shoutNo % 2 ? 'bokaata2' : 'bokaata1', 0.12, 0.6, 0.92)) shout(0.12, 1.28, 0.55);   // the rival shouts it back at you
       note(392, 0, 0.4, 0.11); note(294, 0.14, 0.55, 0.1);
     },
     good: function () { note(1047, 0, 0.3, 0.1); note(1319, 0.08, 0.35, 0.09); },
