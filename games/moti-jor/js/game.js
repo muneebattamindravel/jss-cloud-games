@@ -1,6 +1,6 @@
 /*
  * Moti Jor: drag through pearls of one colour to clear them. Close a loop and
- * every pearl of that colour goes. 90 seconds.
+ * every pearl of that colour goes. 5 minutes.
  *
  * Phase 1 playable core: no session, no platform seed, no trace yet.
  * The board logic is integer and grid based and the clock runs on fixed
@@ -13,7 +13,7 @@
   // ── rules (phase 1; becomes the deterministic block later) ─────────────────
   var N = 6;                  // 6 x 6 board
   var KINDS = 5;              // pearl colours
-  var RUN_STEPS = 90 * 60;    // 90 s on fixed steps
+  var RUN_STEPS = 300 * 60;   // 5 minutes on fixed steps
   var WARN_STEPS = 10 * 60;   // last 10 s: the clock warns
 
   function rng(seed) {
@@ -788,7 +788,7 @@
     }
     // timer bar
     var left = Math.max(0, RUN_STEPS - step), frac = left / RUN_STEPS, warn = left <= WARN_STEPS && state === 'play';
-    var bx = GX + 4, bw = BOARD - 64, bh = 16, by = BAR_Y;
+    var bx = GX + 4, bw = BOARD - 100, bh = 16, by = BAR_Y;
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; rrect(ctx, bx, by, bw, bh, 8); ctx.fill();
     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,220,140,0.25)'; ctx.stroke();
     if (frac > 0) {
@@ -799,18 +799,21 @@
       ctx.fillStyle = 'rgba(255,255,255,0.35)'; rrect(ctx, bx + 5, by + 3.5, Math.max(0, fw - 10), 3.5, 2); ctx.fill();
       ctx.globalAlpha = 0.8; blit(SPR.glow[warn ? 0 : 3], bx + fw - 6, by + bh / 2, 0.55); ctx.globalAlpha = 1;
     }
-    // seconds, in a round badge
-    var cx = GX + BOARD - 26, cy = by + bh / 2, sec = Math.ceil(left / 60);
-    var sb = warn ? 1 + 0.18 * Math.max(0, 1 - ((step % 60) / 60) * 4) : 1;
+    // the clock, mm:ss in a pill
+    var cx = GX + BOARD - 42, cy = by + bh / 2, sec = Math.ceil(left / 60);
+    var clockTxt = pad2(Math.floor(sec / 60)) + ':' + pad2(sec % 60);
+    var sb = warn ? 1 + 0.14 * Math.max(0, 1 - ((step % 60) / 60) * 4) : 1;
     ctx.save(); ctx.translate(cx, cy); ctx.scale(sb, sb);
-    ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.fillStyle = warn ? '#5a0f24' : '#24185a'; ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
-    ctx.strokeStyle = warn ? '#ff2d55' : '#ffc93c'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.stroke();
-    text(String(sec), 0, 1, 20, warn ? '#ffd0da' : '#ffffff');
+    rrect(ctx, -42, -20, 84, 40, 20); ctx.fillStyle = warn ? '#5a0f24' : '#24185a'; ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = warn ? '#ff2d55' : '#ffc93c'; ctx.stroke();
+    ctx.font = '20px ' + FONT; ctx.textBaseline = 'middle'; ctx.fillStyle = warn ? '#ffd0da' : '#ffffff';
+    ctx.textAlign = 'center';
+    // fixed slots so the digits do not jiggle as they change
+    for (var ci = 0; ci < clockTxt.length; ci++) ctx.fillText(clockTxt[ci], -26 + ci * 13, 1);
     ctx.restore();
   }
 
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function pearlPos(c, r) {
     var p = board[c][r], x = cellCX(c), y = cellCY(r) + p.dy;
     if (p.spill && state === 'timeup') { x += p.spill.x; y += p.spill.y; }

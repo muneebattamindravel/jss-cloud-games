@@ -10,7 +10,7 @@ work come AFTER that, as a separate stage. This applies to every game here.
 - **Reference game(s):** the chain-and-loop mechanic of dot-connecting puzzles. No name, art or audio taken.
 - **Core loop:** drag a chain of 2 or more same-colour pearls (up, down, sideways), release to clear. Chain of n scores n(n+1)/2; a loop scores double on every pearl of that colour. Refill falls from above; after a loop the refill avoids that colour.
 - **Recovery:** nothing kills you; a weak move only costs time.
-- **Run length / end:** 90 s fixed clock. A parked run ends at 90 s.
+- **Run length / end:** 5 minute fixed clock (founder, 28 Oct). A parked run ends at 5:00.
 - **Input style:** drag (later trace: one event per released chain, the list of cells).
 - **Art gate:** coloured circles on a grid, code-drawn. Passes.
 - **Audio:** Web Audio only.
