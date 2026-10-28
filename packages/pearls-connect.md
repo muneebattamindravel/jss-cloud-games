@@ -60,12 +60,12 @@ clock, another Math.random and drawing on, all identical; 30 Hz and uneven
 Hz; coverage counters (loops, shuffles, long chains) must stay above zero.
 
 ## 6. Other suites
-- Adversarial: 43 tests (forged claims, no/v1/second start marker, stacking,
+- Adversarial: 45 tests (forged claims, no/v1/second start marker, stacking,
   rewind, wrong index, bad `down`, 10 malformed shapes, junk inside an honest run,
   chains after the clock, elapsed cap, input cap, the off-board exploit, machine
   vs hand fingerprint, the humanness extractor counting every chain, and the
   rules' edges on hand-placed boards with literal answers).
-- Render: 19 tests (page contract, session gate with no timeout, one run per
+- Render: 21 tests (page contract, session gate with no timeout, one run per
   session, TIME'S UP before submit, hidden-tab submit, standalone vs embedded,
   QA switch dead inside the platform, HOW TO PLAY gating, strict canvas at 3
   screens, no gradient per frame, drawing never writes the sim).
@@ -75,7 +75,18 @@ Hz; coverage counters (loops, shuffles, long chains) must stay above zero.
 
 ## 7. Mutation battery
 `shared/tests/lib/pearlsConnectMutate.js`, 103 mutations, run from four scratch
-copies (one per shard). Result: MUTATION_RESULT
+copies (one per shard), pins on. Result: **103 live caught, 0 inert, 0 survivors.**
+The first pass caught 99 and 4 survived, all holes in the tests, none in the
+game; each was fixed and the 4 re-run and caught:
+- `c: qa switches embedded` and `c: session not awaited`: the same check sat in
+  two places (qp and start; the buttons and start), so neither could be broken
+  alone. The duplicate was deleted; the one every path takes is tested.
+- `v: skipped loops not recorded`: pinned with an exact case (1 when a 2 x 2
+  loop is ignored, 0 when it is taken).
+- `v: suspicious threshold`: pinned at its edge (9 refusals clean, 10 marked).
+`LOOP_MIN 3` is behaviourally inert (cycles on a square grid are even, so a loop
+cannot close 3 back) and is caught only by the pin table; 2 and 5 are caught by
+behaviour. A `--nopin` pass (behaviour alone) has NOT been run yet.
 
 ## 8. Ladder and bound
 24 seeds, full 5 minute runs, the real game.js flown by human-model pilots:
