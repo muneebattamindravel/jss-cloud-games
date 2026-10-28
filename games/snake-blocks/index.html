@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Global sound mute: must load before any audio is constructed. -->
+  <script src="../_shared/mute.js?v=1"></script>
+  <script src="/games/_shared/no-touch-ui.js?v=1"></script>
+  <script src="../_shared/kj-tutorial-state.js?v=1"></script>
+  <script src="../_shared/kj-replay.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <title>Snake Blocks</title>
+  <link rel="stylesheet" href="css/styles.css?v=4" />
+</head>
+<body>
+  <canvas id="game" aria-label="Snake Blocks game"></canvas>
+
+  <div class="sb-hud is-hidden" id="hud"><div id="score">0</div><div id="best">BEST 0</div></div>
+  <div class="sb-perf is-hidden" id="perf"></div>
+
+  <div class="sb-screen sb-menu" id="menu">
+    <div class="sb-menu-foot">
+      <div class="sb-bestchip" id="bestChip">BEST <b id="bestNum">0</b></div>
+      <button class="sb-btn" id="playBtn" type="button" disabled>
+        <span class="sb-spin" id="playSpin"></span><span id="playLabel">PREPARING YOUR GAME</span>
+      </button>
+      <button class="sb-link" id="infoBtn" type="button">How to play</button>
+    </div>
+  </div>
+
+  <div class="sb-screen sb-howto is-hidden" id="tutorial" role="dialog" aria-label="How to play">
+    <div class="sb-panel">
+      <h2>HOW TO PLAY</h2>
+      <!-- One 6 s SMIL clock, no script: the snake takes a ball, grinds a
+           block it can afford, then slips past one it cannot. -->
+      <svg class="sb-art" viewBox="0 0 320 140" role="img" aria-label="A snake steers between numbered blocks">
+        <defs>
+          <linearGradient id="sbSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a1648" /><stop offset="1" stop-color="#1c2f86" /></linearGradient>
+          <radialGradient id="sbBall" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#d6ffe6" /><stop offset="0.35" stop-color="#1ac46a" /><stop offset="1" stop-color="#06502a" /></radialGradient>
+        </defs>
+        <rect width="320" height="140" fill="url(#sbSky)" />
+        <g fill="none" stroke="#6aa0ff" stroke-opacity="0.35" stroke-width="1.5"><rect x="6" y="-4" width="74" height="150" rx="12" /><rect x="86" y="-4" width="74" height="150" rx="12" /><rect x="166" y="-4" width="74" height="150" rx="12" /><rect x="246" y="-4" width="68" height="150" rx="12" /></g>
+        <g>
+          <circle cx="200" cy="30" r="12" fill="#ffc728" stroke="#fff1a8" stroke-width="2">
+            <animate attributeName="cy" dur="6s" repeatCount="indefinite" keyTimes="0;0.2;0.22;1" values="-20;30;30;30" />
+            <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.2;0.24;1" values="1;1;0;0" />
+          </circle>
+          <text x="200" y="35" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" font-family="system-ui">+6
+            <animate attributeName="y" dur="6s" repeatCount="indefinite" keyTimes="0;0.2;0.22;1" values="-15;35;35;35" />
+            <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.2;0.24;1" values="1;1;0;0" />
+          </text>
+        </g>
+        <g>
+          <rect x="170" y="10" width="60" height="32" rx="8" fill="#06402e" stroke="#00d696" stroke-width="2.5">
+            <animate attributeName="y" dur="6s" repeatCount="indefinite" keyTimes="0;0.33;0.52;0.56;1" values="-40;10;10;10;10" />
+            <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.52;0.56;1" values="1;1;0;0" />
+          </rect>
+          <text x="200" y="33" text-anchor="middle" font-size="18" font-weight="900" font-style="italic" fill="#fff" font-family="system-ui">5
+            <animate attributeName="y" dur="6s" repeatCount="indefinite" keyTimes="0;0.33;0.52;0.56;1" values="-17;33;33;33;33" />
+            <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.52;0.56;1" values="1;1;0;0" />
+          </text>
+        </g>
+        <g>
+          <rect x="170" y="-40" width="60" height="32" rx="8" fill="#4a0a1c" stroke="#ff3448" stroke-width="2.5">
+            <animate attributeName="y" dur="6s" repeatCount="indefinite" keyTimes="0;0.6;1" values="-120;-40;56" />
+          </rect>
+          <text x="200" y="-17" text-anchor="middle" font-size="18" font-weight="900" font-style="italic" fill="#fff" font-family="system-ui">88
+            <animate attributeName="y" dur="6s" repeatCount="indefinite" keyTimes="0;0.6;1" values="-97;-17;79" />
+          </text>
+        </g>
+        <g>
+          <animateTransform attributeName="transform" type="translate" dur="6s" repeatCount="indefinite"
+            keyTimes="0;0.14;0.5;0.72;1" values="-80 0;0 0;0 0;-80 0;-80 0" calcMode="spline"
+            keySplines="0.4 0 0.2 1;0 0 1 1;0.4 0 0.2 1;0 0 1 1" />
+          <circle cx="200" cy="128" r="7" fill="url(#sbBall)" />
+          <circle cx="200" cy="112" r="8.5" fill="url(#sbBall)" />
+          <circle cx="200" cy="94" r="10" fill="url(#sbBall)" />
+          <circle cx="200" cy="70" r="15" fill="url(#sbBall)" />
+          <ellipse cx="193" cy="67" rx="2.6" ry="3.4" fill="#d8ffe8" transform="rotate(-16 193 67)" /><ellipse cx="207" cy="67" rx="2.6" ry="3.4" fill="#d8ffe8" transform="rotate(16 207 67)" />
+        </g>
+      </svg>
+      <ul class="sb-steps">
+        <li><b>DRAG</b> anywhere to steer your snake.</li>
+        <li>Push into a block and it <b class="sb-rose">eats one ball a tick</b> and pays <b>points</b>. Break it for a big bonus. Run out of balls and the run is over.</li>
+        <li>Grab the <b class="sb-gold">gold orbs</b> to grow, then break the biggest block you can afford. Chain breaks to multiply your score.</li>
+      </ul>
+      <button class="sb-btn" id="tutorialPlayBtn" type="button">GOT IT</button>
+    </div>
+  </div>
+
+  <div class="sb-screen sb-over is-hidden" id="gameOver">
+    <h2 id="overTitle">GAME OVER</h2>
+    <p>Score <b id="finalScore">0</b></p>
+    <button class="sb-btn" id="retryBtn" type="button">PLAY AGAIN</button>
+  </div>
+
+  <script src="js/game.js?v=4" defer></script>
+
+  <!-- KJ platform bridge, the Stick Hero shape with the Finger Maze batch emit:
+       1. KJ_GAME_LOADED at load so the launcher knows we are here.
+       2. The session is minted ON LOAD. The course is built from the seed it
+          returns, and PLAY stays disabled ("PREPARING YOUR GAME") until then,
+          with no timeout: a run started before its session exists can never
+          count. Inside the platform a failed start is held by the SDK, which
+          shows the player Retry / Exit.
+       3. __kjGameStart records the v2 marker. __kjPath records the head as a
+          dense positional batch { f, x }: x[i] is where the player had steered
+          the head during fixed step f+1+i, in whole design units. __kjMarker
+          records a { kind: 'lift' | 'touch', step }. That is what the server
+          replays; the score is never read from here.
+       4. __kjSubmit(score) once at game over: flush the open batch through
+          window.__kjFlush, then submit with the 75 s safety timer. -->
+  <script src="/sdk/kj-sdk/kj-sdk-v2.js?v=1"></script>
+  <script>
+    (function () {
+      var GAME_ID = 'snake-blocks';
+      var _started = false;
+      var _submitted = false;
+
+      window.__kjEmbed = (window.parent !== window) || /[?&]replay=1(&|$)/.test(location.search);  // a replay inside a WebView is its own parent, yet it IS embedded
+      if (window.__kjEmbed) document.body.classList.add('kj-embed');
+
+      var _sessionReady = false;
+      var _readyWaiters = [];
+      window.__kjSessionReady = function () { return _sessionReady; };
+      window.__kjOnSessionReady = function (cb) {
+        if (_sessionReady) { try { cb(); } catch (_e) {} return; }
+        _readyWaiters.push(cb);
+      };
+      function markReady() {
+        if (_sessionReady) return;
+        _sessionReady = true;
+        var q = _readyWaiters.splice(0);
+        for (var i = 0; i < q.length; i++) { try { q[i](); } catch (_e) {} }
+      }
+
+      var _platformReady = false;
+      var _wantSession = false;
+      window.addEventListener('message', function (e) {
+        if (!e.data) return;
+        if (e.data.type === 'KJ_CONFIG' || e.data.type === 'KJ_V2_START') {
+          _platformReady = true;
+          if (_wantSession) { _wantSession = false; window.__kjBeginSession(); }
+        }
+      });
+
+      window.__kjBeginSession = function () {
+        if (_started) return;
+        // Standalone (opened directly, not inside the platform): there is no
+        // player token and nothing can count, so there is nothing to wait for.
+        if (!window.__kjEmbed) { _started = true; markReady(); return; }
+        // Inside the platform the SDK cannot mint until the launcher has sent
+        // KJ_CONFIG, so remember the request and fire it then.
+        if (!_platformReady) { _wantSession = true; return; }
+        _started = true;
+        if (typeof window.kjStartV2 !== 'function') return;
+        window.kjStartV2({ gameId: GAME_ID })
+          .then(function () { markReady(); })   // window.__kjSeed exists only now
+          .catch(function (err) {
+            // Deliberately NOT markReady(). An uncountable run is never started;
+            // the SDK has already told the platform, which offers Retry / Exit.
+            console.error('[snake-blocks] kjStartV2 failed', err);
+          });
+      };
+
+      try { window.parent.postMessage({ type: 'KJ_GAME_LOADED', gameId: GAME_ID }, '*'); } catch (_) {}
+
+      // HOW TO PLAY. While it is open window.__kjTutorialOpen is true and the
+      // game ignores every touch, so the press on GOT IT closes the panel and
+      // can never become the touch that starts the run.
+      (function wireHowToPlay() {
+        var panel = document.getElementById('tutorial');
+        var gotIt = document.getElementById('tutorialPlayBtn');
+        var info = document.getElementById('infoBtn');
+        function open() { window.__kjTutorialOpen = true; if (panel) panel.classList.remove('is-hidden'); }
+        function close() { if (panel) panel.classList.add('is-hidden'); window.__kjTutorialOpen = false; }
+        if (gotIt) gotIt.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); close(); });
+        if (info) info.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); open(); });
+        window.__kjTutorialOpen = false;
+        var show = window.KJTut ? window.KJTut.shouldShow() : true;
+        if (panel && show) {
+          if (window.KJTut) window.KJTut.markSeen();
+          open();
+        }
+      })();
+
+      // Minted on load, while the player reads the panel or looks at the menu.
+      window.__kjBeginSession();
+
+      window.__kjGameStart = function (tHint, want) {
+        var v = Number(want) >= 2 ? 2 : 1;
+        try {
+          if (typeof window.kjEmit === 'function') {
+            window.kjEmit('input', { kind: 'start', v: v, tHint: typeof tHint === 'number' ? tHint : performance.now() });
+          }
+        } catch (_e) {}
+        return v;
+      };
+
+      // The steered path: one sample per fixed step while the finger is down.
+      // POSITIONAL and dense, so where the game cuts its batches is not part of
+      // the protocol and can change without one.
+      window.__kjPath = function (tHint, f, x) {
+        try {
+          if (typeof window.kjEmit === 'function') {
+            window.kjEmit('input', {
+              kind: 'path',
+              f: typeof f === 'number' ? f : null,
+              x: Array.isArray(x) ? x.slice() : null,
+              tHint: tHint || performance.now(),
+            });
+          }
+        } catch (_e) {}
+      };
+
+      // The finger left the screen, or came back, on this fixed step.
+      window.__kjMarker = function (tHint, kind, step) {
+        try {
+          if (typeof window.kjEmit === 'function') {
+            window.kjEmit('input', {
+              kind: kind === 'touch' ? 'touch' : 'lift',
+              step: typeof step === 'number' ? step : null,
+              tHint: tHint || performance.now(),
+            });
+          }
+        } catch (_e) {}
+      };
+
+      window.__kjSubmit = function (score) {
+        if (_submitted) return;
+        _submitted = true;
+        // An open path batch must never be stranded outside the trace, whoever
+        // called submit.
+        try { if (typeof window.__kjFlush === 'function') window.__kjFlush(); } catch (_e) {}
+        // Standalone there is no session and nothing to count; the game shows
+        // its own game-over panel.
+        if (!window.__kjEmbed) return;
+        if (typeof window.kjSubmitV2 !== 'function') return;
+
+        var clientScore = Number(score) || 0;
+        var navigated = false;
+        var safety = setTimeout(function () {
+          if (navigated) return; navigated = true;
+          try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: 'submit_timeout' }, '*'); } catch (_) {}
+        }, 75000);   // above the SDK's own 3 x 20 s retry ladder
+
+        window.kjSubmitV2({ clientClaimedScore: clientScore })
+          .then(function (result) {
+            if (navigated) return; navigated = true;
+            clearTimeout(safety);
+            try {
+              window.parent.postMessage({
+                type: 'KJ_V2_RESULT',
+                score: (result && result.authoritativeScore) != null ? result.authoritativeScore : clientScore,
+                authoritative: !!result && !result.alreadyFinalSession,
+                flagged: !!(result && result.flaggedForReview),
+                notCounted: !!(result && result.counted === false),
+              }, '*');
+            } catch (_) {}
+          })
+          .catch(function (err) {
+            console.error('[snake-blocks] kjSubmitV2 failed after retries', err);
+            if (navigated) return; navigated = true;
+            clearTimeout(safety);
+            try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: (err && err.message) || 'submit_failed' }, '*'); } catch (_) {}
+          });
+      };
+    })();
+  </script>
+</body>
+</html>

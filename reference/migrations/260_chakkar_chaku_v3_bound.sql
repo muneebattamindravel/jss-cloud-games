@@ -1,0 +1,11 @@
+-- 260: Chakkar Chaku rules v3, score backstop.
+--
+-- v3 keeps the difficulty rising to about log 45 (faster spin, shorter holds,
+-- longer stops, up to 7 knives already in the log). Crowded logs need fewer
+-- knives, so a perfect player clears them more often and the clear bonus
+-- (5 x the log number) pays out faster. Measured on the real game.js: a
+-- flawless planner's best 60 s window is 787.417/sec (8 seeds x 10 minutes, it
+-- never dies; v2 was 736.317). 3x that is 2,362, so the backstop moves from
+-- 2,209 to 2,400. No human gets near it; it only has to sit above what the
+-- rules allow, because a flagged score is zeroed. Apply BEFORE the v3 client ships.
+UPDATE games SET max_score_per_sec = 2400 WHERE id = 'chakkar-chaku';

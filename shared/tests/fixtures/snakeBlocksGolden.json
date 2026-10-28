@@ -1,0 +1,60 @@
+{
+  "note": "Snake Blocks rules v2. A change here is a trace version bump, never a fixture refresh.",
+  "course": "8cbee9249a65c81f8a5f3ec7e479d346f289e49cf1236fcfa18f3d41ee54e7b6",
+  "runs": [
+    {
+      "seed": "9e3779b1ab12cd34ef56",
+      "style": "flawless",
+      "score": 465,
+      "endFrame": 2830,
+      "cause": "crushed",
+      "steps": 2831,
+      "digest": "2c70060830d65fe7948a0bb1c1a9f639668a5eda7056c66cbe98d46d8856748e"
+    },
+    {
+      "seed": "3c6ef362ab12cd34ef56",
+      "style": "good",
+      "score": 673,
+      "endFrame": 2761,
+      "cause": "crushed",
+      "steps": 2762,
+      "digest": "fb0330d5764b08680454a2df76c12a620e08a185b48380845cfdc3ac8c653f64"
+    },
+    {
+      "seed": "daa66d13ab12cd34ef56",
+      "style": "average",
+      "score": 61,
+      "endFrame": 774,
+      "cause": "crushed",
+      "steps": 775,
+      "digest": "081d98b7f8a02fe00880cc3a14b9b9fddb134a48814b1e208a7fd9e0cdf9ee60"
+    },
+    {
+      "seed": "9e3779b1ab12cd34ef56",
+      "style": "dodger",
+      "score": 377,
+      "endFrame": 2760,
+      "cause": "crushed",
+      "steps": 2761,
+      "digest": "66aeac91be9052e6f4289880ed76b6303f31580f753ae7bfcd7ab14a78bbb557"
+    },
+    {
+      "seed": "3c6ef362ab12cd34ef56",
+      "style": "lifter",
+      "score": 846,
+      "endFrame": 2882,
+      "cause": "crushed",
+      "steps": 2883,
+      "digest": "2a868aef2771910179ce24378b8aa2a88bbfb5f44927825f4fa11539314bd092"
+    },
+    {
+      "seed": "daa66d13ab12cd34ef56",
+      "style": "novice",
+      "score": 15,
+      "endFrame": 447,
+      "cause": "crushed",
+      "steps": 448,
+      "digest": "bdf86c499981ed28a8cb6265a0be02a0544ccf242893cb605e3eb2e05e7e9448"
+    }
+  ]
+}

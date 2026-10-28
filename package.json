@@ -1,0 +1,13 @@
+{
+  "name": "jss-games",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Workspace for building Jeeto Skill Se games away from the main platform repo",
+  "scripts": {
+    "test": "jest --runInBand",
+    "test:game": "jest --runInBand --testPathPattern",
+    "check": "node scripts/check-game.js"
+  },
+  "devDependencies": { "jest": "^29.7.0" },
+  "jest": { "testEnvironment": "node", "testTimeout": 120000, "roots": ["<rootDir>/shared/tests"] }
+}
