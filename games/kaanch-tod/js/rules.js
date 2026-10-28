@@ -1,24 +1,27 @@
-/* Kaanch Tod rules: everything that decides the score. Fixed 1/60 s steps,
-   integer positions in 1/16 px of a 414x736 design plane, sine table, seeded
-   index-addressed hash. The 3D view only reads this. */
-(function () {
+/* Kaanch Tod rules (v2): everything that decides the score.
+   Real rigid-body physics on Rapier's deterministic build, stepped at a fixed
+   1/60 s. Inputs are integers (target point on the tower face in 1/100 world
+   units) applied on step numbers. Layouts and colours come from a seeded,
+   index-addressed hash. No engine trig: the fan uses an integer sine table.
+   The 3D view only reads this. */
+(function (root) {
   'use strict';
-  // ---------------------------------------------------------------- sim
-  var W = 414, H = 736, U = 16;              // design space, sub units per px
-  var CELL = 46 * U, BH = 60 * U;            // block cell width / height
-  var FLOOR = 478 * U;                       // table top
-  var CX = 207 * U;                          // centre line
-  var FLIGHT = 22;                           // steps from cannon to tower
-  var GRAV = 6, VMAX = 240, CRUSH_V = 70, LAND_V = 30;
-  var BALL_G = 5, BALL_R = 7 * U;
-  var FAN_CY = 300 * U, FAN_LEN = 140, FAN_HALF = 15, FAN_HUB = 22;
-  var SHOT_GAP = 9;
-  var POW_GLASS = 4, POW_WOOD = 2;                          // steps between shots
-  var PTS = { g: 10, c: 25, l: 40 };
-  var HP = { g: 1, c: 2, l: 3 };
-  var SINQ = [0,25,50,75,100,125,150,175,200,224,249,273,297,321,345,369,392,415,438,460,483,505,526,548,569,590,610,630,650,669,688,706,724,742,759,775,792,807,822,837,851,865,878,891,903,915,926,936,946,955,964,972,980,987,993,999,1004,1009,1013,1016,1019,1021,1023,1024,1024];
-  function isin(a) { a &= 255; if (a < 64) return SINQ[a]; if (a < 128) return SINQ[128 - a]; if (a < 192) return -SINQ[a - 128]; return -SINQ[256 - a]; }
-  function icos(a) { return isin(a + 64); }
+  var RULES_VERSION = 2;
+  var DT = 1 / 60, GRAVITY = -20;
+  var CELL = 1, ROW = 1.3, DEPTH = 0.98, FRONT = 0.5;
+  var PLANK_H = 0.8;
+  var BALL_R = 0.3, BALL_DENSITY = 7, FLIGHT_STEPS = 32;
+  var CANNON = { x: 0, y: -1.2, z: 13 };
+  var FALL_Y = -2.6;
+  var JAR_BREAK_F = 900, THUD_F = 60;
+  var SHOT_GAP = 10, PIERCE = 4;
+  var FAN_LEN = 3.1, FAN_HALF = 0.16, FAN_Y = 5.2, FAN_Z = FRONT + 0.95;
+  var PTS = { jar: 10, brick: 15, crate: 25, plank: 40 };
+  var FALL_PTS = { jar: 10, brick: 15, crate: 15, plank: 20 };
+  var HP = { jar: 1, brick: 0, crate: 2, plank: 3 };
+  var SINQ = [0,6136,12272,18407,24541,30675,36807,42938,49068,55195,61321,67444,73565,79682,85797,91909,98017,104122,110222,116319,122411,128498,134581,140658,146730,152797,158858,164913,170962,177004,183040,189069,195090,201105,207111,213110,219101,225084,231058,237024,242980,248928,254866,260794,266713,272621,278520,284408,290285,296151,302006,307850,313682,319502,325310,331106,336890,342661,348419,354164,359895,365613,371317,377007,382683,388345,393992,399624,405241,410843,416430,422000,427555,433094,438616,444122,449611,455084,460539,465976,471397,476799,482184,487550,492898,498228,503538,508830,514103,519356,524590,529804,534998,540171,545325,550458,555570,560662,565732,570781,575808,580814,585798,590760,595699,600616,605511,610383,615232,620057,624859,629638,634393,639124,643832,648514,653173,657807,662416,667000,671559,676093,680601,685084,689541,693971,698376,702755,707107,711432,715731,720003,724247,728464,732654,736817,740951,745058,749136,753187,757209,761202,765167,769103,773010,776888,780737,784557,788346,792107,795837,799537,803208,806848,810457,814036,817585,821103,824589,828045,831470,834863,838225,841555,844854,848120,851355,854558,857729,860867,863973,867046,870087,873095,876070,879012,881921,884797,887640,890449,893224,895966,898674,901349,903989,906596,909168,911706,914210,916679,919114,921514,923880,926210,928506,930767,932993,935184,937339,939459,941544,943593,945607,947586,949528,951435,953306,955141,956940,958703,960431,962121,963776,965394,966976,968522,970031,971504,972940,974339,975702,977028,978317,979570,980785,981964,983105,984210,985278,986308,987301,988258,989177,990058,990903,991710,992480,993212,993907,994565,995185,995767,996313,996820,997290,997723,998118,998476,998795,999078,999322,999529,999699,999831,999925,999981,1000000];
+  function isin(i) { i &= 1023; if (i < 256) return SINQ[i]; if (i < 512) return SINQ[512 - i]; if (i < 768) return -SINQ[i - 512]; return -SINQ[1024 - i]; }
+  function icos(i) { return isin(i + 256); }
 
   function hash(seed, a, b) {
     var h = (seed ^ Math.imul(a + 1, 0x9E3779B1) ^ Math.imul(b + 7, 0x85EBCA77)) >>> 0;
@@ -27,203 +30,260 @@
     return (h ^ (h >>> 16)) >>> 0;
   }
 
-  function buildTower(S) {
-    var L = S.level, sd = S.seed;
-    var cols = 8;
-    var hmax = Math.min(6, 2 + L);
-    var left = CX - (cols * CELL) / 2;
-    var hs = [], c, r;
-    var shape = hash(sd, L, 1) % 3;          // 0 flat-ish, 1 castle, 2 steps
-    for (c = 0; c < cols; c++) {
-      var d = hash(sd, L, 10 + c) % 3;
-      if (shape === 1) d = (c === 0 || c === cols - 1) ? 0 : (c % 2 ? 1 + (d & 1) : d & 1);
-      if (shape === 2) d = Math.min(hmax - 2, Math.abs(c * 2 - (cols - 1)) >> 1);
-      hs.push(Math.max(2, hmax - d));
-    }
-    var used = [], logP = Math.min(34, (L - 1) * 7), crateP = Math.min(40, 4 + L * 5);
-    for (c = 0; c < cols; c++) used.push([]);
-    var blocks = [], id = S.nextId;
-    for (r = 0; r < hmax; r++) {
-      for (c = 0; c < cols; c++) {
-        if (r >= hs[c] || used[c][r]) continue;
-        var hv = hash(sd, L, 100 + r * 16 + c) % 100;
-        var y = FLOOR - r * BH;
-        if (r % 2 === 1 && c + 1 < cols && r < hs[c + 1] && !used[c + 1][r] && hv < logP) {
-          used[c][r] = used[c + 1][r] = 1;
-          blocks.push({ id: id++, t: 'l', x: left + c * CELL, w: CELL * 2, h: BH, y: y, vy: 0, hp: HP.l, col: 0 });
-          continue;
-        }
-        used[c][r] = 1;
-        var t = (hash(sd, L, 300 + r * 16 + c) % 100) < crateP ? 'c' : 'g';
-        // colour regions: the tower reads as a few big blocks of colour
-        var col = hash(sd, L, 500 + ((c * 2 / cols) | 0) + ((r * 2 / hmax) | 0) * 2) % 5;
-        var tall = t === 'g' && r + 1 < hs[c] && !used[c][r + 1] && (hash(sd, L, 700 + r * 16 + c) % 100) < 40;
-        if (tall) used[c][r + 1] = 1;
-        blocks.push({ id: id++, t: t, x: left + c * CELL, w: CELL, h: tall ? BH * 2 : BH, y: y, vy: 0, hp: HP[t], col: col });
-      }
-    }
-    S.nextId = id;
-    S.blocks = blocks;
-    var cost = 0;
-    for (var i = 0; i < blocks.length; i++) cost += blocks[i].t === 'g' ? 10 : blocks[i].t === 'c' ? 24 : 36;
-    var add = Math.max(6, ((cost + 29) / 30) | 0) + (L === 1 ? 6 : 0);
-    S.balls += add;
-    S.fan = L >= 3 ? { ang: hash(sd, L, 2) & 255, spd: L >= 7 ? 2 : 1, dir: (hash(sd, L, 3) & 1) ? 1 : -1 } : null;
-    S.events.push({ e: 'tower', add: add, level: L });
+  var R = null;
+  function ready() {
+    if (R) return Promise.resolve();
+    var lib = root.RAPIER;
+    return lib.init({}).then(function () { R = lib; });
   }
 
-  function initSim(seed) {
-    var S = { seed: seed >>> 0, step: 0, level: 1, balls: 0, score: 0, blocks: [], flights: [], loose: [],
-      fan: null, phase: 'play', timer: 0, nextId: 1, lastShot: -99, shots: 0, events: [] };
+  // ---------------------------------------------------------------- layouts
+  // a layout is a list of tables, each with rows of cells: {t, col, span}
+  function layout(seed, L) {
+    var kinds = L === 1 ? ['jars'] : L === 2 ? ['jars', 'bricks'] : L === 3 ? ['checker'] : L === 4 ? ['twin'] : ['jars', 'bricks', 'checker', 'twin', 'mix', 'twin', 'checker'];
+    var kind = kinds[hash(seed, L, 1) % kinds.length];
+    var rows = Math.min(7, 2 + L), cols = Math.min(8, 5 + (L >> 1));
+    var c2 = hash(seed, L, 2), jarA = c2 % 5, jarB = (jarA + 1 + (c2 >>> 8) % 4) % 5, brickA = (c2 >>> 16) & 1;
+    function jarRow(n, split) { var r = []; for (var c = 0; c < n; c++) r.push({ t: 'jar', col: c < split ? jarA : jarB, span: 1 }); return r; }
+    function brickRow(n, split) { var r = []; for (var c = 0; c < n; c++) r.push({ t: 'brick', col: c < split ? brickA : 1 - brickA, span: 1 }); return r; }
+    function plankRow(n) { var r = [], c = 0; while (c < n) { var s = n - c >= 5 ? 3 : n - c >= 2 ? 2 : 1; if (s === 1) r.push({ t: 'crate', col: 0, span: 1 }); else r.push({ t: 'plank', col: 0, span: s }); c += s; } return r; }
+    var tables = [], t, r, rr;
+    if (kind === 'twin') {
+      var half = Math.max(3, Math.min(4, cols - 3)), tr = Math.min(6, rows);
+      var A = [], B = [];
+      for (r = 0; r < tr; r++) { A.push(jarRow(half, 2 + (hash(seed, L, 3) % 2))); B.push(r === tr - 1 && L > 5 ? plankRow(half) : brickRow(half, 2)); }
+      if (hash(seed, L, 4) & 1) { var tmp = A; A = B; B = tmp; }
+      tables.push({ cx: -(half / 2 + 0.6), cols: half, rows: A });
+      tables.push({ cx: half / 2 + 0.6, cols: half, rows: B });
+    } else {
+      var split = (cols >> 1) + (hash(seed, L, 5) % 2);
+      rr = [];
+      for (r = 0; r < rows; r++) {
+        if (kind === 'jars') rr.push(jarRow(cols, split));
+        else if (kind === 'bricks') rr.push(r === rows - 1 && L > 3 ? jarRow(cols, split) : brickRow(cols, split));
+        else if (kind === 'mix') rr.push(r < (rows >> 1) ? brickRow(cols, split) : jarRow(cols, split));
+        else {                                   // checker: planks top and bottom, jars and crates alternate
+          if (r === 0 || r === rows - 1) { rr.push(plankRow(cols)); continue; }
+          var row = [];
+          for (var c = 0; c < cols; c++) {
+            var edge = c === 0 || c === cols - 1;
+            row.push(edge ? { t: 'jar', col: jarB, span: 1 } : ((c + r) % 2 ? { t: 'jar', col: jarA, span: 1 } : { t: 'crate', col: 0, span: 1 }));
+          }
+          rr.push(row);
+        }
+      }
+      tables.push({ cx: 0, cols: cols, rows: rr });
+    }
+    return { kind: kind, tables: tables };
+  }
+
+  function rowHeight(row) { for (var i = 0; i < row.length; i++) if (row[i].t === 'plank') return PLANK_H; return ROW; }
+
+  // ---------------------------------------------------------------- world
+  function addBlock(S, t, col, cx, cy, span, h) {
+    var W = S.world;
+    var bd = R.RigidBodyDesc.dynamic().setTranslation(cx, cy, 0).setLinearDamping(0.05).setAngularDamping(0.15).setSleeping(true);
+    var body = W.createRigidBody(bd);
+    var cd, hw = span * CELL / 2 - 0.006, hh = h / 2 - 0.004;
+    if (t === 'jar') cd = R.ColliderDesc.cylinder(hh, 0.48).setDensity(0.6);
+    else if (t === 'brick') cd = R.ColliderDesc.roundCuboid(hw - 0.04, hh - 0.04, DEPTH / 2 - 0.04, 0.04).setDensity(1.1);
+    else cd = R.ColliderDesc.roundCuboid(hw - 0.04, hh - 0.04, DEPTH / 2 - 0.04, 0.04).setDensity(0.7);
+    cd.setFriction(0.75).setRestitution(0.08)
+      .setActiveEvents(R.ActiveEvents.CONTACT_FORCE_EVENTS)
+      .setContactForceEventThreshold(t === 'jar' ? Math.min(THUD_F, JAR_BREAK_F) : THUD_F);
+    var collider = W.createCollider(cd, body);
+    var b = { id: S.nextId++, t: t, col: col, hp: HP[t], span: span, w: span * CELL, h: h, body: body, collider: collider, lastThud: -99 };
+    S.blocks = S.blocks.concat([b]);
+    S.byCollider[collider.handle] = b;
+    return b;
+  }
+
+  function buildTower(S) {
+    var L = S.level, lay = layout(S.seed, L), cost = 0;
+    S.tables = [];
+    for (var ti = 0; ti < lay.tables.length; ti++) {
+      var tb = lay.tables[ti], tw = tb.cols * CELL + 0.5;
+      var tbody = S.world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(tb.cx, -0.15, 0));
+      S.world.createCollider(R.ColliderDesc.cuboid(tw / 2, 0.15, 0.8).setFriction(0.8), tbody);
+      S.tables.push({ cx: tb.cx, w: tw, body: tbody });
+      var y = 0;
+      for (var r = 0; r < tb.rows.length; r++) {
+        var row = tb.rows[r], h = rowHeight(row), x = tb.cx - tb.cols * CELL / 2;
+        for (var c = 0; c < row.length; c++) {
+          var cell = row[c], span = cell.span;
+          var ch = cell.t === 'plank' ? PLANK_H : h;
+          addBlock(S, cell.t, cell.col, x + span * CELL / 2, y + ch / 2, span, ch);
+          x += span * CELL;
+          cost += cell.t === 'jar' ? 10 : cell.t === 'brick' ? 12 : cell.t === 'crate' ? 22 : 30;
+        }
+        y += h;
+      }
+    }
+    S.layout = lay.kind;
+    var per = 26 + L * 2, add = Math.max(5, ((cost + per - 1) / per) | 0) + (L === 1 ? 6 : 1);
+    S.balls += add;
+    // the fan arrives from tower 5 on most towers
+    if (L >= 5 && (hash(S.seed, L, 6) % 3) !== 0) {
+      var fb = S.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, FAN_Y, FAN_Z));
+      for (var k = 0; k < 4; k++) {
+        var a = k * 256, cx = FAN_LEN / 2 * icos(a) / 1e6, cy = FAN_LEN / 2 * isin(a) / 1e6;
+        var rot = { x: 0, y: 0, z: isin(a >> 1) / 1e6, w: icos(a >> 1) / 1e6 };
+        S.world.createCollider(R.ColliderDesc.cuboid(FAN_LEN / 2, FAN_HALF, 0.12).setTranslation(cx, cy, 0).setRotation(rot).setRestitution(0.5), fb);
+      }
+      S.world.createCollider(R.ColliderDesc.cylinder(0.2, 0.42).setRotation({ x: isin(128) / 1e6, y: 0, z: 0, w: icos(128) / 1e6 }), fb);
+      S.fan = { body: fb, k: hash(S.seed, L, 7) & 1023, spd: (L >= 9 ? 3 : 2) * ((hash(S.seed, L, 8) & 1) ? 1 : -1) };
+    } else S.fan = null;
+    S.events.push({ e: 'tower', add: add, level: L, kind: lay.kind, tables: S.tables.map(function (t) { return { cx: t.cx, w: t.w }; }) });
+  }
+
+  function clearWorld(S) {
+    if (S.world) S.world.free();
+    S.world = new R.World({ x: 0, y: GRAVITY, z: 0 });
+    S.world.timestep = DT;
+    S.queue = new R.EventQueue(true);
+    S.blocks = []; S.byCollider = {}; S.ballsLive = []; S.fan = null; S.tables = [];
+  }
+
+  function initSim(seed, startLevel) {          // startLevel: QA only, never used by a scored run
+    var S = { v: RULES_VERSION, seed: seed >>> 0, step: 0, level: startLevel > 1 ? startLevel | 0 : 1, balls: 0, score: 0, nextId: 1, shots: 0, lastShot: -99,
+      phase: 'play', timer: 0, events: [], world: null };
+    clearWorld(S);
     buildTower(S);
     return S;
   }
 
-  function fanBlocks(S, x, y) {
-    if (!S.fan) return false;
-    var px = ((x - CX) / U) | 0, py = ((y - FAN_CY) / U) | 0;
-    if (px * px + py * py <= FAN_HUB * FAN_HUB) return true;
-    for (var k = 0; k < 4; k++) {
-      var a = S.fan.ang + k * 64, co = icos(a), si = isin(a);
-      var along = (px * co + py * si) / 1024, perp = (py * co - px * si) / 1024;
-      if (along >= 0 && along <= FAN_LEN && perp <= FAN_HALF && perp >= -FAN_HALF) return true;
-    }
-    return false;
-  }
-
-  function blockAt(S, x, y, pad) {
-    for (var i = S.blocks.length - 1; i >= 0; i--) {
-      var b = S.blocks[i];
-      if (x >= b.x - pad && x < b.x + b.w + pad && y > b.y - b.h - pad && y <= b.y + pad) return b;
-    }
-    return null;
-  }
-
-  function damage(S, b, how) {
-    b.hp -= 1;
-    if (b.hp > 0) { S.events.push({ e: 'crack', t: b.t, x: b.x, y: b.y, w: b.w, h: b.h, hp: b.hp }); return false; }
-    S.blocks = S.blocks.filter(function (o) { return o !== b; });
-    S.score += PTS[b.t];
-    S.events.push({ e: 'break', t: b.t, x: b.x, y: b.y, w: b.w, h: b.h, col: b.col, pts: PTS[b.t], how: how });
-    return true;
-  }
-
-  function shoot(S, x, y) {
+  // ---------------------------------------------------------------- input
+  function shoot(S, tx, ty) {
     if (S.phase !== 'play' || S.balls <= 0 || S.step - S.lastShot < SHOT_GAP) return false;
-    if (y > FLOOR + 30 * U || y < 80 * U || x < 0 || x > W * U) return false;
+    if ((tx | 0) !== tx || (ty | 0) !== ty || tx < -700 || tx > 700 || ty < -150 || ty > 1300) return false;
+    var x = tx / 100, y = ty / 100, z = FRONT;
+    var T = FLIGHT_STEPS * DT;
+    var vx = (x - CANNON.x) / T, vy = (y - CANNON.y) / T - 0.5 * GRAVITY * T, vz = (z - CANNON.z) / T;
+    var body = S.world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(CANNON.x, CANNON.y, CANNON.z).setLinvel(vx, vy, vz).setCcdEnabled(true).setAngularDamping(0.3));
+    var col = S.world.createCollider(R.ColliderDesc.ball(BALL_R).setDensity(BALL_DENSITY).setRestitution(0.35).setFriction(0.4)
+      .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS), body);
     S.balls -= 1; S.lastShot = S.step; S.shots += 1;
-    S.flights = S.flights.concat([{ x: x, y: y, t: 0, n: S.shots }]);
-    S.events.push({ e: 'fire', x: x, y: y, n: S.shots });
+    var ball = { n: S.shots, body: body, collider: col, age: 0, pierced: 0, pv: { x: vx, y: vy, z: vz } };
+    S.ballsLive = S.ballsLive.concat([ball]);
+    S.events.push({ e: 'fire', x: x, y: y, z: z, n: S.shots });
     return true;
   }
 
-  function impact(S, f) {
-    if (fanBlocks(S, f.x, f.y)) {
-      S.events.push({ e: 'fan', x: f.x, y: f.y, n: f.n });
-      return;
+  // ---------------------------------------------------------------- step
+  function removeBlock(S, b) {
+    var p = b.body.translation();
+    S.blocks = S.blocks.filter(function (o) { return o !== b; });
+    delete S.byCollider[b.collider.handle];
+    S.world.removeRigidBody(b.body);
+    // wake whatever was touching it so stacks settle on the gap
+    for (var i = 0; i < S.blocks.length; i++) {
+      var q = S.blocks[i].body.translation(), dx = q.x - p.x, dy = q.y - p.y;
+      if (dx * dx + dy * dy < 9) S.blocks[i].body.wakeUp();
     }
-    var b = blockAt(S, f.x, f.y, 3 * U);
-    if (!b) { S.events.push({ e: 'miss', x: f.x, y: f.y, n: f.n }); return; }
-    var broke = damage(S, b, 'shot');
-    // the ball keeps going: it pops off the hit and ricochets through the stack
-    var hv = hash(S.seed, 900 + S.level, f.n);
-    var side = f.x < b.x + (b.w >> 1) ? -1 : 1;
-    var vx = side * (18 + (hv % 30)), vy = -(20 + ((hv >>> 8) % 40));
-    S.loose = S.loose.concat([{ x: f.x, y: f.y, vx: vx, vy: broke ? vy : -30, pow: broke ? (b.t === 'g' ? POW_GLASS : POW_WOOD) : 0, n: f.n }]);
-    S.events.push({ e: 'hit', x: f.x, y: f.y, n: f.n });
+    return p;
   }
-
-  function stepBall(S, k) {
-    k.vy = Math.min(VMAX, k.vy + BALL_G);
-    var oy = k.y;
-    k.x += k.vx; k.y += k.vy;
-    if (k.pow > 0) {
-      var b = blockAt(S, k.x, k.y, BALL_R);
-      if (b) {
-        if (b.t === 'g') { damage(S, b, 'ball'); k.pow -= 1; k.vy = (k.vy * 3 / 4) | 0; }
-        else {
-          var broke = damage(S, b, 'ball');
-          k.pow -= broke ? 1 : 2;
-          if (!broke) {
-            if (oy <= b.y - b.h - BALL_R + 2 * U) { k.y = b.y - b.h - BALL_R; k.vy = -((Math.abs(k.vy) / 2) | 0); }
-            else { k.vx = -((k.vx / 2) | 0) || (k.x < b.x + (b.w >> 1) ? -12 : 12); k.x += k.vx * 2; }
-          }
-        }
-      }
-    }
-    var onTable = S.blocks.length ? true : true;
-    if (onTable && k.vy > 0 && k.y >= FLOOR - BALL_R && oy < FLOOR - BALL_R + U && k.x > CX - 196 * U && k.x < CX + 196 * U) {
-      S.events.push({ e: 'thud', x: k.x, y: FLOOR, v: k.vy, ball: 1 });
-      k.y = FLOOR - BALL_R; k.vy = -((k.vy / 3) | 0); k.pow = 0;
-      if (k.vy > -10) k.vx = k.vx || (k.x < CX ? -20 : 20);
-    }
-    return k.y < (H + 40) * U && k.x > -40 * U && k.x < (W + 40) * U;
-  }
-
-  function stepBlocks(S) {
-    var bs = S.blocks.slice().sort(function (a, b) { return (b.y - a.y) || (a.id - b.id); });
-    var crushed = [];
-    for (var i = 0; i < bs.length; i++) {
-      var b = bs[i];
-      if (crushed.indexOf(b) >= 0) continue;
-      var sup = FLOOR, under = [];
-      for (var j = 0; j < bs.length; j++) {
-        var o = bs[j];
-        if (o === b || crushed.indexOf(o) >= 0) continue;
-        if (o.x < b.x + b.w && b.x < o.x + o.w && o.y - o.h >= b.y - 4 * U) {
-          var top = o.y - o.h;
-          if (top < sup) { sup = top; under = [o]; } else if (top === sup) under.push(o);
-        }
-      }
-      b.vy = Math.min(VMAX, b.vy + GRAV);
-      var ny = b.y + b.vy;
-      if (ny < sup) { b.y = ny; continue; }
-      var allGlass = under.length > 0 && under.every(function (o) { return o.t === 'g'; });
-      if (b.t !== 'g' && b.vy >= CRUSH_V && allGlass) {
-        for (var q = 0; q < under.length; q++) { crushed.push(under[q]); damage(S, under[q], 'crush'); }
-        b.y = sup; b.vy = (b.vy * 2 / 3) | 0;
-        continue;
-      }
-      if (b.vy >= LAND_V) S.events.push({ e: 'thud', x: b.x + (b.w >> 1), y: sup, v: b.vy, t: b.t });
-      b.y = sup; b.vy = 0;
-    }
-  }
-
-  function settled(S) {
-    for (var i = 0; i < S.blocks.length; i++) if (S.blocks[i].vy !== 0) return false;
-    return true;
+  function breakBlock(S, b, how) {
+    var p = b.body.translation(), r = b.body.rotation(), v = b.body.linvel();
+    removeBlock(S, b);
+    S.score += PTS[b.t];
+    S.events.push({ e: 'break', t: b.t, col: b.col, x: p.x, y: p.y, z: p.z, q: { x: r.x, y: r.y, z: r.z, w: r.w }, vx: v.x, vy: v.y, w: b.w, h: b.h, pts: PTS[b.t], how: how, id: b.id });
   }
 
   function stepSim(S) {
     S.step += 1;
-    if (S.fan) S.fan.ang = (S.fan.ang + S.fan.spd * S.fan.dir) & 255;
-    var fl = [];
-    for (var i = 0; i < S.flights.length; i++) {
-      var f = S.flights[i];
-      if (f.t + 1 >= FLIGHT) impact(S, f); else fl.push({ x: f.x, y: f.y, t: f.t + 1, n: f.n });
+    var i, b;
+    if (S.fan) {
+      S.fan.k = (S.fan.k + S.fan.spd) & 1023;
+      S.fan.body.setNextKinematicRotation({ x: 0, y: 0, z: isin(S.fan.k) / 1e6, w: icos(S.fan.k) / 1e6 });
     }
-    S.flights = fl;
-    var lo = [];
-    for (i = 0; i < S.loose.length; i++) if (stepBall(S, S.loose[i])) lo.push(S.loose[i]);
-    S.loose = lo;
-    stepBlocks(S);
-    var quiet = !S.flights.length && settled(S);
+    for (i = 0; i < S.ballsLive.length; i++) { var lv = S.ballsLive[i].body.linvel(); S.ballsLive[i].pv = { x: lv.x, y: lv.y, z: lv.z }; }
+    S.world.step(S.queue);
+    var toBreak = [], restore = [];
+    S.queue.drainCollisionEvents(function (h1, h2, started) {
+      if (!started) return;
+      var ball = null, other = null;
+      for (var k = 0; k < S.ballsLive.length; k++) {
+        if (S.ballsLive[k].collider.handle === h1) { ball = S.ballsLive[k]; other = h2; }
+        else if (S.ballsLive[k].collider.handle === h2) { ball = S.ballsLive[k]; other = h1; }
+      }
+      if (!ball) return;
+      var blk = S.byCollider[other];
+      var sp2 = ball.pv.x * ball.pv.x + ball.pv.y * ball.pv.y + ball.pv.z * ball.pv.z;
+      if (!blk) { S.events.push({ e: 'bonk', n: ball.n, v: Math.sqrt(sp2), fan: !!(S.fan && S.world.getCollider(other) && S.world.getCollider(other).parent() && S.world.getCollider(other).parent().handle === S.fan.body.handle) }); return; }
+      if (blk.t === 'jar') {
+        if (toBreak.indexOf(blk) < 0) toBreak.push([blk, 'ball']);
+        if (ball.pierced < PIERCE && sp2 > 16) { ball.pierced += 1; restore.push([ball, 0.82]); }
+      } else if (blk.t === 'crate' || blk.t === 'plank') {
+        if (sp2 > 36) {
+          blk.hp -= 1;
+          if (blk.hp <= 0) { toBreak.push([blk, 'ball']); restore.push([ball, 0.6]); }
+          else S.events.push({ e: 'crack', t: blk.t, id: blk.id, hp: blk.hp, x: blk.body.translation().x, y: blk.body.translation().y });
+        }
+      } else S.events.push({ e: 'knock', id: blk.id, v: Math.sqrt(sp2) });
+    });
+    S.queue.drainContactForceEvents(function (ev) {
+      var f = ev.totalForceMagnitude();
+      var b1 = S.byCollider[ev.collider1()], b2 = S.byCollider[ev.collider2()];
+      [b1, b2].forEach(function (blk) {
+        if (!blk) return;
+        if (blk.t === 'jar' && f > JAR_BREAK_F) { toBreak.push([blk, 'crush']); return; }
+        if (S.step - blk.lastThud > 12) { blk.lastThud = S.step; var p = blk.body.translation(); S.events.push({ e: 'thud', t: blk.t, x: p.x, y: p.y, z: p.z, f: f }); }
+      });
+    });
+    var done = [];
+    for (i = 0; i < toBreak.length; i++) {
+      b = toBreak[i][0];
+      if (done.indexOf(b) >= 0 || S.blocks.indexOf(b) < 0) continue;
+      done.push(b); breakBlock(S, b, toBreak[i][1]);
+    }
+    for (i = 0; i < restore.length; i++) {
+      var bl = restore[i][0], k2 = restore[i][1];
+      bl.body.setLinvel({ x: bl.pv.x * k2, y: bl.pv.y * k2, z: bl.pv.z * k2 }, true);
+    }
+    // knocked off the table
+    for (i = S.blocks.length - 1; i >= 0; i--) {
+      b = S.blocks[i];
+      var p = b.body.translation();
+      if (p.y < FALL_Y) {
+        var fv = b.body.linvel(), fa = b.body.angvel(), fq = b.body.rotation();
+        removeBlock(S, b);
+        S.score += FALL_PTS[b.t];
+        S.events.push({ e: 'fall', t: b.t, col: b.col, x: p.x, y: p.y, z: p.z, pts: FALL_PTS[b.t], id: b.id, v: { x: fv.x, y: fv.y, z: fv.z }, av: { x: fa.x, y: fa.y, z: fa.z }, q: { x: fq.x, y: fq.y, z: fq.z, w: fq.w } });
+      }
+    }
+    var keep = [];
+    for (i = 0; i < S.ballsLive.length; i++) {
+      var bb = S.ballsLive[i];
+      bb.age += 1;
+      var bp = bb.body.translation();
+      if (bp.y < -6 || bb.age > 360 || bp.z < -30) { S.world.removeRigidBody(bb.body); continue; }
+      keep.push(bb);
+    }
+    S.ballsLive = keep;
+
     if (S.phase === 'play') {
-      if (!S.blocks.length && !S.flights.length) {
+      if (!S.blocks.length) {
         var bonus = 100 + 50 * S.level;
-        S.score += bonus; S.phase = 'clear'; S.timer = 80;
+        S.score += bonus; S.phase = 'clear'; S.timer = 90;
         S.events.push({ e: 'clear', bonus: bonus, level: S.level });
-      } else if (S.balls <= 0 && quiet && !S.loose.length) {
-        S.phase = 'ending'; S.timer = 70;
+      } else if (S.balls <= 0 && !S.ballsLive.length) {
+        var moving = false;
+        for (i = 0; i < S.blocks.length; i++) if (!S.blocks[i].body.isSleeping()) { moving = true; break; }
+        if (!moving || S.step - S.lastShot > 420) { S.phase = 'ending'; S.timer = 60; }
       }
     } else if (S.phase === 'clear') {
-      if (--S.timer <= 0) { S.level += 1; S.phase = 'play'; buildTower(S); }
+      if (--S.timer <= 0) {
+        var keepBalls = S.balls;
+        clearWorld(S); S.balls = keepBalls;
+        S.level += 1; S.phase = 'play'; buildTower(S);
+      }
     } else if (S.phase === 'ending') {
-      if (--S.timer <= 0) { S.phase = 'over'; S.events.push({ e: 'over', score: S.score }); }
+      if (!S.blocks.length) { S.phase = 'play'; }
+      else if (--S.timer <= 0) { S.phase = 'over'; S.events.push({ e: 'over', score: S.score }); }
     }
   }
 
-  window.KTRules = { initSim: initSim, stepSim: stepSim, shoot: shoot, isin: isin, icos: icos,
-    W: W, H: H, U: U, CELL: CELL, BH: BH, FLOOR: FLOOR, CX: CX, FLIGHT: FLIGHT, BALL_R: BALL_R,
-    FAN_CY: FAN_CY, FAN_LEN: FAN_LEN, FAN_HALF: FAN_HALF, FAN_HUB: FAN_HUB };
-})();
+  root.KTRules = { RULES_VERSION: RULES_VERSION, ready: ready, initSim: initSim, stepSim: stepSim, shoot: shoot, hash: hash,
+    DT: DT, GRAVITY: GRAVITY, CELL: CELL, ROW: ROW, DEPTH: DEPTH, FRONT: FRONT, PLANK_H: PLANK_H, BALL_R: BALL_R, CANNON: CANNON,
+    FLIGHT_STEPS: FLIGHT_STEPS, FAN_LEN: FAN_LEN, FAN_HALF: FAN_HALF, FAN_Y: FAN_Y, FAN_Z: FAN_Z, layout: layout };
+})(typeof window !== 'undefined' ? window : globalThis);

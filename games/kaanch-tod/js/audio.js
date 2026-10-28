@@ -109,6 +109,21 @@
       var t = AC.currentTime, ns = [523, 440, 349, 262];
       for (var i = 0; i < ns.length; i++) tone(t + i * 0.14, 'triangle', ns[i], ns[i] * 0.98, 0.4, 0.3);
     },
+    knock: function (v) {
+      if (!throttle('kn', 50)) return;
+      var t = AC.currentTime, k = Math.min(1, (v || 10) / 25);
+      tone(t, 'sine', 210, 90, 0.16, 0.35 + 0.4 * k);
+      noise(t, 0.07, 'bandpass', 900, 2, 0.35 + 0.3 * k);
+      tone(t, 'triangle', 520, 300, 0.05, 0.15);
+    },
+    splash: function () {
+      if (!throttle('sp', 70)) return;
+      var t = AC.currentTime;
+      noise(t, 0.45, 'lowpass', 1400, 0.7, 0.55, 0.01);
+      noise(t + 0.02, 0.3, 'bandpass', 3000, 1, 0.25);
+      tone(t, 'sine', 300, 120, 0.2, 0.3);
+      for (var i = 0; i < 5; i++) tone(t + 0.08 + Math.random() * 0.3, 'sine', 900 + Math.random() * 900, 1500, 0.05, 0.06);
+    },
     tinkle: function () {
       if (!throttle('tk', 60)) return;
       var t = AC.currentTime, f = 3000 + Math.random() * 3500;
