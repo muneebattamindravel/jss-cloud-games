@@ -262,13 +262,13 @@
     if (!musicOn || !AC) return;
     while (nextT < AC.currentTime + 0.3) { musicStep(nextT, stepNo); stepNo++; nextT += STEP_S; }
   }
-  // The soundtrack is a recorded Punjabi dhol loop. It streams in after the first
+  // The soundtrack is the founder's Basant track (85 s, looped). It streams in after the first
   // gesture; until it has loaded (or if it never does) the synthesised dhol plays.
   var songBuf = null, songSrc = null, songAsked = false;
   function loadSong() {
     if (songAsked || !AC || typeof fetch !== 'function') return;
     songAsked = true;
-    fetchAudio('audio/basant.mp3?v=1')
+    fetchAudio('audio/basant.mp3?v=2')
       .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
       .then(function (buf) { songBuf = buf; if (musicOn && !songSrc) swapToSong(); })
       .catch(function () {});
@@ -296,8 +296,9 @@
   }
   function playSong() {
     var src = AC.createBufferSource(); src.buffer = songBuf; src.loop = true;
-    src.loopStart = 0.02; src.loopEnd = Math.max(0.5, songBuf.duration - 0.02);
-    src.connect(musicGain); src.start(AC.currentTime + 0.05, 0.02); songSrc = src;
+    // the whole buffer loops: the file carries its own 5 ms fade in and 12 ms fade out, so the seam does not click
+    src.loopStart = 0; src.loopEnd = songBuf.duration;
+    src.connect(musicGain); src.start(AC.currentTime + 0.05, 0); songSrc = src;
   }
   function swapToSong() {
     clearInterval(musicTimer); musicTimer = 0;            // the synthesised loop hands over
