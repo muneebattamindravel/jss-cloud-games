@@ -462,11 +462,13 @@
   }
 
   // ── the hands-on practice: outside the scored run, emits nothing ────────
-  // 0 hold to fly · 1 let go to turn · 2 hold when the nose points at the ring
-  // · 3 cut their string · 4 ready. It freezes whenever it waits for you.
+  // 0 hold to fly up to the ring · 1 let go and watch it spin · 2 hold when the nose
+  // points at the ring · 3 cut their string · 4 ready. It freezes whenever it waits for
+  // you, and nothing in it can fail for good: a miss just resets the same lesson.
   var prac = null, handImg = null;
   var HAND_W = 64, HAND_H = 100;
-  var RING = { x: 320, y: 300 };
+  var RINGS = { 0: { x: 207, y: 270 }, 2: { x: 320, y: 300 } };
+  var SPIN_STEPS = 34;                                // lesson 1 is done after this much spinning
   function buildHandSprite() {
     var k = 4, c = layer(HAND_W * k, HAND_H * k), g = c.getContext('2d'); g.scale(k, k);
     g.lineWidth = 3.2; g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = '#5b2340';
@@ -491,7 +493,7 @@
     pracSetup(0);
   }
   function pracSetup(i) {
-    texts = []; falling = []; prac.i = i; prac.live = 0; prac.want = ''; prac.shownAt = performance.now(); prac.phase = 'run';
+    texts = []; falling = []; prac.i = i; prac.live = 0; prac.slip = 0; prac.want = ''; prac.shownAt = performance.now(); prac.phase = 'run';
     var s = sim;
     s.dead = ''; s.events = []; s.kites = PK.KITES; s.respawn = 0; s.safe = 0; s.rivals = [];
     if (fingerDown) PK.touch(s); else PK.lift(s);
@@ -501,7 +503,7 @@
     if (i === 2) s.me = { x: 150 * U, y: 360 * U, h: 0, s: 0, pull: 0 };
     if (i === 3) {
       s.me = { x: 130 * U, y: 340 * U, h: 236, s: 0, pull: 0 };     // nose already toward their line
-      s.rivals = [{ id: 7, big: 0, pm: 0, wp: 0, side: 1, w: 1, ax: 484 * U, ay: 700 * U, x: 300 * U, y: 230 * U, h: 0, s: 0, pull: 0, vmax: 0, aim: 9, react: 1e9, dart: 0, think: 0, run: 0, hx: 300 * U, hy: 230 * U, rest: 1e9, restBase: 1e9, until: 1e12, hunter: 0 }];
+      s.rivals = [{ id: 7, big: 0, pm: 0, wp: 0, side: 1, w: 1, ax: 430 * U, ay: 620 * U, x: 290 * U, y: 200 * U, h: 0, s: 0, pull: 0, vmax: 0, aim: 9, react: 1e9, dart: 0, think: 0, run: 0, hx: 290 * U, hy: 200 * U, rest: 1e9, restBase: 1e9, until: 1e12, hunter: 0 }];
     }
     prev = snap(s); myFall = null;
     if (i === 4) { prac.phase = 'ready'; pplay.classList.remove('is-hidden'); pskip.classList.add('is-hidden'); syncPlay(); silence(); }
@@ -515,11 +517,13 @@
   // what the practice is waiting for, or '' when it may run
   function pracWants() {
     var p = prac, me = sim.me;
-    if (p.i === 0) return !fingerDown && p.live === 0 ? 'hold' : '';
+    if (p.i === 0) return fingerDown ? '' : 'hold';
     if (p.i === 1) return fingerDown ? 'let' : '';
     if (p.i === 2) {
-      if (fingerDown) return '';
-      return PK.aimedAt(me.h, RING.x * U - me.x, RING.y * U - me.y, 8) ? 'now' : '';
+      if (me.pull) return '';
+      var aimed = PK.aimedAt(me.h, RINGS[2].x * U - me.x, RINGS[2].y * U - me.y, 6);
+      if (fingerDown) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
+      return aimed ? 'now' : '';
     }
     if (p.i === 3) return fingerDown || p.live > 0 ? '' : 'cut';
     return '';
@@ -543,12 +547,14 @@
     var me = sim.me, lost = false, cut = false;
     for (var i = 0; i < sim.events.length; i++) { if (sim.events[i].k === 'lost') lost = true; if (sim.events[i].k === 'cut') cut = true; }
     if (lost || me.y > 590 * U) { sim.dead = ''; texts.push({ x: 207, y: 330, s: 'TRY AGAIN', sub: '', t: 0, big: 1, warn: 1 }); p.i = p.i - 1; pracNext(900); return true; }
-    if (p.i === 0 && p.live > 50) pracNext(0);
-    if (p.i === 1 && p.live > 50) pracNext(0);
-    if (p.i === 2) {
-      var dx = me.x / U - RING.x, dy = me.y / U - RING.y;
-      if (dx * dx + dy * dy < 34 * 34) { burst(RING.x, RING.y, 16, ['#ffd23f', '#fff6c2'], 2.4); SFX.good(); texts.push({ x: RING.x, y: RING.y - 30, s: 'NICE!', sub: '', t: 0, big: 1 }); pracNext(700); }
-      else if (me.pull && p.live > 4 && (me.x <= 21 * U || me.x >= 393 * U || me.y <= 51 * U)) { p.i = 1; pracNext(300); }
+    if (p.i === 1) {
+      if (!me.pull) p.slip++;
+      if (p.slip >= SPIN_STEPS) { SFX.good(); texts.push({ x: me.x / U, y: me.y / U - 50, s: 'NICE!', sub: '', t: 0, big: 1 }); pracNext(800); }
+    }
+    if (p.i === 0 || p.i === 2) {
+      var ring = RINGS[p.i], dx = me.x / U - ring.x, dy = me.y / U - ring.y;
+      if (dx * dx + dy * dy < 34 * 34 || (p.i === 0 && me.y / U < ring.y - 30)) { burst(ring.x, ring.y, 16, ['#ffd23f', '#fff6c2'], 2.4); SFX.good(); texts.push({ x: ring.x, y: ring.y - 30, s: 'NICE!', sub: '', t: 0, big: 1 }); pracNext(800); }
+      else if (me.pull && p.live > 4 && (me.x <= 21 * U || me.x >= 393 * U || me.y <= 51 * U)) { p.i = p.i === 0 ? -1 : 1; pracNext(300); }   // flew off: same lesson again
     }
     if (p.i === 3 && cut) pracNext(2200);
     if (p.i === 3 && !cut && p.live > 150) { texts.push({ x: 207, y: 330, s: 'TRY AGAIN', sub: '', t: 0, big: 1, warn: 1 }); p.i = 2; pracNext(700); }
@@ -642,9 +648,10 @@
     }
   }
   function drawWorld(g, now, a) {
-    if (state === 'prac' && prac && prac.i === 2 && prac.phase !== 'gap') {   // the practice target
-      g.save(); g.strokeStyle = '#ffd23f'; g.lineWidth = 5; g.beginPath(); g.arc(RING.x, RING.y, 26 + 2 * Math.sin(now / 160), 0, Math.PI * 2); g.stroke();
-      g.strokeStyle = '#5b2340'; g.lineWidth = 2; g.beginPath(); g.arc(RING.x, RING.y, 30 + 2 * Math.sin(now / 160), 0, Math.PI * 2); g.stroke(); g.restore();
+    var ring = state === 'prac' && prac && prac.phase !== 'gap' ? RINGS[prac.i] : null;
+    if (ring) {   // the practice target
+      g.save(); g.strokeStyle = '#ffd23f'; g.lineWidth = 5; g.beginPath(); g.arc(ring.x, ring.y, 26 + 2 * Math.sin(now / 160), 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = '#5b2340'; g.lineWidth = 2; g.beginPath(); g.arc(ring.x, ring.y, 30 + 2 * Math.sin(now / 160), 0, Math.PI * 2); g.stroke(); g.restore();
     }
     for (var f = 0; f < falling.length; f++) {
       var fk = falling[f], fa = Math.max(0, 1 - fk.t / 160);
@@ -753,7 +760,7 @@
     g.beginPath(); g.moveTo(ax, ay); g.lineTo(rx, ry); g.stroke();
     g.restore();
     var lx = rx + (ax - rx) * 0.5, ly = ry + (ay - ry) * 0.5;
-    if (!r.lock) pill(g, 'THEIR STRING', lx + 70, ly, '#c0265f');
+    if (!r.lock) pill(g, 'THEIR STRING', lx - 64, ly, '#c0265f');
     if (!r.lock && p.live < 120) {
       var x = me.x / U, y = me.y / U, a = me.h / 1024 * Math.PI * 2, dx = Math.sin(a), dy = -Math.cos(a);
       var hit = intersect(x, y, x + dx * 100, y + dy * 100, ax, ay, rx, ry);
@@ -764,14 +771,14 @@
     }
     if (r.lock) {
       var win = Math.max(0, r.bal) * 2 / (PK.CUT_AT * PK.SIZE_LINE[r.big]), lose = Math.max(0, -r.bal) / PK.CUT_AT;
-      caption(g, 'KEEP HOLDING!', 207, 130, 1, '#ffd23f');
       g.save(); g.fillStyle = '#3a1d2e'; g.strokeStyle = '#fff'; g.lineWidth = 3;
       g.beginPath(); g.rect(77, 150, 260, 20); g.fill(); g.stroke();
       g.fillStyle = lose > win ? '#ff4d6d' : '#ffd23f'; g.fillRect(79, 152, 256 * Math.min(1, Math.max(win, lose)), 16);
       g.restore();
-      pill(g, 'SAWING THROUGH', 207, 196, '#c0265f');
-    } else if (me.pull && p.live > 0) caption(g, 'Cross their string', 207, 130, 1);
+      pill(g, 'KEEP HOLDING!', 207, 196, '#c0265f');
+    }
   }
+  var HEADS = [['HOLD TO FLY UP', 'Press and keep your finger down'], ['LET GO TO SPIN', 'Lift your finger: the kite turns'], ['POINT, THEN HOLD', 'The kite flies where its nose points'], ['CUT THEIR STRING', 'Hold to cross it, keep holding until it snaps']];
   function drawPrac(g, now) {
     var p = prac; if (!p) return;
     if (p.phase === 'ready') {
@@ -780,16 +787,26 @@
       return;
     }
     if (p.i === 3 && p.phase === 'run' && sim.rivals[0] && sim.rivals[0].id === 7) drawCutCue(g, now, p);
-    var want = p.want; if (!want) return;
-    var fade = Math.min(1, (now - p.shownAt) / 180), me = sim.me, x = me.x / U, y = me.y / U, k = ((now - p.shownAt) % 1400) / 1400;
-    var hx = 207, hy = 590;
-    if (want === 'hold') { caption(g, 'Hold to fly', x, y - 60, fade); drawHand(g, hx, hy, fade, k > 0.3); }
-    else if (want === 'let') {
-      caption(g, 'Let go to turn', x, y - 60, fade);
-      drawHand(g, hx, hy - (k > 0.3 ? Math.min(28, (k - 0.3) * 80) : 0), fade, k <= 0.3);
+    var me = sim.me, aimed2 = p.i === 2 && !me.pull && PK.aimedAt(me.h, RINGS[2].x * U - me.x, RINGS[2].y * U - me.y, 6);
+    var want = p.want, head = HEADS[p.i], sub = head[1], title = head[0], hot = '#ffffff';
+    if (p.i === 0 && p.live > 0 && want === 'hold') title = 'KEEP HOLDING';
+    if (p.i === 2 && !want && !me.pull && !fingerDown) { title = 'WAIT FOR THE ARROW'; sub = 'The kite is turning toward the star'; }
+    if (want === 'now') { title = 'HOLD NOW!'; sub = 'The arrow faces the star'; hot = '#ffd23f'; }
+    var rr = p.phase === 'run' || p.phase === 'gap';
+    if (rr) {
+      var al = p.phase === 'gap' ? 0.55 : 1;
+      for (var d = 0; d < 4; d++) {                      // four dots: where you are
+        g.save(); g.globalAlpha = al; g.lineWidth = 3; g.strokeStyle = '#5b2340'; g.fillStyle = d <= p.i ? '#ffd23f' : 'rgba(255,255,255,0.5)';
+        g.beginPath(); g.arc(207 + (d - 1.5) * 22, 52, 6, 0, Math.PI * 2); g.stroke(); g.fill(); g.restore();
+      }
+      g.save(); g.globalAlpha = al; caption(g, title, 207, 94, 1, hot);
+      g.font = '16px PKTitan, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#5b2340'; g.strokeText(sub, 207, 120); g.fillStyle = '#fff'; g.fillText(sub, 207, 120); g.restore();
     }
-    else if (want === 'now') { caption(g, 'Hold now!', x, y - 60, fade, '#ffd23f'); drawHand(g, hx, hy, fade, k > 0.3); }
-    else if (want === 'cut') { caption(g, 'Cross their string', 207, 130, fade); drawHand(g, hx, hy, fade, k > 0.3); }
+    if (!want) return;
+    var fade = Math.min(1, (now - p.shownAt) / 180), k = ((now - p.shownAt) % 1400) / 1400;
+    var hx = 207, hy = 590;
+    if (want === 'hold' || want === 'now' || want === 'cut') drawHand(g, hx, hy, fade, k > 0.3);
+    else if (want === 'let') drawHand(g, hx, hy - (k > 0.3 ? Math.min(28, (k - 0.3) * 80) : 0), fade, k <= 0.3);
   }
 
   // ── the loop ────────────────────────────────────────────────────────────
