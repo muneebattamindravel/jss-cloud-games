@@ -191,7 +191,7 @@ function boot(opts = {}) {
     clickPlay() { click('playBtn'); },
     readySession() { while (readyCbs.length) readyCbs.shift()(); },
     // From PLAY to the first live step (READY / GO plays out).
-    start() { click('playBtn'); if (win.__probe.mode === 'howto') click('howOk'); let n = 0; while (win.__probe.mode !== 'play' && n++ < 600) advance(1000 / hz); },
+    start() { click('playBtn'); if (win.__probe.mode === 'prac') { click('pskip'); click('pplayBtn'); } let n = 0; while (win.__probe.mode !== 'play' && n++ < 600) advance(1000 / hz); },
     get now() { return now; },
     get timers() { return timers.length; },
   };

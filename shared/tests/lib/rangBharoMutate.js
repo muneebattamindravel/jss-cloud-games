@@ -163,7 +163,11 @@ const M = [
   ['c: replay emits', 'game', '      for (let i = 0; i < due.length; i++) applyInput(Number(due[i].dir), false);', '      for (let i = 0; i < due.length; i++) applyInput(Number(due[i].dir), true);'],
   ['c: replay not started', 'game', "    if (RP) { show(menuEl, false); logo.running = false; startRun(); return; }", ''],
   ['c: how-to not marked', 'game', "    if (window.KJTut) { try { window.KJTut.markSeen(); } catch (_e) {} return; }", "    if (window.KJTut) return;"],
-  ['c: how-to skipped', 'game', "    if (!seenHow()) { openHow(true); return; }", ''],
+  ['c: practice skipped', 'game', "    if (!seenHow()) { startPractice(); return; }", ''],
+  ['c: practice traced', 'game', "    const ev0 = sim.ev;\n    inputDir(sim, d);\n    for (const e of sim.ev.slice(ev0.length))", "    const ev0 = sim.ev;\n    applyInput(d, true);\n    for (const e of sim.ev.slice(ev0.length))"],
+  ['c: practice takes any swipe', 'game', "    if (d !== want) { prac.wrongT = nowMs;", "    if (d !== want && false) { prac.wrongT = nowMs;"],
+  ['c: practice PLAY without a session', 'game', "    if (mode !== 'pready' || !sessionReady) return;", "    if (mode !== 'pready') return;"],
+  ['c: practice runs on to maze 2', 'game', "          prac.doneT = nowMs; mode = 'pracdone';", "          prac.doneT = nowMs;"],
 ];
 
 const INERT = {

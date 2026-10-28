@@ -118,29 +118,80 @@ describe('rang-bharo session and submit', () => {
   });
 });
 
-describe('rang-bharo HOW TO PLAY', () => {
-  test('it shows before the first run, records nothing, and swipes on it are not moves', () => {
+describe('rang-bharo interactive practice (outside the run)', () => {
+  const PATH = [1, 2, 1, 3, 2, 3, 0];
+  // The player solves the practice maze with real swipes, one at a time.
+  function solvePractice(g, extra) {
+    const pr = g.probe();
+    for (const d of PATH) {
+      for (let k = 0; k < 120 && pr.sim.dir >= 0; k++) g.advance(1000 / 60);
+      if (extra) extra(d);
+      g.swipe(d);
+      g.advance(1000 / 60 * 2);
+    }
+    for (let k = 0; k < 300 && pr.mode !== 'pready'; k++) g.advance(1000 / 60);
+  }
+  test('it plays before the first run, records nothing, scores nothing, then PLAY starts a clean run', () => {
     const g = H.boot({ seed: H.seedHex(6), tutorial: true });
     g.clickPlay();
-    expect(g.probe().mode).toBe('howto');
-    g.advance(3000);
-    g.swipe(1); g.key(2);
-    g.advance(500);
+    expect(g.probe().mode).toBe('prac');
+    expect(g.els.pskip.hidden).toBe(false);
+    solvePractice(g);
+    expect(g.probe().mode).toBe('pready');
     expect(g.trace.length).toBe(0);
-    expect(g.probe().sim).toBe(null);
-    g.click('howOk');
-    expect(g.probe().mode).toBe('ready');
+    expect(g.results.length).toBe(0);
+    g.click('pplayBtn');
+    const pr = g.probe();
+    expect(pr.mode).toBe('ready');
     expect(g.trace.length).toBe(1);   // the start marker only
+    expect(pr.sim.inputs).toBe(0);
+    expect(pr.sim.step).toBe(0);
+    expect(pr.sim.seed).toBe(S.seedToInt(H.seedHex(6)));
+    expect(pr.sim.maze.w).toBe(S.mazeDims(1).w);
     expect(g.win.KJTut.seen()).toBe(true);
   });
-  test('it can be opened from the menu and closed back to it', () => {
-    const g = H.boot({ seed: H.seedHex(6) });
-    g.click('howBtn');
-    expect(g.probe().mode).toBe('howto');
-    g.advance(2000);
-    g.click('howOk');
-    expect(g.probe().mode).toBe('menu');
+  test('a wrong swipe does not move the ball; the right one does', () => {
+    const g = H.boot({ seed: H.seedHex(6), tutorial: true });
+    g.clickPlay();
+    const pr = g.probe();
+    g.swipe(0); g.swipe(3); g.advance(500);
+    expect(pr.sim.bx).toBe(0); expect(pr.sim.by).toBe(0);
+    expect(pr.sim.totalMoves).toBe(0);
+    g.swipe(1); g.advance(1000);
+    expect(pr.sim.bx).toBe(3);
     expect(g.trace.length).toBe(0);
+  });
+  test('SKIP ends it at once, and nothing is recorded', () => {
+    const g = H.boot({ seed: H.seedHex(6), tutorial: true });
+    g.clickPlay();
+    g.click('pskip');
+    expect(g.probe().mode).toBe('pready');
+    expect(g.els.pskip.hidden).toBe(true);
+    expect(g.trace.length).toBe(0);
+    g.click('pplayBtn');
+    expect(g.probe().mode).toBe('ready');
+  });
+  test('it can be played from the menu before the session exists; its PLAY waits for the session', () => {
+    const g = H.boot({ seed: H.seedHex(6), deferSession: true });
+    g.click('howBtn');
+    expect(g.probe().mode).toBe('prac');
+    solvePractice(g);
+    expect(g.probe().mode).toBe('pready');
+    expect(g.els.pplayBtn.disabled).toBe(true);
+    g.click('pplayBtn');
+    expect(g.probe().mode).toBe('pready');
+    g.readySession();
+    expect(g.els.pplayBtn.disabled).toBe(false);
+    g.click('pplayBtn');
+    expect(g.probe().mode).toBe('ready');
+    expect(g.trace.filter((e) => e.payload.kind === 'start').length).toBe(1);
+  });
+  test('the practice route is the one the guide shows, and it clears the practice maze at par', () => {
+    const g = H.boot({ seed: H.seedHex(6), tutorial: true });
+    g.clickPlay();
+    const m = g.probe().sim.maze;
+    expect(S.trapFree(m.cells, m.w, m.h, m.start)).toBe(true);
+    expect(S.solvePar(m.cells, m.w, m.h, m.start, m.floors)).toBe(PATH.length);
   });
 });
 
@@ -149,7 +200,7 @@ describe('rang-bharo drawing', () => {
     const g = H.boot({ seed: H.seedHex(7), width: w, height: h, draw: true, strict: true, tutorial: true });
     g.win.__draw = true;
     g.advance(1500);
-    g.clickPlay(); g.advance(2500); g.click('howOk');
+    g.clickPlay(); g.advance(2500); g.click('pskip'); g.advance(500); g.click('pplayBtn');
     const r = H.fly(g, 'flawless', { maxSteps: 60 * 25, rngSeed: 3 });
     expect(r.mazes).toBeGreaterThan(2);
     const pr = g.probe();

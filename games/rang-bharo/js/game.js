@@ -463,7 +463,8 @@
 
   function sprites(n, m) {
     const key = n + ':' + px;
-    if (spr.key === key) return spr;
+    if (spr.key === key && spr.m === m) return spr;
+    spr.m = m;
     const P = palOf(n);
     spr.key = key; spr.n = n;
     spr.board = buildBoard(m, n);
@@ -695,7 +696,7 @@
 
   // ---------- run state ----------
   let sim = null;
-  let mode = 'menu';            // menu, howto, ready, play, end
+  let mode = 'menu';            // menu, prac, pracdone, pready, ready, play, end
   let acc = 0, lastT = null, nowMs = 0;
   let inbox = [];
   let prevB = { x: 0, y: 0 }, curB = { x: 0, y: 0 };
@@ -724,6 +725,59 @@
   }
 
   let runsStarted = 0, submitted = false, submitTimer = null, replayMoves = null, traceVersion = RULES_VERSION;
+  // ---------- the practice (outside the run: nothing is emitted or scored) ----------
+  // A tiny hand-made maze the player solves themselves, one guided swipe at a
+  // time. It uses the real rules on a local world that is never traced.
+  const PRAC_MAP = ['11110', '10010', '10111', '11100'];
+  const PRAC_PATH = [1, 2, 1, 3, 2, 3, 0];
+  const DIR_NAME = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
+  let prac = null;
+  function practiceSim() {
+    const w = 5, h = 4, cells = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) cells[i] = PRAC_MAP[(i / w) | 0][i % w] === '1' ? 1 : 0;
+    let floors = 0; for (let i = 0; i < w * h; i++) floors += cells[i];
+    const maze = { w, h, cells, start: 0, floors, designed: PRAC_PATH.length, par: PRAC_PATH.length, exact: true, path: PRAC_PATH.slice() };
+    const painted = new Uint8Array(w * h); painted[0] = 1;
+    return {
+      v: RULES_VERSION, seed: 0, step: 0, over: false, inputs: 0, score: 0, n: 1, moves: 0, mazes: 0, perfects: 0,
+      tiles: 0, totalMoves: 0, maze, painted, left: floors - 1, bx: 0, by: 0, dir: -1, sub: 0, queued: -1, pause: 0,
+      lastInput: -1, ev: [],
+    };
+  }
+  function startPractice() {
+    sim = practiceSim();
+    prac = { i: 0, wrongT: -1e9, wrongD: 0, doneT: 0 };
+    paintAt = new Float64Array(sim.maze.w * sim.maze.h);
+    paintAt[0] = -1e9;
+    prevB = ballPosOf(sim); curB = prevB;
+    parts = []; texts = []; trail = []; inbox = [];
+    ripple = null; shake = 0; flash = 0; sq = 0; sqv = 0;
+    slideIn = { t0: nowMs, old: null, dur: 420 };
+    mode = 'prac'; acc = 0;
+    $('pskip').hidden = false;
+  }
+  // A guided swipe: the right way rolls the ball, any other way bumps and
+  // shows the right one again. Never traced, never scored.
+  function pracInput(d) {
+    if (!prac || prac.doneT || sim.dir >= 0) return;
+    const want = PRAC_PATH[prac.i];
+    if (d !== want) { prac.wrongT = nowMs; prac.wrongD = d; sqDir = d; sqv = 4; SFX.bump(); return; }
+    prac.i++;
+    const ev0 = sim.ev;
+    inputDir(sim, d);
+    for (const e of sim.ev.slice(ev0.length)) onEvent(e, sim.maze, sim.painted);
+  }
+  function endPractice() {
+    if (!prac) return;
+    prac.doneT = prac.doneT || nowMs;
+    mode = 'pready';
+    $('pskip').hidden = true;
+    SFX.rollStop(0.05);
+    const pp = $('pplayBtn');
+    if (!sessionReady) { pp.disabled = true; pp.textContent = 'PREPARING YOUR GAME'; }
+    show($('pready'), true);
+  }
+
   function startRun() {
     if ((EMBED || RP) && runsStarted > 0) return;     // one session, one run
     if ((EMBED || RP) && window.__kjSeed == null) return;
@@ -808,6 +862,14 @@
         ripple = { t0: nowMs, cx: sim.bx, cy: sim.by };
         shake = Math.max(shake, 4);
         confetti(cxw, cyw, 70, P, 1);
+        if (mode === 'prac') {
+          // the practice stops here: no score, no next maze
+          prac.doneT = nowMs; mode = 'pracdone';
+          flash = 0.3; SFX.perfect();
+          floatText('PERFECT!', cxw, cyw - 20, 52, '#fff6c8', 1.4, 30);
+          setTimeout(endPractice, 1300);
+          break;
+        }
         floatText('+' + (e.bonus + 0), cxw, cyw, 64, P.a, 1.3, 70);
         if (e.perfect) {
           flash = 0.35; SFX.perfect();
@@ -853,13 +915,13 @@
     if (lastT === null) { lastT = t; return 0; }
     let dt = t - lastT; lastT = t;
     if (dt < 0) dt = 0;
-    if (mode === 'play' && sim) {
+    if ((mode === 'play' || mode === 'prac') && sim) {
       const big = dt > 200;
       acc += RP ? RP.elapsed(dt, STEP_MS * 3) : dt;
       let n = 0;
       const cap = big ? 60 * 60 * 2 : 3;
       while (acc >= STEP_MS && n < cap) { acc -= STEP_MS; stepOnce(); n++; if (sim.over) break; }
-      if (sim.over) onRunOver();
+      if (sim.over && mode === 'play') onRunOver();
       if (RP) RP.report(sim.step, sim.score);
     }
     return dt;
@@ -1036,7 +1098,8 @@
       }
       drawBoardLayer(S, offX);
       if (sim.pause === 0 || true) drawBall(S, offX, alpha);
-      drawHud();
+      if (prac && (mode === 'prac' || mode === 'pracdone' || mode === 'pready')) drawPractice(S, offX);
+      else drawHud();
       if (!firstMoveDone && mode === 'play' && sim.n === 1) {
         g.globalAlpha = 0.55 + 0.35 * Math.sin(nowMs / 260);
         g.font = '15px ' + FONT; g.textAlign = 'center'; g.fillStyle = '#ffffff';
@@ -1048,6 +1111,52 @@
     drawParts();
     drawTexts();
     if (flash > 0.01) { g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = 'rgba(255,250,225,' + flash + ')'; g.fillRect(0, 0, canvas.width, canvas.height); }
+  }
+
+  // The guide: what to do now in big type, why in small, and an arrow of
+  // chevrons from the ball to where the right swipe will take it.
+  function drawPractice(S, offX) {
+    const G = S.G, T = G.T;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '13px ' + FONT; g.fillStyle = 'rgba(255,255,255,.5)'; g.fillText('PRACTICE', DW / 2, 40);
+    if (!prac || mode !== 'prac') return;
+    const i = Math.min(prac.i, PRAC_PATH.length - 1), want = PRAC_PATH[i];
+    const wrong = nowMs - prac.wrongT < 900;
+    let big = (i === 0 ? 'SWIPE ' : i === PRAC_PATH.length - 1 ? 'LAST ONE: ' : 'NOW ') + DIR_NAME[want];
+    if (i === PRAC_PATH.length - 1) big = 'LAST ONE: SWIPE ' + DIR_NAME[want];
+    const small = i < 2 ? 'The ball rolls until a wall stops it' : i < PRAC_PATH.length - 1 ? 'Paint every tile to clear the maze' : 'Clear it in the fewest moves for a PERFECT bonus';
+    const pop = Math.max(0.01, spring(Math.min(1, (nowMs - (prac.shownT || 0)) / 500) * 1.2));
+    if (prac.shownI !== prac.i) { prac.shownI = prac.i; prac.shownT = nowMs; }
+    g.save(); g.translate(DW / 2 + (wrong ? Math.sin(nowMs / 25) * 4 * (1 - (nowMs - prac.wrongT) / 900) : 0), 86); g.scale(pop, pop);
+    g.font = '34px ' + FONT; g.lineJoin = 'round'; g.lineWidth = 8; g.strokeStyle = 'rgba(15,8,30,.9)';
+    g.strokeText(wrong ? 'TRY ' + DIR_NAME[want] : big, 0, 0);
+    g.fillStyle = wrong ? '#ff9a5a' : '#ffd23f'; g.fillText(wrong ? 'TRY ' + DIR_NAME[want] : big, 0, 0);
+    g.restore();
+    g.font = '15px ' + FONT; g.fillStyle = 'rgba(255,255,255,.85)'; g.fillText(small, DW / 2, 124);
+    if (sim.dir >= 0) return;
+    // chevrons along the slide the right swipe makes
+    const m = sim.maze, c0 = sim.by * m.w + sim.bx, e = slideEnd(m.cells, m.w, m.h, c0, want);
+    const steps = Math.abs((e % m.w) - sim.bx) + Math.abs(((e / m.w) | 0) - sim.by);
+    const ph = (nowMs / 600) % 1;
+    for (let k = 0; k < steps; k++) {
+      const q = (k + 1 - ph + steps) % steps;
+      const cx = G.x + offX + (sim.bx + 0.5 + DX[want] * (k + 1)) * T, cy = G.y + (sim.by + 0.5 + DY[want] * (k + 1)) * T;
+      g.save(); g.translate(cx, cy); g.rotate([-Math.PI / 2, 0, Math.PI / 2, Math.PI][want]);
+      g.globalAlpha = 0.35 + 0.55 * (1 - q / Math.max(1, steps));
+      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(-T * 0.14, -T * 0.2); g.lineTo(T * 0.12, 0); g.lineTo(-T * 0.14, T * 0.2); g.lineTo(-T * 0.06, 0); g.closePath(); g.fill();
+      g.restore();
+    }
+    g.globalAlpha = 1;
+    // a finger flicking the right way, under the board
+    const fy = G.y + G.bh + G.F + 70, fx = DW / 2, fq = (nowMs % 1100) / 1100, len = 46;
+    const sx = fx - DX[want] * len / 2 + DX[want] * len * Math.min(1, fq * 1.6), sy = fy - DY[want] * len / 2 + DY[want] * len * Math.min(1, fq * 1.6);
+    g.globalAlpha = fq < 0.75 ? 1 : (1 - fq) * 4;
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 6; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(fx - DX[want] * len / 2, fy - DY[want] * len / 2); g.lineTo(sx, sy); g.stroke();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(sx, sy, 13, 0, 6.283); g.fill();
+    g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(sx, sy, 7, 0, 6.283); g.fill();
+    g.globalAlpha = 1;
+    if (!touchSeen) { g.font = '13px ' + FONT; g.fillStyle = 'rgba(255,255,255,.5)'; g.fillText('or use the arrow keys', DW / 2, fy + 40); }
   }
 
   function drawReady() {
@@ -1071,6 +1180,7 @@
   // swipe is never two moves.
   const fingers = new Map();
   function fire(d) {
+    if (mode === 'prac') { pracInput(d); return; }
     if (mode !== 'play' || !sim || sim.over) return;
     inbox.push(d);
     if (inbox.length > 2) inbox.splice(0, inbox.length - 2);
@@ -1106,7 +1216,7 @@
 
   // ---------- screens ----------
   const $ = (id) => document.getElementById(id);
-  const menuEl = $('menu'), howEl = $('howto'), overEl = $('over'), muteBtn = $('muteBtn');
+  const menuEl = $('menu'), overEl = $('over'), muteBtn = $('muteBtn');
   function show(el, on) {
     if (on) { el.classList.remove('is-gone'); requestAnimationFrame(() => el.classList.remove('is-hidden')); }
     else { el.classList.add('is-hidden'); setTimeout(() => { if (el.classList.contains('is-hidden')) el.classList.add('is-gone'); }, 300); }
@@ -1128,15 +1238,17 @@
     if (!sessionReady || mode !== 'menu') return;
     SFX.ui();
     show(menuEl, false); logo.running = false;
-    if (!seenHow()) { openHow(true); return; }
+    if (!seenHow()) { startPractice(); return; }
     startRun();
   });
-  $('howBtn').addEventListener('click', () => { SFX.ui(); show(menuEl, false); logo.running = false; openHow(false); });
-  let howThenPlay = false;
-  function openHow(thenPlay) { howThenPlay = thenPlay; mode = 'howto'; show(howEl, true); demo.start(); }
-  $('howOk').addEventListener('click', () => {
-    SFX.ui(); markHow(); show(howEl, false); demo.stop();
-    if (howThenPlay) startRun(); else { mode = 'menu'; show(menuEl, true); logo.start(); }
+  $('howBtn').addEventListener('click', () => { SFX.ui(); show(menuEl, false); logo.running = false; startPractice(); });
+  $('pskip').addEventListener('click', () => { if (mode === 'prac') { SFX.ui(); endPractice(); } });
+  // After the practice: PLAY starts the real run once the session exists.
+  $('pplayBtn').addEventListener('click', () => {
+    if (mode !== 'pready' || !sessionReady) return;
+    SFX.ui(); markHow(); prac = null;
+    show($('pready'), false);
+    startRun();
   });
   $('againBtn').addEventListener('click', () => { SFX.ui(); show(overEl, false); startRun(); });
   $('homeBtn').addEventListener('click', () => { if (EMBED || RP) return; SFX.ui(); show(overEl, false); sim = null; mode = 'menu'; show(menuEl, true); logo.start(); refreshBest(); });
@@ -1266,62 +1378,6 @@
     };
   })();
 
-  // ---------- HOW TO PLAY demo: a tiny maze that paints itself ----------
-  const demo = (function () {
-    const cv = $('demo'), x = cv.getContext('2d');
-    const MAP = ['11110', '10010', '10111', '11100'];
-    const w = 5, h = 4, cells = new Uint8Array(w * h);
-    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) cells[yy * w + xx] = MAP[yy][xx] === '1' ? 1 : 0;
-    const MOVES = [1, 2, 1, 3, 2, 3, 0];
-    const T = 44, X0 = (cv.width - w * T) / 2, Y0 = 18;
-    let running = false, t0 = 0, painted, pos, mi, phase, ph0, from, to, hitT = -9;
-    const P = PALS[0];
-    let tile = null;
-    function reset() { painted = new Uint8Array(w * h); pos = 0; painted[0] = 1; mi = 0; phase = 'swipe'; ph0 = performance.now(); }
-    function tick(now) {
-      if (!running) return;
-      requestAnimationFrame(tick);
-      if (!tile) { tile = (function () { const c = mk(T, T), y = c.getContext('2d'); const gr = y.createLinearGradient(0, 0, 0, T); gr.addColorStop(0, P.a); gr.addColorStop(1, P.b); rr(y, 2, 2, T - 4, T - 4, 8); y.fillStyle = gr; y.fill(); y.fillStyle = 'rgba(255,255,255,.3)'; y.beginPath(); y.ellipse(T / 2, T * 0.2, T * 0.45, T * 0.22, 0, 0, 6.283); y.fill(); return c; })(); }
-      const e = now - ph0;
-      let bx = pos % w, by = (pos / w) | 0;
-      if (phase === 'swipe' && e > 520) { from = pos; to = slideEnd(cells, w, h, pos, MOVES[mi]); phase = 'roll'; ph0 = now; }
-      else if (phase === 'roll') {
-        const dist = Math.abs((to % w) - (from % w)) + Math.abs(((to / w) | 0) - ((from / w) | 0));
-        const q = Math.min(1, e / (dist * 75));
-        const fx = from % w, fy = (from / w) | 0, tx = to % w, ty = (to / w) | 0;
-        bx = fx + (tx - fx) * q; by = fy + (ty - fy) * q;
-        const cx = Math.round(bx), cy = Math.round(by); painted[cy * w + cx] = 1;
-        if (q >= 1) { pos = to; mi++; hitT = now; phase = mi >= MOVES.length ? 'done' : 'swipe'; ph0 = now; }
-      } else if (phase === 'done' && e > 1400) reset();
-      x.clearRect(0, 0, cv.width, cv.height);
-      rr(x, X0 - 10, Y0 - 10, w * T + 20, h * T + 20, 14); x.fillStyle = '#2c2452'; x.fill();
-      for (let i = 0; i < w * h; i++) {
-        const cx = i % w, cy = (i / w) | 0, X = X0 + cx * T, Y = Y0 + cy * T;
-        if (cells[i]) { rr(x, X + 1.5, Y + 1.5, T - 3, T - 3, 8); x.fillStyle = '#0c0919'; x.fill(); if (painted[i]) x.drawImage(tile, X, Y); }
-        else { rr(x, X + 1, Y + 1, T - 2, T - 2, 7); x.fillStyle = '#463a78'; x.fill(); }
-      }
-      const sqz = Math.max(0, 1 - (now - hitT) / 180) * 0.25;
-      x.save(); x.translate(X0 + (bx + 0.5) * T, Y0 + (by + 0.5) * T); x.scale(1 + sqz * 0.5, 1 - sqz);
-      const r = 15, gr = x.createRadialGradient(-5, -6, 1, 0, 0, r);
-      gr.addColorStop(0, '#fff'); gr.addColorStop(0.5, '#fff1b8'); gr.addColorStop(1, '#ff9a1f');
-      x.fillStyle = gr; x.beginPath(); x.arc(0, 0, r, 0, 6.283); x.fill(); x.restore();
-      if (phase === 'swipe' && mi < MOVES.length) {
-        // a finger flick showing the next swipe
-        const d = MOVES[mi], q = Math.min(1, e / 420), cxp = cv.width / 2, cyp = Y0 + h * T + 52;
-        const sx = cxp - DX[d] * 34 + DX[d] * 68 * q, sy = cyp - DY[d] * 20 + DY[d] * 40 * q;
-        x.strokeStyle = 'rgba(255,255,255,' + (0.5 * q) + ')'; x.lineWidth = 5; x.lineCap = 'round';
-        x.beginPath(); x.moveTo(cxp - DX[d] * 34, cyp - DY[d] * 20); x.lineTo(sx, sy); x.stroke();
-        x.fillStyle = 'rgba(255,255,255,.9)'; x.beginPath(); x.arc(sx, sy, 11, 0, 6.283); x.fill();
-        x.fillStyle = 'rgba(255,210,63,.9)'; x.beginPath(); x.arc(sx, sy, 6, 0, 6.283); x.fill();
-      }
-      if (phase === 'done') {
-        x.font = '26px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffd23f';
-        x.fillText('CLEAR!', cv.width / 2, Y0 + h * T + 52);
-      }
-    }
-    return { start() { if (running) return; running = true; reset(); requestAnimationFrame(tick); }, stop() { running = false; } };
-  })();
-
   // ---------- boot ----------
   resize();
   refreshBest();
@@ -1336,6 +1392,7 @@
     sessionReady = true;
     if (RP) { show(menuEl, false); logo.running = false; startRun(); return; }
     playBtn.disabled = false; playBtn.textContent = 'PLAY'; playBtn.classList.add('play-pulse');
+    const pp = $('pplayBtn'); pp.disabled = false; pp.textContent = 'PLAY'; pp.classList.add('play-pulse');
   }
   if (typeof window.__kjOnSessionReady === 'function') window.__kjOnSessionReady(onSessionReady);
   else onSessionReady();
@@ -1345,6 +1402,6 @@
   if (harness) {
     harness.fire = fire;
     harness.state = () => ({ mode, sim });
-    harness.start = () => { show(menuEl, false); logo.running = false; markHow(); startRun(); };
+    harness.start = () => { show(menuEl, false); logo.running = false; markHow(); prac = null; startRun(); };
   }
 })();
