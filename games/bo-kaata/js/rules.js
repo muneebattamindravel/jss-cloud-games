@@ -77,9 +77,14 @@ var PK = (function () {
   var PENCH_WAVE = 6;        // from here some rivals are pench masters: they pull the moment you dart at them
   // kite sizes: 0 patang, 1 guddi (bigger), 2 tukkal (biggest). A bigger kite
   // flies slower on a thicker line: it takes longer holding to saw through, and pays more
-  var SIZE_LINE = [2, 3, 5]; // halves of CUT_AT its line needs: x1, x1.5, x2.5
-  var SIZE_PTS = [1, 2, 3];
-  var SIZE_SLOW = [0, 128, 256];
+  var SIZE_LINE = [2, 3, 5, 3]; // halves of CUT_AT its line needs: x1, x1.5, x2.5, x1.5
+  var SIZE_PTS = [1, 2, 3, 4];
+  var SIZE_SLOW = [0, 128, 256, 0];
+  // trace v3: the fierce kite (size 3), and the kite turns away from a wall instead of pinning to it
+  var WILD_WAVE = 4;         // from here some rivals are fierce: fast, weaving, quick to attack
+  var WILD_VMAX = 7 * U;     // faster than your top speed (6 U): win by hitting it while it rests or turns
+  var WILD_CRUISE = 4 * U;   // even resting it sweeps about this fast
+  var WILD_AFTER = 1500;     // and never in the first 25 s of a run
   var TUKKAL_EVERY = 5;      // the first rival of every 5th wave is a tukkal
 
   // ── rivals ───────────────────────────────────────────────────────────────
@@ -154,7 +159,7 @@ var PK = (function () {
 
   // ── one kite, one step. Shared by you and every rival: same physics. ─────
   // k: { x, y, h, s, pull }  returns a new object, never edits k
-  function flyKite(k, pull, wind, vmax) {
+  function flyKite(k, pull, wind, vmax, v) {
     var x = k.x, y = k.y, h = k.h, s = k.s;
     if (pull) {
       s = k.pull ? Math.min(vmax, s + VACC) : V0;
@@ -165,8 +170,11 @@ var PK = (function () {
       h = (h + SPIN) % TURN;
       x = x + wind; y = y + SINK;
     }
-    if (x < KX_MIN) { x = KX_MIN; s = 0; } else if (x > KX_MAX) { x = KX_MAX; s = 0; }
-    if (y < KY_MIN) { y = KY_MIN; s = 0; }
+    // v3: a pulling kite that meets a wall is turned away (mirrored), so it never sits pinned against it
+    var bounce = v >= 3 && pull;
+    if (x < KX_MIN) { x = KX_MIN; s = 0; if (bounce && sinA(h) < 0) h = (TURN - h) % TURN; }
+    else if (x > KX_MAX) { x = KX_MAX; s = 0; if (bounce && sinA(h) > 0) h = (TURN - h) % TURN; }
+    if (y < KY_MIN) { y = KY_MIN; s = 0; if (bounce && cosA(h) > 0) h = (512 - h + TURN) % TURN; }
     return { x: x, y: y, h: h, s: s, pull: pull ? 1 : 0 };
   }
   // how fast a line moves through a contact: a pulled line at its kite's speed,
@@ -177,32 +185,36 @@ var PK = (function () {
   function waveOf(K) { return fdiv(K, PER_WAVE) + 1; }
   function liveCap(w) { return w < 2 ? 1 : w < 4 ? 2 : 3; }
   function gapAfter(seed, K) { return Math.max(60, 200 - 12 * waveOf(K)) + draw(seed, 2, K, 0, 90); }
-  function makeRival(seed, K, step) {
+  function makeRival(seed, K, step, v) {
     var w = waveOf(K), side = draw(seed, 2, K, 2, 2);
     var sz = draw(seed, 2, K, 14, 100);
-    var big = w % TUKKAL_EVERY === 0 && K % PER_WAVE === 0 ? 2 : w >= 3 && sz < 12 ? 2 : w >= 2 && sz < 32 ? 1 : 0;
+    var wild = v >= 3 && w >= WILD_WAVE && step >= WILD_AFTER && draw(seed, 2, K, 15, 100) < Math.min(40, 12 + 6 * (w - WILD_WAVE)) ? 1 : 0;
+    var big = w % TUKKAL_EVERY === 0 && K % PER_WAVE === 0 ? 2 : wild ? 3 : w >= 3 && sz < 12 ? 2 : w >= 2 && sz < 32 ? 1 : 0;
     var pm = !big && w >= PENCH_WAVE && draw(seed, 2, K, 12, 100) < Math.min(60, 20 + 5 * (w - PENCH_WAVE)) ? 1 : 0;
+    var fierce = big === 3;
     return {
       big: big, pm: pm, wp: 0,
+      wa: fierce ? 5 + draw(seed, 2, K, 16, 4) : 0,      // how hard the weave turns the nose a step
+      wf: 9 + draw(seed, 2, K, 17, 8), ph: draw(seed, 2, K, 18, TURN),   // how fast it weaves, and where in the weave it starts
       id: K, side: side, w: w,
       ax: side ? ANCHOR_X1 : ANCHOR_X0, ay: (610 + draw(seed, 2, K, 4, 240)) * U,
       x: side ? ENTER_X1 : ENTER_X0, y: (120 + draw(seed, 2, K, 3, 220)) * U,
       h: side ? 768 : 256, s: 3 * U, pull: 1,
-      vmax: Math.min(7 * U, 4 * U + 70 * w + draw(seed, 2, K, 5, 220)) - SIZE_SLOW[big],
-      aim: Math.min(6, 2 + fdiv(w, 2)),               // how tightly it lines up before pulling
-      react: Math.max(14, 50 - 5 * w),                // the warning before it darts at you, in steps
-      dart: 34 + draw(seed, 2, K, 7, 40),             // how long it pulls at a time
+      vmax: fierce ? WILD_VMAX : Math.min(7 * U, 4 * U + 70 * w + draw(seed, 2, K, 5, 220)) - SIZE_SLOW[big],
+      aim: fierce ? 6 : Math.min(6, 2 + fdiv(w, 2)),  // how tightly it lines up before pulling
+      react: fierce ? 12 : Math.max(14, 50 - 5 * w),  // the warning before it darts at you, in steps
+      dart: fierce ? 60 + draw(seed, 2, K, 7, 50) : 34 + draw(seed, 2, K, 7, 40),   // how long it pulls at a time
       think: 0, run: 14, lock: 0, bal: 0,             // starts already flying in
       hx: (90 + draw(seed, 2, K, 9, 235)) * U, hy: (110 + draw(seed, 2, K, 10, 230)) * U,
       // first wave: targets only, they never attack; then they sweep about between attacks
-      rest: (K === 0 ? 200 : 90) + draw(seed, 2, K, 11, 90),
-      restBase: Math.max(70, 250 - 30 * w),
+      rest: fierce ? 30 + draw(seed, 2, K, 11, 40) : (K === 0 ? 200 : 90) + draw(seed, 2, K, 11, 90),
+      restBase: fierce ? 40 : Math.max(70, 250 - 30 * w),
       until: step + 1200 + draw(seed, 2, K, 8, 900), hunter: 0,
     };
   }
-  function makeHunter(seed, n, step) {
-    var r = makeRival(seed, 100000 + n, step);
-    return Object.assign(r, { id: 100000 + n, w: 8, vmax: 7 * U, aim: 6, react: 16, dart: 50, hunter: 1, big: 0, pm: 0, rest: 0, until: step + 2400 });
+  function makeHunter(seed, n, step, v) {
+    var r = makeRival(seed, 100000 + n, step, v);
+    return Object.assign(r, { id: 100000 + n, w: 8, vmax: 7 * U, aim: 6, react: 16, dart: 50, hunter: 1, big: 0, pm: 0, wa: 0, rest: 0, until: step + 2400 });
   }
 
   // A rival flies like a person would. Resting, it sweeps back and forth
@@ -253,7 +265,7 @@ var PK = (function () {
 
     var rivals = sim.rivals;
     if (f >= sim.nextAt && rivals.length < liveCap(waveOf(sim.nextK))) {
-      rivals = rivals.concat([makeRival(seed, sim.nextK, f)]);
+      rivals = rivals.concat([makeRival(seed, sim.nextK, f, sim.v)]);
       sim.nextAt = f + gapAfter(seed, sim.nextK);
       sim.wave = waveOf(sim.nextK);
       sim.nextK = sim.nextK + 1;
@@ -262,14 +274,14 @@ var PK = (function () {
     var hunting = 0;
     for (var h = 0; h < rivals.length; h++) if (rivals[h].hunter) hunting = 1;
     if (!hunting && f - sim.lastCut >= HUNT_AFTER) {
-      rivals = rivals.concat([makeHunter(seed, sim.hunts, f)]);
+      rivals = rivals.concat([makeHunter(seed, sim.hunts, f, sim.v)]);
       sim.hunts = sim.hunts + 1; sim.lastCut = f;
       ev = ev.concat([{ k: 'hunter' }]);
     }
 
     // your kite
     var me0 = sim.me, respawn = Math.max(0, sim.respawn - 1), safe = Math.max(0, sim.safe - 1);
-    var me1 = sim.respawn > 0 ? me0 : flyKite(me0, sim.touching === 1, wind, VMAX);
+    var me1 = sim.respawn > 0 ? me0 : flyKite(me0, sim.touching === 1, wind, VMAX, sim.v);
 
     // rivals fly by the same physics
     var moved = [];
@@ -277,12 +289,13 @@ var PK = (function () {
       var r = rivals[i], left = r.until - f;
       var dc = rivalDecide(r, me0, left);
       var attacking = r.rest === 0 && left > 0 && r.y <= LOW_Y;
-      var nr = Object.assign({}, r, dc[2] ? { s: 0, pull: 0 } : flyKite(r, dc[0] === 1, wind, attacking ? r.vmax : Math.min(r.vmax, CRUISE)), {
+      var nr = Object.assign({}, r, dc[2] ? { s: 0, pull: 0 } : flyKite(r, dc[0] === 1, wind, attacking ? r.vmax : Math.min(r.vmax, r.big === 3 ? WILD_CRUISE : CRUISE), sim.v), {
         think: dc[1], run: dc[0] ? (r.pull ? r.run + 1 : 1) : 0,
         // a sweep that ends heads for the other point; an attack that ends goes back to resting
         wp: r.rest > 0 && r.pull && !dc[0] ? 1 - r.wp : r.wp,
         rest: r.rest > 0 ? r.rest - 1 : (r.pull && !dc[0] && r.run >= 8 ? r.restBase + draw(seed, 7, r.id, f & 1023, 60) : 0),
       });
+      if (r.wa && nr.pull) nr.h = (nr.h + fdiv(cosA(f * r.wf + r.ph) * r.wa, 4096) + TURN) % TURN;   // the weave
       if (left <= 0 && (nr.x <= KX_MIN || nr.x >= KX_MAX)) { ev = ev.concat([{ k: 'gone', id: r.id }]); continue; }
       if (nr.y >= ROOF_Y) { ev = ev.concat([{ k: 'down', id: r.id, x: nr.x, y: nr.y }]); continue; }
       moved.push({ r0: r, r1: nr });

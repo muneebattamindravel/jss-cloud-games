@@ -457,7 +457,8 @@
         SFX.lost(e.why); shake = 9;
       } else if (e.k === 'enter') {
         var nr2 = null; for (var b = 0; b < s.rivals.length; b++) if (s.rivals[b].id === e.id) nr2 = s.rivals[b];
-        if (nr2 && nr2.big === 2) texts.push({ x: 207, y: 200, s: 'TUKKAL!', sub: 'thick line: hold longer, x3', t: 0, big: 2 });
+        if (nr2 && nr2.big === 3) texts.push({ x: 207, y: 200, s: 'FIERCE KITE!', sub: 'fast and wavy: hit it when it rests', t: 0, big: 2, warn: 1 });
+        else if (nr2 && nr2.big === 2) texts.push({ x: 207, y: 200, s: 'TUKKAL!', sub: 'thick line: hold longer, x3', t: 0, big: 2 });
         else if (nr2 && nr2.big === 1 && !seenGuddi) { seenGuddi = true; texts.push({ x: 207, y: 200, s: 'GUDDI', sub: 'bigger kite: hold longer, x2', t: 0, big: 1 }); }
         else if (nr2 && nr2.pm && !seenPm) { seenPm = true; texts.push({ x: 207, y: 200, s: 'PENCH MASTER', sub: 'pulls when you dart at it', t: 0, big: 1, warn: 1 }); }
       } else if (e.k === 'hunter') {
@@ -486,7 +487,7 @@
   var seedHex = null, lastWave = 1, waveBanner = null;
   function startRun() {
     seedHex = window.__kjSeed || (EMBED ? null : (qp('seed') || randomSeed()));
-    var v = window.__kjGameStart ? window.__kjGameStart(performance.now(), 2) : 2;
+    var v = window.__kjGameStart ? window.__kjGameStart(performance.now(), 3) : 3;
     if (RP) { v = RP.capVersion(v); replayCur = RP.cursor(['touch', 'lift'], function (p) { return Number(p.step); }); RP.started(v); }
     sim = PK.initSim(seedHex, v); prev = snap(sim);
     seenPm = false; seenGuddi = false; lastGust = 0;
@@ -552,7 +553,7 @@
   }
   function startPractice() {
     state = 'prac'; startMusic(); menuEl.classList.add('is-hidden'); overEl.classList.add('is-hidden');
-    sim = PK.initSim('0badc0de00000000', 2);
+    sim = PK.initSim('0badc0de00000000', 3);           // the practice flies by the same rules as a run
     sim.nextAt = 1e12; sim.lastCut = 1e12;            // nobody comes in uninvited
     prac = { i: 0 }; fx = []; texts = []; falling = []; trails = []; myFall = null;
     pskip.classList.remove('is-hidden'); pplay.classList.add('is-hidden');

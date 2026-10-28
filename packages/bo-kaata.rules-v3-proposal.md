@@ -1,7 +1,13 @@
-# Bo Kaata: proposed rules change (trace v3)
+# Bo Kaata: rules change (trace v3)
 
-Status: PROPOSAL ONLY. Nothing here is applied. `games/bo-kaata/js/rules.js` is unchanged
-and still the pinned v2 block.
+Status: APPROVED by the founder and APPLIED in this repo (2026-10-28). `games/bo-kaata/js/rules.js` now carries
+the v3 block, byte-identical to `bo-kaata.rules-v3.proposed.js`. `js/game.js` starts runs as v3, and the bridge in
+`index.html` now hands out v3 (one line: `Number(want) >= 3 ? 3 : Number(want) >= 2 ? 2 : 1`).
+The platform side below is still to do in kj-platform.
+
+sha256 of the block from `// BO KAATA RULES BEGIN` to `// BO KAATA RULES END` (markers included, as UTF-8):
+`248ed95ca80fd2262afa8910a59f89a3e97a64a5cbe95c25587b4788708e3e6e`. Check this against however the parity
+test slices the block before pasting it in.
 
 Two changes, both inside the rules block, both gated on `sim.v >= 3` so v2 runs replay exactly as before:
 
@@ -61,16 +67,15 @@ New random draws use new indexes (15 to 18), so rivals that are not fierce are d
   the spawn formula, `WILD_VMAX`, `wa` (weave strength), `dart`, `restBase`.
 - No server code was touched or run.
 
-## Changes needed outside this folder (I did not and cannot make them)
+## Still to do in kj-platform (I cannot make these here)
 
 1. `reference/validators/boKaata.js` (server): the same block word for word, and accept `{ kind: 'start', v: 3 }`.
 2. `shared/tests/boKaataParity.test.js`: update the sha256 pin; regenerate golden fixtures for v3 (v2 goldens stay valid).
 3. Session/trace version list on the platform: allow v3.
-4. `games/bo-kaata/index.html` bridge: `__kjGameStart` currently maps the wanted version to 1 or 2
-   (`Number(want) >= 2 ? 2 : 1`); it must allow 3. `js/game.js` `startRun` must then ask for 3.
-   These are the bridge hooks I was told not to touch, so I have left them.
+4. Done here: the bridge allows v3 and `startRun` asks for 3. The platform must accept `v: 3` starts.
 
-## Client side, already in `game.js` (harmless until v3 is on)
+## Client side, in `game.js`
 
-Big kites (size 1 and 2) are drawn in the Lahori style from the photos; size 3 will use the same
-sprite at scale 1.4 with an `x4` label. A "fierce kite" warning banner is not added yet.
+Big kites (sizes 1 to 3) are drawn as the Lahori tukkal from the founder's photo. Fierce kites are drawn
+0.95 to 1.25 times a patang (each its own size, drawing only) with an `x4` label, and a "FIERCE KITE!" banner
+shows when one enters. The practice also runs on v3.
