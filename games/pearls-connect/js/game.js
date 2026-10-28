@@ -1,5 +1,5 @@
 /*
- * Moti Jor: drag through pearls of one colour to clear them. Close a loop and
+ * Pearls Connect: drag through pearls of one colour to clear them. Close a loop and
  * every pearl of that colour goes. 5 minutes.
  *
  * Phase 1 playable core: no session, no platform seed, no trace yet.
@@ -204,7 +204,7 @@
   var fx = { parts: [], ghosts: [], orbs: [], texts: [], rings: [], confetti: [], bokeh: [],
     shake: 0, flash: 0, flashRGB: '255,255,255', banner: null, scoreBump: 0, readyT: 0, timeupT: 0, loopT: 0, idle: 0, hint: null };
   var finger = null, clock = 0, lastSec = -1, lastInput = 0;
-  try { best = Number(localStorage.getItem('motiJorBest')) || 0; } catch (_e) {}
+  try { best = Number(localStorage.getItem('pearlsConnectBest')) || 0; } catch (_e) {}
 
   function cellCX(c) { return GX + c * CELL + CELL / 2; }
   function cellCY(r) { return GY + r * CELL + CELL / 2; }
@@ -425,7 +425,7 @@
   function showOver() {
     state = 'over';
     var isBest = score > best;
-    if (isBest) { best = score; try { localStorage.setItem('motiJorBest', String(best)); } catch (_e) {} }
+    if (isBest) { best = score; try { localStorage.setItem('pearlsConnectBest', String(best)); } catch (_e) {} }
     $('overNew').hidden = !isBest;
     $('overBest').textContent = isBest ? '' : 'BEST ' + best;
     $('stPearls').textContent = stats.pearls;
@@ -465,10 +465,10 @@
   $('homeBtn').onclick = function () { click(); state = 'menu'; fx.confetti = []; show('over', false); show('menu', true); };
 
   var muted = false;
-  try { muted = localStorage.getItem('motiJorMute') === '1'; } catch (_e) {}
+  try { muted = localStorage.getItem('pearlsConnectMute') === '1'; } catch (_e) {}
   function applyMute() { $('mute').classList.toggle('is-muted', muted); audio.setMuted(muted); }
   $('mute').onclick = function () {
-    muted = !muted; try { localStorage.setItem('motiJorMute', muted ? '1' : '0'); } catch (_e) {}
+    muted = !muted; try { localStorage.setItem('pearlsConnectMute', muted ? '1' : '0'); } catch (_e) {}
     audio.unlock(); applyMute(); if (!muted) audio.ui();
   };
 

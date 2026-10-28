@@ -1,11 +1,11 @@
-# Game brief: Moti Jor (moti-jor)
+# Game brief: Pearls Connect (pearls-connect)
 
 **Working agreement (founder, standing):** build the GAME first, until the founder
 calls it ready. Seed wiring, the deterministic rules block, the validator, parity,
 replay, adversarial, render and mutation suites, and all anti-cheat and anti-fraud
 work come AFTER that, as a separate stage. This applies to every game here.
 
-- **Display name / id:** Moti Jor / moti-jor
+- **Display name / id:** Pearls Connect / pearls-connect (renamed from Moti Jor, 28 Oct)
 - **One-line pitch:** drag through pearls of one colour to clear them; close a loop to clear every pearl of that colour.
 - **Reference game(s):** the chain-and-loop mechanic of dot-connecting puzzles. No name, art or audio taken.
 - **Core loop:** drag a chain of 2 or more same-colour pearls (up, down, sideways), release to clear. Chain of n scores n(n+1)/2; a loop scores double on every pearl of that colour. Refill falls from above; after a loop the refill avoids that colour.
