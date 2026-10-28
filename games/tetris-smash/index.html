@@ -10,14 +10,14 @@
   <script src="../_shared/kj-replay.js"></script>
   <script src="../_shared/kj-fit.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Girti Eentein</title>
+  <title>Tetris Smash</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <canvas id="game" aria-label="Girti Eentein"></canvas>
+  <canvas id="game" aria-label="Tetris Smash"></canvas>
   <div class="g-screen" id="menu">
     <div class="g-card">
-      <h1 class="g-logo"><span class="g-l1">GIRTI</span><span class="g-l2">EENTEIN</span></h1>
+      <h1 class="g-logo"><span class="g-l1">TETRIS</span><span class="g-l2">SMASH</span></h1>
       <p class="g-tag">Fill rows. 5 minutes. Score big.</p>
       <button class="g-btn" id="playBtn" type="button">PLAY</button>
       <button class="g-link" id="howBtn" type="button">How to play</button>
@@ -51,7 +51,7 @@
   <script src="/sdk/kj-sdk/kj-sdk-v2.js"></script>
   <script>
     (function () {
-      var GAME_ID = 'girti-eentein';
+      var GAME_ID = 'tetris-smash';
       var _started = false;
       var _submitted = false;
 
@@ -92,7 +92,7 @@
           .then(function () { markReady(); })
           .catch(function (err) {
             // Deliberately NOT markReady(): the SDK has told the platform, which offers Retry / Exit.
-            console.error('[girti-eentein] kjStartV2 failed', err);
+            console.error('[tetris-smash] kjStartV2 failed', err);
           });
       };
 
@@ -151,7 +151,7 @@
             } catch (_) {}
           })
           .catch(function (err) {
-            console.error('[girti-eentein] kjSubmitV2 failed after retries', err);
+            console.error('[tetris-smash] kjSubmitV2 failed after retries', err);
             if (navigated) return; navigated = true;
             clearTimeout(safety);
             try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: (err && err.message) || 'submit_failed' }, '*'); } catch (_) {}

@@ -1,8 +1,8 @@
-// Girti Eentein rules. A classic script (no module) so the validator can carry
-// the block below word for word. The page reads it as window.GE.
+// Tetris Smash rules. A classic script (no module) so the validator can carry
+// the block below word for word. The page reads it as window.TS.
 (function (root) {
   'use strict';
-  // ==== GIRTI EENTEIN RULES BEGIN (word for word in games/girti-eentein/js/rules.js and shared/anticheat/validators/girtiEentein.js) ====
+  // ==== TETRIS SMASH RULES BEGIN (word for word in games/tetris-smash/js/rules.js and shared/anticheat/validators/tetrisSmash.js) ====
   // Integers only. No clock, no screen, no Math.random. Every action is applied
   // before the fixed 1/60 s step it names; piece K comes from a 7-bag shuffled
   // by a pure function of (seed, bag index) with six draws on every bag.
@@ -239,7 +239,7 @@
     sim.frame = sim.frame + 1;
     if (!sim.dead && sim.frame >= RUN_STEPS) { sim.dead = true; sim.end = 'time'; }
   }
-  // ==== GIRTI EENTEIN RULES END ====
+  // ==== TETRIS SMASH RULES END ====
 
   var api = {
     RULES_VERSION: RULES_VERSION, COLS: COLS, ROWS: ROWS, HIDDEN: HIDDEN, RUN_STEPS: RUN_STEPS,
@@ -251,5 +251,5 @@
     spawn: spawn, lockPiece: lockPiece
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  if (root) root.GE = api;
+  if (root) root.TS = api;
 })(typeof window !== 'undefined' ? window : this);
