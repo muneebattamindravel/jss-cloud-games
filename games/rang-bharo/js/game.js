@@ -859,8 +859,7 @@
       let n = 0;
       const cap = big ? 60 * 60 * 2 : 3;
       while (acc >= STEP_MS && n < cap) { acc -= STEP_MS; stepOnce(); n++; if (sim.over) break; }
-      if (acc > STEP_MS * 3) acc = STEP_MS * 3;
-      if (sim.over && mode === 'play') onRunOver();
+      if (sim.over) onRunOver();
       if (RP) RP.report(sim.step, sim.score);
     }
     return dt;
@@ -906,7 +905,7 @@
     submitTimer = setTimeout(submitOnce, SUBMIT_MS);
   }
   function submitOnce() {
-    if (submitted || !sim) return;
+    if (!sim) return;
     submitted = true;
     if (RP) RP.setStep(sim.step);
     try { if (typeof window.__kjSubmit === 'function') window.__kjSubmit(sim.score); } catch (_e) {}

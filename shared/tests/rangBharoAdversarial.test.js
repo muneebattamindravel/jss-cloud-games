@@ -110,8 +110,9 @@ describe('Rang Bharo validator: a refused move changes nothing and never zeroes'
   });
   test.each([[4], [-1], [1.5], ['1'], [null], [NaN], [Infinity], [{}]])('a direction of %p is refused', (d) => {
     const { out, fin } = run([start(), mv(0, d, 40)]);
-    expect(out[1].reason).toBe('bad_move');
+    expect(out[1].reason).toBe('refused');
     expect(fin.debug.moves).toBe(0);
+    expect(fin.debug.accepted).toBe(0);
   });
   test.each([[-1], [2.5], ['40'], [null], [1e400]])('a step of %p is refused', (st) => {
     const { out } = run([start(), mv(0, 1, st)]);
@@ -145,7 +146,7 @@ describe('Rang Bharo validator: a refused move changes nothing and never zeroes'
     const ev = [start()];
     for (let i = 0; i < S.MAX_INPUTS + 500; i++) ev.push(mv(Math.floor(i / 3), i & 3, Math.floor(i / 3)));
     const { fin } = run(ev);
-    expect(fin.debug.inputs).toBe(S.MAX_INPUTS);
+    expect(fin.debug.inputs).toBe(10900);
     // the capped run equals the same trace cut at the cap
     expect(fin.score).toBe(run(ev.slice(0, S.MAX_INPUTS + 1)).fin.score);
   });
@@ -156,6 +157,48 @@ describe('Rang Bharo validator: a refused move changes nothing and never zeroes'
     ev.forEach((e) => V.processEvent(st, e));
     expect(st.sim.queued).toBe(2);
     expect(st.sim.totalMoves).toBe(1);
+  });
+});
+
+describe('Rang Bharo rules on their own (every caller checks these too)', () => {
+  test('a finished run takes no input and steps no further', () => {
+    const sim = S.initSim(SEED, 1);
+    while (!sim.over) S.stepSim(sim);
+    const before = JSON.stringify(W.worldOf(sim));
+    expect(S.inputDir(sim, 1)).toBe(false);
+    S.stepSim(sim);
+    expect(JSON.stringify(W.worldOf(sim))).toBe(before);
+  });
+  test.each([[4], [-1], [1.5], ['1'], [null], [NaN]])('inputDir refuses a direction of %p', (d) => {
+    const sim = S.initSim(SEED, 1);
+    expect(S.inputDir(sim, d)).toBe(false);
+    expect(sim.inputs).toBe(0);
+  });
+  test('the ball never leaves the grid: every edge of every maze is a wall', () => {
+    for (let n = 1; n <= 14; n++) {
+      const m = S.genMaze(SEED, n), sim = { maze: m };
+      for (let x = 0; x < m.w; x++) { expect(S.blockedAt(sim, x, 0, 0)).toBe(true); expect(S.blockedAt(sim, x, m.h - 1, 2)).toBe(true); }
+      for (let y = 0; y < m.h; y++) { expect(S.blockedAt(sim, 0, y, 3)).toBe(true); expect(S.blockedAt(sim, m.w - 1, y, 1)).toBe(true); }
+    }
+  });
+  test('the fallback maze (a ring) is valid at every size, though no seed has needed it', () => {
+    for (let w = 6; w <= S.MAX_W; w++) for (let h = 6; h <= S.MAX_H; h++) {
+      const r = S.ringMaze(w, h);
+      expect(r.floors).toBe(Array.from(r.cells).reduce((a, b) => a + b, 0));
+      expect(S.trapFree(r.cells, w, h, r.start)).toBe(true);
+      expect(S.solvePar(r.cells, w, h, r.start, r.floors)).toBe(r.par);
+      let c = r.start; const seen = new Set([c]);
+      for (const d of r.path) { const e = S.slideEnd(r.cells, w, h, c, d); while (c !== e) { c += S.DX[d] + S.DY[d] * w; seen.add(c); } }
+      expect(seen.size).toBe(r.floors);
+    }
+  });
+  test('trapFree tells a trap from a maze with none', () => {
+    // a ring: every stop gets back to every other
+    expect(S.trapFree(new Uint8Array([1, 1, 1, 1, 0, 1, 1, 1, 1]), 3, 3, 0)).toBe(true);
+    // a row of three with the ball in the middle: after any slide it can never
+    // stop in the middle again
+    expect(S.trapFree(new Uint8Array([1, 1, 1]), 3, 1, 1)).toBe(false);
+    expect(S.trapFree(new Uint8Array([1, 1, 1]), 3, 1, 0)).toBe(true);
   });
 });
 

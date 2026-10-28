@@ -422,7 +422,8 @@ function processEvent(state, event) {
   state.inputCount++;
 
   const { n, dir, step } = payload;
-  if (!isStep(n) || !isStep(step) || !isStep(dir) || dir > 3) return reject(state, 'bad_move');
+  // The direction is checked by the rules themselves (inputDir).
+  if (!isStep(n) || !isStep(step)) return reject(state, 'bad_move');
 
   const sim = state.sim;
   // Steps may never go BACKWARDS: a rewind would re-run a window and keep the
