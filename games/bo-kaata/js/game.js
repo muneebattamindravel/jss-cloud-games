@@ -141,38 +141,44 @@
     spriteCache[key] = c;
     return c;
   }
-  // The big kites (guddi, tukkal) are drawn like the real Lahori ones: a pointed leaf on top, a wide
-  // two-tier body, a dish below and a tassel. Three colourways; drawing only, the hit box is the rules'.
+  // The big kites (guddi, tukkal, fierce) are drawn like the real Lahori tukkal: a spire with curved
+  // sides, a wide lens with pointed tips, a notch, a crescent wing below, yellow tie points and a tassel.
+  // Traced from the founder's photo. Drawing only, the hit box is the rules'.
   var TUK = [
-    { cap: '#d62d20', lens: '#d62d20', wing: '#ffffff', fan: ['#ffffff', '#d62d20', '#1a1a1a'], tas: ['#d62d20', '#ffffff', '#1a1a1a'], decal: 0 },
-    { cap: '#3b2a99', lens: '#f2e44a', wing: '#3b2a99', fan: null, tas: ['#3b2a99', '#5b46c9'], decal: 0 },
-    { cap: '#1a1a1a', lens: '#f3f3f0', wing: '#f3f3f0', fan: null, tas: ['#1a1a1a', '#2f9fd8', '#d62d20'], decal: 1 },
+    { spire: '#26393b', lens: '#26393b', wing: '#26393b', tas: '#26393b' },     // dark green, as in the photo
+    { spire: '#3b2a99', lens: '#f2e44a', wing: '#3b2a99', tas: '#3b2a99' },
+    { spire: '#c8231b', lens: '#c8231b', wing: '#f3efe6', tas: '#c8231b' },
+    { spire: '#1a1a1a', lens: '#f3f3f0', wing: '#1a1a1a', tas: '#1a1a1a' },
   ];
   var bigCache = {};
   function bigSprite(v) {
     var key = v + ':' + dpr;
     if (bigCache[key]) return bigCache[key];
-    var k = 3 * dpr, c = layer(70 * k, 100 * k), g = c.getContext('2d'), T = TUK[v % TUK.length], INK = '#3a1d2e';
-    g.scale(k, k); g.translate(35, 40); g.lineJoin = 'round'; g.lineCap = 'round';
-    var lens = function () { g.beginPath(); g.moveTo(-31, -3); g.quadraticCurveTo(-14, -30, 0, -24); g.quadraticCurveTo(14, -30, 31, -3); g.quadraticCurveTo(0, 13, -31, -3); g.closePath(); };
-    var cap = function () { g.beginPath(); g.moveTo(0, -38); g.quadraticCurveTo(3, -30, 12, -18); g.quadraticCurveTo(0, -13, -12, -18); g.quadraticCurveTo(-3, -30, 0, -38); g.closePath(); };
-    var wing = function () { g.beginPath(); g.moveTo(-29, 7); g.quadraticCurveTo(0, 0, 29, 7); g.quadraticCurveTo(15, 31, 0, 32); g.quadraticCurveTo(-15, 31, -29, 7); g.closePath(); };
-    var line = function (w) { g.strokeStyle = INK; g.lineWidth = w; g.stroke(); };
-    // the tassel
-    for (var i = -3; i <= 3; i++) { g.strokeStyle = T.tas[(i + 3) % T.tas.length]; g.lineWidth = 2.2; g.beginPath(); g.moveTo(i * 1.4, 31); g.lineTo(i * 3.4, 52); g.stroke(); }
-    lens(); g.fillStyle = T.lens; g.fill(); line(1.6);
-    if (T.decal) {                                           // a blue sun with balloons, like the printed ones
-      g.fillStyle = '#2f9fd8'; g.beginPath(); g.arc(0, -8, 9, 0, Math.PI * 2); g.fill();
-      [['#e03a6e', -10, -14], ['#2a8f4a', 9, -15], ['#f29a1d', 0, 0]].forEach(function (b) { g.fillStyle = b[0]; g.beginPath(); g.ellipse(b[1], b[2], 3.4, 4.4, 0, 0, Math.PI * 2); g.fill(); });
-    }
-    wing(); g.fillStyle = T.wing; g.fill();
-    if (T.fan) { g.save(); wing(); g.clip(); for (var f = -5; f < 5; f++) { g.fillStyle = T.fan[((f % 3) + 3) % 3]; g.beginPath(); g.moveTo(0, 3); g.lineTo(f * 9, 36); g.lineTo(f * 9 + 9, 36); g.closePath(); g.fill(); } g.restore(); }
-    wing(); line(1.6);
-    cap(); g.fillStyle = T.cap; g.fill(); line(1.6);
-    g.strokeStyle = 'rgba(58,29,46,0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -36); g.lineTo(0, 30); g.stroke();     // the spar
-    g.fillStyle = '#f2b705';                                                                                              // gold corner tips
-    [[-31, -3], [31, -3], [-12, -18], [12, -18], [0, 3]].forEach(function (t) { g.beginPath(); g.moveTo(t[0], t[1] - 4); g.lineTo(t[0] + 3.4, t[1]); g.lineTo(t[0], t[1] + 4); g.lineTo(t[0] - 3.4, t[1]); g.closePath(); g.fill(); });
-    c.__ox = 35; c.__oy = 40; c.__k = k;
+    var k = 3 * dpr, c = layer(70 * k, 74 * k), g = c.getContext('2d'), T = TUK[v % TUK.length];
+    g.scale(k, k); g.translate(35, 37); g.lineJoin = 'round'; g.lineCap = 'round';
+    var edge = function () { g.strokeStyle = 'rgba(20,10,16,0.55)'; g.lineWidth = 1.1; g.stroke(); };
+    var spire = function () { g.beginPath(); g.moveTo(0, -34); g.quadraticCurveTo(1.6, -22, 8.4, -18.4); g.lineTo(-8.4, -18.4); g.quadraticCurveTo(-1.6, -22, 0, -34); g.closePath(); };
+    var lens = function () {
+      g.beginPath(); g.moveTo(-8.4, -18.6); g.quadraticCurveTo(-26, -19, -31, -5.8);
+      g.quadraticCurveTo(-22, 4, -11.4, 6.2); g.lineTo(11.4, 6.2); g.quadraticCurveTo(22, 4, 31, -5.8);
+      g.quadraticCurveTo(26, -19, 8.4, -18.6); g.closePath();
+    };
+    var wing = function () {
+      g.beginPath(); g.moveTo(-26.4, 8.6); g.quadraticCurveTo(-18, 6.4, -11.4, 6.2); g.lineTo(11.4, 6.2); g.quadraticCurveTo(18, 6.4, 26.4, 8.6);
+      g.quadraticCurveTo(18, 22, 0, 20.6); g.quadraticCurveTo(-18, 22, -26.4, 8.6); g.closePath();
+    };
+    // the tassel: a knot and a short fringe
+    g.fillStyle = T.tas; g.beginPath(); g.moveTo(0, 20); g.lineTo(2.2, 24); g.lineTo(-2.2, 24); g.closePath(); g.fill();
+    g.strokeStyle = T.tas; g.lineWidth = 1.3; for (var f = -3; f <= 3; f++) { g.beginPath(); g.moveTo(f * 0.6, 23.5); g.lineTo(f * 1.1, 31); g.stroke(); }
+    wing(); g.fillStyle = T.wing; g.fill(); edge();
+    lens(); g.fillStyle = T.lens; g.fill(); edge();
+    spire(); g.fillStyle = T.spire; g.fill(); edge();
+    g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(0, -32); g.lineTo(0, 20); g.stroke();   // the spar
+    g.fillStyle = '#e8cf3a';                                                                                                        // yellow tie points
+    [[-8.4, -18.4], [8.4, -18.4], [-11.4, 6.2], [11.4, 6.2]].forEach(function (d) { g.beginPath(); g.arc(d[0], d[1], 1.5, 0, Math.PI * 2); g.fill(); });
+    [[0, -17.6, 3.2], [0, 19.4, 2.6]].forEach(function (d) { g.beginPath(); g.moveTo(d[0] - d[2], d[1] - d[2] * 0.6); g.lineTo(d[0] + d[2], d[1] - d[2] * 0.6); g.lineTo(d[0], d[1] + d[2] * 0.7); g.closePath(); g.fill(); });
+    [[-31, -5.8], [31, -5.8], [-26.4, 8.6], [26.4, 8.6]].forEach(function (d) { g.beginPath(); g.moveTo(d[0], d[1] - 1.6); g.lineTo(d[0] + 1.6, d[1]); g.lineTo(d[0], d[1] + 1.6); g.lineTo(d[0] - 1.6, d[1]); g.closePath(); g.fill(); });
+    c.__ox = 35; c.__oy = 37; c.__k = k;
     bigCache[key] = c;
     return c;
   }
@@ -413,7 +419,7 @@
         for (var j = 0; j < before.length; j++) if (before[j].id === e.id) r0 = before[j];
         var rx = e.x / U, ry = e.y / U, p = r0 ? intersect(PK.SPOOL_X / U, PK.SPOOL_Y / U, s.me.x / U, s.me.y / U, r0.ax / U, r0.ay / U, rx, ry) : [rx, ry];
         var lk = looksOf(e.id);
-        falling.push({ x: rx, y: ry, vx: (r0 && r0.side ? -1 : 1) * (0.8 + Math.random()), vy: -0.5, rot: (r0 ? r0.h : 0) / 1024 * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25, t: 0, pal: e.big ? lk.tv : lk.pal, pat: e.big ? 9 : lk.pat, sc: BIG_SCALE[e.big] || 1 });
+        falling.push({ x: rx, y: ry, vx: (r0 && r0.side ? -1 : 1) * (0.8 + Math.random()), vy: -0.5, rot: (r0 ? r0.h : 0) / 1024 * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25, t: 0, pal: e.big ? lk.tv : lk.pal, pat: e.big ? 9 : lk.pat, sc: kiteScale({ big: e.big, id: e.id }) });
         burst(p[0], p[1], 26, ['#fff6c2', '#ffd23f', '#ffffff'], 3.4);
         texts.push({ x: p[0], y: p[1] - 18, s: 'BO KAATA!', sub: e.mult > 1 ? '+' + e.pts + '  x' + e.mult : '+' + e.pts, t: 0, big: e.mult });
         SFX.cut(e.mult, e.big);
@@ -699,7 +705,8 @@
       g.lineWidth = 5; g.strokeStyle = '#5b2340'; g.strokeText(waveBanner.s, 207, 120); g.fillStyle = '#fff'; g.fillText(waveBanner.s, 207, 120); g.restore();
     }
   }
-  var BIG_SCALE = [1, 1.2, 1.5, 1.4];
+  var BIG_SCALE = [1, 1.2, 1.5, 1.1];
+  function kiteScale(r) { return r.big === 3 ? 0.95 + ((((r.id * 2246822519) >>> 0) >>> 24) % 5) * 0.075 : BIG_SCALE[r.big] || 1; }   // fierce: 0.95 to 1.25
   function drawWorld(g, now, a) {
     var ring = state === 'prac' && prac && prac.phase !== 'gap' ? RINGS[prac.i] : null;
     if (ring) {   // the practice target
@@ -724,9 +731,9 @@
       // the threat: lining up on your line (red guide), or darting (red streak)
       if (!rr.pull && rr.think > 0) drawGuide(g, VIEW[rr.id].x, VIEW[rr.id].y, VIEW[rr.id].h, 90, '#ff4d6d', 0.5 + 0.4 * Math.sin(now / 60));
       if (rr.pull) { g.save(); g.globalAlpha = 0.5; g.strokeStyle = '#ff4d6d'; g.lineWidth = 3; var ra = VIEW[rr.id].h / 1024 * Math.PI * 2; g.beginPath(); g.moveTo(VIEW[rr.id].x - Math.sin(ra) * 26, VIEW[rr.id].y + Math.cos(ra) * 26); g.lineTo(VIEW[rr.id].x - Math.sin(ra) * 52, VIEW[rr.id].y + Math.cos(ra) * 52); g.stroke(); g.restore(); }
-      drawKite(g, VIEW[rr.id].x, VIEW[rr.id].y, VIEW[rr.id].h, rr.big ? lk.tv : lk.pal, rr.big ? 9 : lk.pat, false, now, rr.id, 1, !rr.pull, BIG_SCALE[rr.big] || 1);
+      drawKite(g, VIEW[rr.id].x, VIEW[rr.id].y, VIEW[rr.id].h, rr.big ? lk.tv : lk.pal, rr.big ? 9 : lk.pat, false, now, rr.id, 1, !rr.pull, kiteScale(rr));
       if (rr.pm) { g.save(); g.strokeStyle = '#7b2cbf'; g.lineWidth = 2.5; g.globalAlpha = 0.8; g.beginPath(); g.arc(VIEW[rr.id].x, VIEW[rr.id].y, 30, 0, Math.PI * 2); g.stroke(); g.restore(); }
-      if (rr.big) { var lb = 'x' + PK.SIZE_PTS[rr.big], ly = VIEW[rr.id].y - (rr.big >= 2 ? 62 : 52); g.save(); g.font = '14px PKTitan, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#5b2340'; g.strokeText(lb, VIEW[rr.id].x, ly); g.fillStyle = '#ffd23f'; g.fillText(lb, VIEW[rr.id].x, ly); g.restore(); }
+      if (rr.big) { var lb = 'x' + PK.SIZE_PTS[rr.big], ly = VIEW[rr.id].y - 40 * kiteScale(rr) - 8; g.save(); g.font = '14px PKTitan, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#5b2340'; g.strokeText(lb, VIEW[rr.id].x, ly); g.fillStyle = '#ffd23f'; g.fillText(lb, VIEW[rr.id].x, ly); g.restore(); }
       if (rr.hunter) { g.save(); g.fillStyle = '#e5243b'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(VIEW[rr.id].x, VIEW[rr.id].y - KH - 10, 5, 0, Math.PI * 2); g.fill(); g.stroke(); g.restore(); }
     }
     for (var q = 0; q < fx.length; q++) { var p = fx[q]; g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.c; g.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }

@@ -84,6 +84,7 @@ var PK = (function () {
   var WILD_WAVE = 4;         // from here some rivals are fierce: fast, weaving, quick to attack
   var WILD_VMAX = 7 * U;     // faster than your top speed (6 U): win by hitting it while it rests or turns
   var WILD_CRUISE = 4 * U;   // even resting it sweeps about this fast
+  var WILD_AFTER = 1500;     // and never in the first 25 s of a run
   var TUKKAL_EVERY = 5;      // the first rival of every 5th wave is a tukkal
 
   // ── rivals ───────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ var PK = (function () {
   function makeRival(seed, K, step, v) {
     var w = waveOf(K), side = draw(seed, 2, K, 2, 2);
     var sz = draw(seed, 2, K, 14, 100);
-    var wild = v >= 3 && w >= WILD_WAVE && draw(seed, 2, K, 15, 100) < Math.min(40, 12 + 6 * (w - WILD_WAVE)) ? 1 : 0;
+    var wild = v >= 3 && w >= WILD_WAVE && step >= WILD_AFTER && draw(seed, 2, K, 15, 100) < Math.min(40, 12 + 6 * (w - WILD_WAVE)) ? 1 : 0;
     var big = w % TUKKAL_EVERY === 0 && K % PER_WAVE === 0 ? 2 : wild ? 3 : w >= 3 && sz < 12 ? 2 : w >= 2 && sz < 32 ? 1 : 0;
     var pm = !big && w >= PENCH_WAVE && draw(seed, 2, K, 12, 100) < Math.min(60, 20 + 5 * (w - PENCH_WAVE)) ? 1 : 0;
     var fierce = big === 3;

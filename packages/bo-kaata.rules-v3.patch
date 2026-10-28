@@ -1,6 +1,6 @@
 --- games/bo-kaata/js/rules.js	2026-10-28 11:11:38.293876777 +0000
-+++ games/bo-kaata/js/rules.js (proposed)	2026-10-28 14:31:31.907937377 +0000
-@@ -77,9 +77,13 @@
++++ games/bo-kaata/js/rules.js (proposed)	2026-10-28 14:59:19.633259203 +0000
+@@ -77,9 +77,14 @@
    var PENCH_WAVE = 6;        // from here some rivals are pench masters: they pull the moment you dart at them
    // kite sizes: 0 patang, 1 guddi (bigger), 2 tukkal (biggest). A bigger kite
    // flies slower on a thicker line: it takes longer holding to saw through, and pays more
@@ -14,10 +14,11 @@
 +  var WILD_WAVE = 4;         // from here some rivals are fierce: fast, weaving, quick to attack
 +  var WILD_VMAX = 7 * U;     // faster than your top speed (6 U): win by hitting it while it rests or turns
 +  var WILD_CRUISE = 4 * U;   // even resting it sweeps about this fast
++  var WILD_AFTER = 1500;     // and never in the first 25 s of a run
    var TUKKAL_EVERY = 5;      // the first rival of every 5th wave is a tukkal
  
    // ── rivals ───────────────────────────────────────────────────────────────
-@@ -154,7 +158,7 @@
+@@ -154,7 +159,7 @@
  
    // ── one kite, one step. Shared by you and every rival: same physics. ─────
    // k: { x, y, h, s, pull }  returns a new object, never edits k
@@ -26,7 +27,7 @@
      var x = k.x, y = k.y, h = k.h, s = k.s;
      if (pull) {
        s = k.pull ? Math.min(vmax, s + VACC) : V0;
-@@ -165,8 +169,11 @@
+@@ -165,8 +170,11 @@
        h = (h + SPIN) % TURN;
        x = x + wind; y = y + SINK;
      }
@@ -40,7 +41,7 @@
      return { x: x, y: y, h: h, s: s, pull: pull ? 1 : 0 };
    }
    // how fast a line moves through a contact: a pulled line at its kite's speed,
-@@ -177,32 +184,36 @@
+@@ -177,32 +185,36 @@
    function waveOf(K) { return fdiv(K, PER_WAVE) + 1; }
    function liveCap(w) { return w < 2 ? 1 : w < 4 ? 2 : 3; }
    function gapAfter(seed, K) { return Math.max(60, 200 - 12 * waveOf(K)) + draw(seed, 2, K, 0, 90); }
@@ -49,7 +50,7 @@
      var w = waveOf(K), side = draw(seed, 2, K, 2, 2);
      var sz = draw(seed, 2, K, 14, 100);
 -    var big = w % TUKKAL_EVERY === 0 && K % PER_WAVE === 0 ? 2 : w >= 3 && sz < 12 ? 2 : w >= 2 && sz < 32 ? 1 : 0;
-+    var wild = v >= 3 && w >= WILD_WAVE && draw(seed, 2, K, 15, 100) < Math.min(40, 12 + 6 * (w - WILD_WAVE)) ? 1 : 0;
++    var wild = v >= 3 && w >= WILD_WAVE && step >= WILD_AFTER && draw(seed, 2, K, 15, 100) < Math.min(40, 12 + 6 * (w - WILD_WAVE)) ? 1 : 0;
 +    var big = w % TUKKAL_EVERY === 0 && K % PER_WAVE === 0 ? 2 : wild ? 3 : w >= 3 && sz < 12 ? 2 : w >= 2 && sz < 32 ? 1 : 0;
      var pm = !big && w >= PENCH_WAVE && draw(seed, 2, K, 12, 100) < Math.min(60, 20 + 5 * (w - PENCH_WAVE)) ? 1 : 0;
 +    var fierce = big === 3;
@@ -88,7 +89,7 @@
    }
  
    // A rival flies like a person would. Resting, it sweeps back and forth
-@@ -253,7 +264,7 @@
+@@ -253,7 +265,7 @@
  
      var rivals = sim.rivals;
      if (f >= sim.nextAt && rivals.length < liveCap(waveOf(sim.nextK))) {
@@ -97,7 +98,7 @@
        sim.nextAt = f + gapAfter(seed, sim.nextK);
        sim.wave = waveOf(sim.nextK);
        sim.nextK = sim.nextK + 1;
-@@ -262,14 +273,14 @@
+@@ -262,14 +274,14 @@
      var hunting = 0;
      for (var h = 0; h < rivals.length; h++) if (rivals[h].hunter) hunting = 1;
      if (!hunting && f - sim.lastCut >= HUNT_AFTER) {
@@ -114,7 +115,7 @@
  
      // rivals fly by the same physics
      var moved = [];
-@@ -277,12 +288,13 @@
+@@ -277,12 +289,13 @@
        var r = rivals[i], left = r.until - f;
        var dc = rivalDecide(r, me0, left);
        var attacking = r.rest === 0 && left > 0 && r.y <= LOW_Y;

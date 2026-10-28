@@ -33,6 +33,8 @@ Side effect to judge by hand: holding into a wall now bounces the kite across th
 
 ## 2. The fierce kite (size 3)
 
+- Never in the first 25 s of a run (`WILD_AFTER = 1500` steps). In a normal run the earliest is 42 s anyway
+  (measured over 200 seeds with every rival cut the moment it arrives); the guard holds if the spawn pace is ever tuned.
 - Appears from wave 4 (`WILD_WAVE`). Share of rivals: about 11% at wave 4, rising to about 40% from wave 9
   (`min(40, 12 + 6 * (wave - 4))`). The first rival of every 5th wave is still the tukkal (size 2).
 - Top speed 7 px/step (`WILD_VMAX`), above your 6. Resting it sweeps at 4 px/step (`WILD_CRUISE`) against 2.5 for others.
