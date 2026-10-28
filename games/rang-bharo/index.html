@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#120c26" />
+  <title>Rang Bharo</title>
+  <style>
+    @font-face { font-family: 'Titan One'; src: url('fonts/titan-one-400-latin.woff2') format('woff2'); font-display: swap; }
+    html, body { margin: 0; height: 100%; background: #0d0920; overflow: hidden; color: #fff;
+      font-family: 'Titan One', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
+      -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    canvas#scene { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      padding: max(22px, env(safe-area-inset-top)) 22px max(26px, env(safe-area-inset-bottom));
+      box-sizing: border-box; transition: opacity .28s ease; touch-action: none; }
+    .screen.is-hidden { opacity: 0; pointer-events: none; }
+    .screen.is-gone { display: none; }
+    #menu { justify-content: space-between; }
+    #menu > div:first-child { margin-top: 10vh; }
+    #logo { width: min(86vw, 360px); height: auto; aspect-ratio: 640 / 360; }
+    .tag { margin: 4px 0 0; font-size: 13px; letter-spacing: 4px; color: rgba(255,236,200,.7); text-align: center; }
+    .foot { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+    .best { font-size: 15px; letter-spacing: 3px; color: #ffd23f; min-height: 20px; margin-bottom: 8px; }
+    .btn { appearance: none; border: 0; cursor: pointer; font: inherit; letter-spacing: 3px;
+      color: #3b1500; background: linear-gradient(180deg, #ffe066, #ff9a1f); border-radius: 999px; padding: 17px 0;
+      width: min(74vw, 290px); font-size: 21px;
+      box-shadow: 0 -4px 0 rgba(0,0,0,.2) inset, 0 2px 0 rgba(255,255,255,.6) inset, 0 10px 28px rgba(255,150,30,.3);
+      transition: transform .12s ease; }
+    .btn:active { transform: scale(.95); }
+    .btn:disabled { opacity: .6; font-size: 13px; letter-spacing: 2px; cursor: default; }
+    .btn-ghost { background: rgba(255,255,255,.08); color: #fff; box-shadow: 0 0 0 1.5px rgba(255,255,255,.3) inset; font-size: 15px; padding: 14px 0; }
+    .link { appearance: none; border: 0; background: none; color: rgba(255,236,210,.85); font: inherit; font-size: 14px;
+      letter-spacing: 2px; padding: 10px 14px; cursor: pointer; }
+    .play-pulse { animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 -4px 0 rgba(0,0,0,.2) inset, 0 2px 0 rgba(255,255,255,.6) inset, 0 10px 28px rgba(255,150,30,.25); }
+      50% { box-shadow: 0 -4px 0 rgba(0,0,0,.2) inset, 0 2px 0 rgba(255,255,255,.6) inset, 0 10px 48px rgba(255,150,30,.6); } }
+    #howto { justify-content: center; background: rgba(8,5,20,.72); }
+    .card { width: min(90vw, 360px); background: linear-gradient(180deg, #2c2356, #1b1538); border-radius: 26px; padding: 20px 18px 22px;
+      box-sizing: border-box; box-shadow: 0 0 0 1.5px rgba(255,255,255,.1) inset, 0 20px 50px rgba(0,0,0,.5); text-align: center; }
+    .card h2 { margin: 0 0 6px; font-size: 26px; letter-spacing: 2px; color: #ffd23f; font-weight: 400; }
+    #demo { width: 100%; height: auto; aspect-ratio: 300 / 270; display: block; }
+    .rows { text-align: left; margin: 6px 0 18px; display: flex; flex-direction: column; gap: 10px; }
+    .row { display: flex; gap: 12px; align-items: center; font-size: 14px; line-height: 1.3; color: rgba(255,255,255,.92); letter-spacing: .3px; }
+    .ic { flex: 0 0 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 17px; }
+    .ic1 { background: #ff9a1f; color: #3b1500; } .ic2 { background: #2bd9c4; color: #05302b; } .ic3 { background: #ff4fb8; color: #3a0626; }
+    .card .btn { width: 100%; }
+    #over { justify-content: center; background: rgba(8,5,20,.86); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    .over-label { font-size: 13px; letter-spacing: 5px; color: rgba(255,235,210,.7); margin: 0; }
+    .over-score { font-size: 92px; line-height: 1; margin: 8px 0 6px; color: #ffe08a; text-shadow: 0 5px 0 rgba(0,0,0,.35); }
+    .newbest { font-size: 18px; letter-spacing: 3px; color: #3b1500; background: #ffd23f; padding: 6px 16px; border-radius: 999px; margin: 4px 0 6px;
+      animation: pop .5s cubic-bezier(.2,1.8,.4,1) both; }
+    .newbest[hidden] { display: none; }
+    @keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .over-best { font-size: 14px; letter-spacing: 3px; color: rgba(255,255,255,.6); margin: 2px 0 22px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: min(84vw, 320px); margin-bottom: 26px; }
+    .stat { background: rgba(255,255,255,.07); border-radius: 16px; padding: 12px 8px; text-align: center; box-shadow: 0 0 0 1px rgba(255,255,255,.08) inset; }
+    .stat b { display: block; font-size: 26px; font-weight: 400; color: #fff; }
+    .stat span { font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,.55); }
+    #over .btn + .btn { margin-top: 12px; }
+    #muteBtn { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 10;
+      width: 42px; height: 42px; border-radius: 50%; border: 0; background: rgba(255,255,255,.1); color: #fff; cursor: pointer; padding: 0;
+      display: grid; place-items: center; box-shadow: 0 0 0 1px rgba(255,255,255,.14) inset; }
+    #muteBtn svg { width: 22px; height: 22px; }
+    #muteBtn .x { display: none; } #muteBtn.off .x { display: inline; } #muteBtn.off .w { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Swipe to roll the ball. It slides until a wall stops it and paints every tile it crosses. Paint them all to clear the maze."></canvas>
+
+  <section id="menu" class="screen">
+    <div>
+      <canvas id="logo" width="640" height="360" aria-label="Rang Bharo"></canvas>
+      <p class="tag">PAINT THE MAZE</p>
+    </div>
+    <div class="foot">
+      <div class="best" id="menuBest"></div>
+      <button class="btn" id="playBtn" type="button" disabled>PREPARING YOUR GAME</button>
+      <button class="link" id="howBtn" type="button">HOW TO PLAY</button>
+    </div>
+  </section>
+
+  <section id="howto" class="screen is-hidden is-gone">
+    <div class="card">
+      <h2>HOW TO PLAY</h2>
+      <canvas id="demo" width="300" height="270"></canvas>
+      <div class="rows">
+        <div class="row"><div class="ic ic1">&#8596;</div><div>Swipe to roll. The ball slides until a wall stops it.</div></div>
+        <div class="row"><div class="ic ic2">&#9632;</div><div>Paint every tile to clear the maze. The next one comes at once.</div></div>
+        <div class="row"><div class="ic ic3">&#9733;</div><div>Clear it within par moves for a PERFECT bonus. You have 3 minutes.</div></div>
+      </div>
+      <button class="btn" id="howOk" type="button">GOT IT</button>
+    </div>
+  </section>
+
+  <section id="over" class="screen is-hidden is-gone" aria-live="polite">
+    <p class="over-label">SCORE</p>
+    <p class="over-score" id="overScore">0</p>
+    <div class="newbest" id="newBest" hidden>NEW BEST!</div>
+    <p class="over-best" id="overBest"></p>
+    <div class="stats">
+      <div class="stat"><b id="stMazes">0</b><span>MAZES</span></div>
+      <div class="stat"><b id="stPerfect">0</b><span>PERFECT</span></div>
+      <div class="stat"><b id="stTiles">0</b><span>TILES</span></div>
+      <div class="stat"><b id="stMoves">0</b><span>MOVES</span></div>
+    </div>
+    <button class="btn" id="againBtn" type="button">PLAY AGAIN</button>
+    <button class="btn btn-ghost" id="homeBtn" type="button">MENU</button>
+  </section>
+
+  <button id="muteBtn" type="button" aria-label="Sound on or off">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" stroke="none"/>
+      <path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>
+      <path class="x" d="M16 9l5 6M21 9l-5 6"/>
+    </svg>
+  </button>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
