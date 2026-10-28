@@ -405,16 +405,16 @@ function processEvent(state, event) {
   if (!isInt(n) || !isInt(a) || !isInt(step)) return reject(state, 'bad_act');
 
   const sim = state.sim;
-  // Steps may never go BACKWARDS: a rewind would re-run a window and keep the
-  // best outcome.
-  if (step < sim.frame) return reject(state, 'frame_regressed');
   advanceTo(state, step);
   if (sim.dead) {
     state.dead = true;
     state.score = sim.score;
     return { accepted: false, newScore: state.score, reason: 'dead' };
   }
-  if (sim.frame !== step) return reject(state, 'beyond_cap');
+  // One guard for both: steps may never go BACKWARDS (a rewind would re-run a
+  // window and keep the best outcome), and an act past the session's steps is
+  // never applied.
+  if (sim.frame !== step) return reject(state, step < sim.frame ? 'frame_regressed' : 'beyond_cap');
   // The act names its index in the run; any other index is out of order.
   if (n !== sim.n) return reject(state, 'out_of_order');
   openStep(state);

@@ -334,6 +334,38 @@ describe('Tetris Smash input: one press is one gesture, the gestures are the fou
     g.up(); g.advance(40);
     expect(acts(g)).toEqual([S.A_LEFT, S.A_LEFT, S.A_LEFT]);   // a drag never also turns
   });
+  test('a tap may wander up to 14 design px and still turns', () => {
+    const g = ready(9);
+    const p = mid(g), k = g.probe().fit.s;
+    g.down(p.x, p.y); g.move(p.x + 8 * k, p.y + 8 * k); g.advance(30); g.up(); g.advance(40);
+    expect(acts(g)).toEqual([S.A_CW]);
+  });
+  test('11 px sideways is not yet a drag: a swipe down after it still drops', () => {
+    const g = ready(10);
+    const p = mid(g), k = g.probe().fit.s;
+    g.down(p.x, p.y); g.move(p.x + 11 * k, p.y); g.advance(20);
+    g.move(p.x + 11 * k, p.y + 60 * k); g.advance(20); g.up(); g.advance(20);
+    expect(acts(g)).toEqual([S.A_HARD]);
+  });
+  test('a swipe that takes longer than 300 ms is not a drop, even if the finger kept moving', () => {
+    const g = ready(11);
+    const p = mid(g), k = g.probe().fit.s;
+    g.down(p.x, p.y); g.move(p.x, p.y + 20 * k); g.advance(400);   // moved too far for a hold, too slow for a swipe
+    g.move(p.x, p.y + 80 * k); g.advance(20); g.up(); g.advance(20);
+    expect(acts(g).includes(S.A_HARD)).toBe(false);
+  });
+  test('a second finger tapping during a drag is not a turn (one press at a time)', () => {
+    const g = ready(12);
+    const p = mid(g), k = g.probe().fit.s;
+    g.fireWin('pointerdown', { pointerType: 'touch', pointerId: 501, clientX: p.x, clientY: p.y, target: g.canvas });
+    g.fireWin('pointermove', { pointerType: 'touch', pointerId: 501, clientX: p.x + 13 * k, clientY: p.y, target: g.canvas });
+    g.fireWin('pointermove', { pointerType: 'touch', pointerId: 501, clientX: p.x + 25 * k, clientY: p.y, target: g.canvas });
+    g.fireWin('pointerdown', { pointerType: 'touch', pointerId: 502, clientX: p.x - 50, clientY: p.y, target: g.canvas });
+    g.fireWin('pointerup', { pointerType: 'touch', pointerId: 502, clientX: p.x - 50, clientY: p.y, target: g.canvas });
+    g.fireWin('pointerup', { pointerType: 'touch', pointerId: 501, clientX: p.x + 25 * k, clientY: p.y, target: g.canvas });
+    g.advance(40);
+    expect(acts(g)).toEqual([S.A_RIGHT]);
+  });
   test('a quick swipe down hard-drops; a slow one does not', () => {
     const g = ready(5);
     const p = mid(g), k = g.probe().fit.s;

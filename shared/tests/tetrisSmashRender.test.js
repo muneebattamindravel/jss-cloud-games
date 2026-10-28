@@ -187,6 +187,20 @@ describe('tetris-smash HOW TO PLAY practice', () => {
     expect(g.probe().mode).toBe('menu');
     expect(g.trace.length).toBe(0);
   });
+  test('the practice opened after a run (standalone) still emits nothing', () => {
+    const g = H.boot({ seed: null, embed: false, search: '?seed=5&tut=0' });
+    g.clickPlay();
+    const pr = g.probe();
+    while (!pr.sim.dead) g.advance(1000 / 60);
+    g.advance(3000);
+    const n = g.trace.length;
+    g.clickHow();
+    expect(pr.mode).toBe('tut');
+    const m = g.client(186, 520);
+    for (let i = 0; i < 6; i++) { g.down(m.x, m.y); g.up(); g.advance(40); g.key('ArrowLeft'); g.key('ArrowLeft', true); }
+    g.advance(1000);
+    expect(g.trace.length).toBe(n);
+  });
   test('the practice shows once per rotation (KJTut), then PLAY goes straight to the run', () => {
     const g = H.boot({ seed: H.seedHex(6), tutorial: true });
     g.clickPlay();

@@ -102,7 +102,8 @@ describe('Tetris Smash validator: a refused input changes nothing and never zero
     expect(fin.score).toBe(run([start()]).fin.score);
   });
   test('steps may not go backwards (a rewind would replay a window and keep the best)', () => {
-    const { fin } = run([start(), act(0, S.A_LEFT, 30), act(1, S.A_HARD, 10)]);
+    const { out, fin } = run([start(), act(0, S.A_LEFT, 30), act(1, S.A_HARD, 10)]);
+    expect(out[2].reason).toBe('frame_regressed');
     expect(fin.debug.acts).toBe(1);
     const alone = run([start(), act(0, S.A_LEFT, 30)]).fin;
     expect(fin.score).toBe(alone.score);
@@ -145,6 +146,30 @@ describe('Tetris Smash validator: a refused input changes nothing and never zero
     const { fin } = run(junk);
     expect(fin.score).toBe(H1.score);
     expect(fin.debug.steps).toBe(H1.frame);
+  });
+  test('a malformed event never moves the clock: an honest act on the same step after it still applies', () => {
+    for (const bad of [{ kind: 'act', n: 0, a: S.A_LEFT, step: 60.5 }, { kind: 'act', n: 0, a: S.A_LEFT, step: '60' },
+      { kind: 'act', n: 0.5, a: S.A_LEFT, step: 61 }, { kind: 'act', n: 0, a: 1.5, step: 61 }]) {
+      const { out, fin } = run([start(), { type: 'input', payload: bad }, act(0, S.A_LEFT, 60)]);
+      expect(out[2].reason).toBeUndefined();
+      expect(fin.debug.acts).toBe(1);
+    }
+  });
+  test('the server applies a step\'s acts on a fresh step: its events are that step\'s alone', () => {
+    const st = V.init({ seed: SEED, elapsedSecs: 400 });
+    V.processEvent(st, start());
+    V.processEvent(st, act(0, S.A_HARD, 3));
+    // the next piece spawns at the end of step 3 + SPAWN_STEPS - 1; act on the step after
+    const t = 3 + S.SPAWN_STEPS;
+    expect(V.processEvent(st, act(1, S.A_LEFT, t)).reason).toBeUndefined();
+    expect(st.sim.ev).toEqual([]);
+  });
+  test('the suspicious mark starts at exactly 10 refusals', () => {
+    for (const [k, want] of [[9, null], [10, 'validator_rejects:10']]) {
+      const ev = [start()];
+      for (let i = 0; i < k; i++) ev.push({ type: 'input', payload: { kind: 'act', n: -1, a: 0, step: 1 } });
+      expect(run(ev).fin.suspicious).toBe(want);
+    }
   });
   test('ten or more refusals mark the run suspicious without changing its score', () => {
     const ev = H1.trace.slice();
@@ -216,13 +241,15 @@ describe('Tetris Smash validator: work and time bounds', () => {
     expect(V.finalize(st).debug.maxActsPerStep).toBeGreaterThan(5);   // recorded for the bot detector
   });
   test('the elapsed cap stops the run-out at exactly ceil((elapsed x 1.2 + 10) x 60) steps', () => {
-    for (const e of [5, 30, 100]) {
-      const { fin } = run([start(), act(0, S.A_SOFT_ON, 0)], { elapsedSecs: e, seed: H.seedHex(14) });
-      const cap = Math.ceil((e * 1.2 + 10) * 60);
-      // the idle run tops out on its own after ~90 s; below that the cap is what stops it
-      const natural = run([start(), act(0, S.A_SOFT_ON, 0)], { elapsedSecs: 0, seed: H.seedHex(14) }).fin.debug.steps;
-      expect(fin.debug.steps).toBe(Math.min(cap, natural));
+    // An untouched run tops out on its own after about 90 s; below that the cap is what stops it.
+    const natural = run([start()], { elapsedSecs: 0, seed: H.seedHex(14) }).fin.debug.steps;
+    expect(natural).toBeGreaterThan(4000);
+    for (const [e, steps] of [[5, 960], [30, 2760], [50, 4200]]) {
+      const { fin } = run([start()], { elapsedSecs: e, seed: H.seedHex(14) });
+      expect(fin.debug.steps).toBe(steps);                       // literal: ceil((e * 1.2 + 10) * 60)
+      expect(fin.debug.steps).toBeLessThan(natural);
     }
+    expect(run([start()], { elapsedSecs: 400, seed: H.seedHex(14) }).fin.debug.steps).toBe(natural);
   });
   test('an elapsed time that lies short cannot buy more: the run-out stops earlier, it never scores more', () => {
     const full = run(H1.trace, { elapsedSecs: 400 }).fin.score;
