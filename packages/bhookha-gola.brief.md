@@ -7,7 +7,7 @@
 - **Recovery:** Yes. Nothing is lost on a mistake, only time. A slow route still grows.
 - **Run length / end condition:** 5400 steps (1:30), a cleared city, or starving. A run with no input starves in about 8.6 s.
 - **Input style:** drag (relative stick) -> path batches of the stick vector plus touch/lift markers (handbook section 7, Snake Blocks shape). Stage 2.
-- **Art gate:** Cones, bins, parcels, barrels, crates, benches, lollipop trees, pillars, kiosks, domes, toy blocks, containers, stacked-box houses and towers, tanks, a stadium dome, a skyscraper. All plain solids, code drawn, 3/4 view with lit tops, soft contact shadows. No people, animals or vehicles.
+- **Art gate:** Neon night bazaar look (dark bodies, glowing edges, lit windows, fairy lights, bloom). Cones, bins, parcels, barrels, crates, benches, lollipop trees, pillars, kiosks, domes, toy blocks, containers, stacked-box houses and towers, tanks, a stadium dome, a skyscraper. All plain solids, code drawn, 3/4 view with lit tops, soft contact shadows. No people, animals or vehicles.
 - **Audio:** All Web Audio: suction whoosh plus a material sound per prop (clay, wood, metal, leaves, plastic, stone), bass thump for big props, rising combo notes, a tabla groove that adds layers with the combo, hunger heartbeat, tier chime, last 10 s ticks, end gong, starve wail, new-best fanfare.
 - **Randomness that affects score:** 3x3 blocks. Centre block: two quadrants of tiny props, two of small. Each side block holds one cluster of every level 1 to 4 in a seeded order. Corners hold one landmark each. Kinds, colours, cell fill, size and jitter are hash(seed, index, k) with fixed draws per cell.
 - **Math needed:** Integer only plus Math.sqrt (positions in 1/16 units, squared distance checks).
