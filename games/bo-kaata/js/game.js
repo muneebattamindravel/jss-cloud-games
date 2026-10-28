@@ -505,8 +505,8 @@
     if (i === 1) s.me = Object.assign({}, s.me, { pull: 1, s: 4 * U });
     if (i === 2) s.me = { x: 150 * U, y: 360 * U, h: 0, s: 0, pull: 0 };
     if (i === 3) {
-      s.me = { x: 130 * U, y: 340 * U, h: 236, s: 0, pull: 0 };     // nose already toward their line
-      s.rivals = [{ id: 7, big: 0, pm: 0, wp: 0, side: 1, w: 1, ax: 430 * U, ay: 620 * U, x: 290 * U, y: 200 * U, h: 0, s: 0, pull: 0, vmax: 0, aim: 9, react: 1e9, dart: 0, think: 0, run: 0, hx: 290 * U, hy: 200 * U, rest: 1e9, restBase: 1e9, until: 1e12, hunter: 0 }];
+      s.me = { x: 70 * U, y: 380 * U, h: 256, s: 0, pull: 0 };      // nose already toward their line, which stands mid screen with room to cross it
+      s.rivals = [{ id: 7, big: 0, pm: 0, wp: 0, side: 1, w: 1, ax: 255 * U, ay: 650 * U, x: 215 * U, y: 200 * U, h: 0, s: 0, pull: 0, vmax: 0, aim: 9, react: 1e9, dart: 0, think: 0, run: 0, hx: 215 * U, hy: 200 * U, rest: 1e9, restBase: 1e9, until: 1e12, hunter: 0 }];
     }
     prev = snap(s); myFall = null;
     if (i === 4) { prac.phase = 'ready'; pplay.classList.remove('is-hidden'); pskip.classList.add('is-hidden'); syncPlay(); silence(); }
@@ -519,7 +519,7 @@
   function pracNext(delay) { prac.phase = 'gap'; prac.nextAt = performance.now() + delay; }
   // what the practice is waiting for, or '' when it may run
   function pracWants() {
-    var p = prac, me = sim.me, down = fingerDown || wantTouch;       // a tap counts as a press
+    var p = prac, me = sim.me, down = fingerDown || wantTouch || (p.hold > 0 && wantLift);       // a tap counts as a press
     if (p.i === 0) return down ? '' : 'hold';
     if (p.i === 1) return fingerDown ? 'let' : '';
     if (p.i === 2) {
@@ -528,7 +528,7 @@
       if (down) return aimed ? '' : 'let';       // a hold before it is aimed would only fly it off
       return aimed ? 'now' : '';
     }
-    if (p.i === 3) return down || p.live > 0 ? '' : 'cut';
+    if (p.i === 3) return down ? '' : 'cut';                 // the cut needs a hold the whole way: it waits for one
     return '';
   }
   function stepPrac() {
@@ -765,8 +765,8 @@
     g.strokeStyle = 'rgba(255,210,63,' + (0.28 + 0.3 * pulse) + ')'; g.lineWidth = 13;
     g.beginPath(); g.moveTo(ax, ay); g.lineTo(rx, ry); g.stroke();
     g.restore();
-    var lx = rx + (ax - rx) * 0.5, ly = ry + (ay - ry) * 0.5;
-    if (!r.lock) pill(g, 'THEIR STRING', lx - 64, ly, '#c0265f');
+    var lx = rx + (ax - rx) * 0.14, ly = ry + (ay - ry) * 0.14;
+    if (!r.lock) pill(g, 'THEIR STRING', lx + 70, ly, '#c0265f');
     if (!r.lock && p.live < 120) {
       var x = me.x / U, y = me.y / U, a = me.h / 1024 * Math.PI * 2, dx = Math.sin(a), dy = -Math.cos(a);
       var hit = intersect(x, y, x + dx * 100, y + dy * 100, ax, ay, rx, ry);
@@ -784,7 +784,7 @@
       pill(g, 'KEEP HOLDING!', 207, 196, '#c0265f');
     }
   }
-  var HEADS = [['HOLD TO FLY UP', 'Press and keep your finger down'], ['LET GO TO SPIN', 'Lift your finger: the kite turns'], ['POINT, THEN HOLD', 'The kite flies where its nose points'], ['CUT THEIR STRING', 'Hold to cross it, keep holding until it snaps']];
+  var HEADS = [['HOLD TO FLY UP', 'Press and keep your finger down'], ['LET GO TO SPIN', 'Lift your finger: the kite turns'], ['POINT, THEN HOLD', 'The kite flies where its nose points'], ['HOLD TO CUT', 'Hold to pull across their string']];
   function drawPrac(g, now) {
     var p = prac; if (!p) return;
     if (p.phase === 'ready') {
@@ -797,6 +797,7 @@
     var want = p.want, head = HEADS[p.i], sub = head[1], title = head[0], hot = '#ffffff';
     if (p.i === 0 && p.live > 0 && want === 'hold') title = 'KEEP HOLDING';
     if (p.i === 2 && !want && !me.pull && !fingerDown) { title = 'WAIT FOR THE ARROW'; sub = 'The kite is turning toward the star'; }
+    if (p.i === 3) { title = want ? 'HOLD TO CUT' : 'KEEP HOLDING'; sub = want ? 'Hold to pull across their string' : 'Pull through their string until it snaps'; hot = '#ffd23f'; }
     if (want === 'now') { title = 'HOLD NOW!'; sub = 'The arrow faces the star'; hot = '#ffd23f'; }
     var rr = p.phase === 'run' || p.phase === 'gap';
     if (rr) {
