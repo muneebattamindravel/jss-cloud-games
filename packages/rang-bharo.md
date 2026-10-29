@@ -102,22 +102,22 @@ exactly; one second of frames is 58 to 62 steps at 30, 60, 120 and 144 Hz;
 ten hidden seconds are 598 to 603 steps.
 
 ## 6. Suite counts
-- Parity: 67 tests. Adversarial: 48. Render: 20 (page contract, session gate,
+- Parity: 67 tests. Adversarial: 49. Render: 20 (page contract, session gate,
   one run per session, submit after the end screen, hidden-tab submit, QA
   switches, the practice, strict canvas at 3 viewports, gradients per frame).
-  Replay: 9. Total 144, about 150 s with `npx jest --runInBand rangBharo`.
+  Replay: 9. Total 145, about 200 s with `npx jest --runInBand rangBharo`.
 - Cross-engine: `scripts/rb-cross-engine.js` hashes the world after every step
   of the 10 golden schedules in Node and headless Chrome: 10/10 identical.
 - Golden runs: 10 (v1, `shared/tests/fixtures/rangBharoGolden.json`):
   flawless, good x2, average, novice, bot, greedy, spammer, idle, cycler.
   Regenerate only with a version bump (`node shared/tests/lib/rangBharoGoldenGen.js`).
-- Golden mazes: 9 (`shared/tests/fixtures/rangBharoGoldenMazes.json`), chosen by
+- Golden mazes: 12 (`shared/tests/fixtures/rangBharoGoldenMazes.json`), chosen by
   measurement because they sit on rare generator branches (the 38% floor gate,
   the minimum-par cap at maze 16): 8 and 1 of 4800 mazes change when those
   constants move.
 
 ## 7. Mutation battery
-`shared/tests/lib/rangBharoMutate.js`, 125 mutations over the constants, the
+`shared/tests/lib/rangBharoMutate.js`, 135 mutations over the constants, the
 seed and hash, the difficulty curve, the generator (stop pinning, trap check,
 solver, fallback ring, memo key), the sim (buffering, one input a step, the
 clock, scoring, PERFECT), the validator interface (rewind, index, typeof,
@@ -127,22 +127,26 @@ repeat, READY input, inbox, backup clock and catch-up, submit timing, one run
 per session, session gate, ?seed, trace marker, replay, the practice). Run
 from scratch copies only, 4 shards.
 
-- With the pin tables: **124 live caught, 1 inert, 0 survivors.**
-- Behaviour only (`--nopin`, pins and rules hash off): **121 live caught, 4 inert, 0 survivors.**
-  The three extra inerts are measured on 4800 regenerated mazes (300 seeds x 16):
-  `GEN_ATTEMPTS` 60 to 59, `stuck 13` and `SOLVE_CAP` 59999 change 0 mazes; their
-  large variants (`GEN_ATTEMPTS small`, `stuck 3`, `SOLVE_CAP small`) are caught.
+- With the pin tables: **134 live caught, 1 inert, 0 survivors.**
+- Behaviour only (`--nopin`, pins and rules hash off): **130 live caught, 5 inert, 0 survivors.**
+  The four extra inerts are measured by regenerating the mazes each constant
+  can reach: `GEN_ATTEMPTS` 120 to 119 (no maze needs the 120th attempt; no ring
+  fallback in 3600 mazes), `SOLVE_CAP` 59999 (no BFS ends between the two),
+  `minPar early` (no maze 3 in 400 seeds has par below 3) and `minPar cap` 19
+  (no maze 24 to 30 in 400 seeds has par below 20). Their large variants
+  (`GEN_ATTEMPTS small`, `SOLVE_CAP small`, `minPar not enforced`, `minPar base`)
+  are caught.
+- Rare generator branches that only a pin used to catch are now pinned by
+  behaviour: 12 golden mazes (`rangBharoGoldenMazes.json`) found by measuring
+  which mazes the floor gate, the minimum-par cap and the first shortened-slide
+  mazes (19 and 23) change.
 - Dead code found by the battery and removed (goldens unchanged): the 'best
-  attempt' fallback (0 of 4800 mazes reach it; the ring stays as the total
-  fallback), a queued-at-rest branch (a buffered swipe is always taken at the
-  wall or the next maze) and the stepSim over guard (the clock check ends the
-  run identically).
-- Inert, with a measurement: `c: catch-up 6` (owed steps are never dropped,
-  so a per-frame cap of 3 or 6 runs the same steps on the same wall clock;
-  every suite passes with 6). Its large variant `c: catch-up 1` is caught.
-  `GEN_ATTEMPTS` 60 to 59 is listed as possibly inert (no measured maze needs
-  the 60th attempt); it was caught by the pin table, and `GEN_ATTEMPTS small`
-  (1) is caught by behaviour.
+  attempt' fallback, a queued-at-rest branch, the stepSim over guard, and a
+  redundant guard in the twist formula.
+- Inert in both passes, with a measurement: `c: catch-up 6` (owed steps are
+  never dropped, so a per-frame cap of 3 or 6 runs the same steps on the same
+  wall clock; every suite passes with 6). Its large variant `c: catch-up 1` is
+  caught.
 - Survivors found and fixed on the way (all holes in the tests or guards that
   masked each other): the validator's direction check (duplicated the rules'
   own, removed); the client's end-of-run, replay-input and second-run guards

@@ -38,7 +38,7 @@ The founder has played it and said: "okay i think this game is perfect."
       (`max_score_per_sec: 340`, sort_order 62, durations 1 to 3600, inactive)
    Also add Rang Bharo to the Game line-up table in CLAUDE.md.
 4. Run `npx jest --runInBand shared/tests/rangBharo shared/tests/sessionLifetime`.
-   In the workshop: 144 tests pass in about 150 s. Do not rerun the mutation
+   In the workshop: 145 tests pass in about 200 s. Do not rerun the mutation
    battery (it ran in the workshop: zero survivors). If a suite differs here,
    the snapshot of `games/_shared` or the SDK has drifted: stop and find out
    why before touching anything. The adversarial suite adds and then removes
