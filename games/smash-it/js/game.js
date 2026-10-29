@@ -525,10 +525,10 @@
     g.fillStyle = '#ff1f8e'; for (i = 0; i < 8; i++) { g.beginPath(); g.arc(32 + i * 64, 30, 9, 0, 7); g.fill(); g.beginPath(); g.arc(i * 64, 226, 9, 0, 7); g.fill(); }
     return tex(c, true);
   })();
-  var ballGeo = new T.SphereGeometry(R.BALL_R * 1.25, 40, 28);   // drawn a little larger than its collider so it reads at distance
+  var ballGeo = new T.SphereGeometry(R.BALL_R, 40, 28);   // drawn at the collider size so it sits on surfaces exactly
   var ballMat = new T.MeshMatcapMaterial({ map: ballTex, matcap: matcapTex('#ffffff', 1, 'neutral') });
   var ballLine = new T.MeshBasicMaterial({ color: 0x2b0b4a, side: T.BackSide });
-  var ballLineGeo = new T.SphereGeometry(R.BALL_R * 1.25 + 0.055, 32, 20);
+  var ballLineGeo = new T.SphereGeometry(R.BALL_R + 0.04, 32, 20);
   var ballMeshes = {};
   function syncBalls(S) {
     var seen = {};
