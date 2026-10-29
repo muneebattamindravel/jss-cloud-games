@@ -14,7 +14,7 @@
     noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
     var d = noiseBuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    loadGlass();
+    loadGlass(); loadCannon();
   }
   function throttle(k, ms) {
     if (!AC) return false;
@@ -52,6 +52,12 @@
         .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
         .then(function (buf) { glassBufs.push(buf); }).catch(function () { /* falls back to the synth smash */ });
     });
+  }
+  var cannonBuf = null;
+  function loadCannon() {
+    fetch('audio/cannon.mp3').then(function (r) { return r.arrayBuffer(); })
+      .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
+      .then(function (buf) { cannonBuf = buf; }).catch(function () { /* falls back to the synth cannon */ });
   }
   function playBuf(buf, vol, rate) {
     var s = AC.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
@@ -114,6 +120,7 @@
       tone(t, 'sine', 420, 200, 0.07, 0.15 + 0.3 * k);
     },
     cannon: function () {
+      if (cannonBuf) { playBuf(cannonBuf, 1, 0.97 + Math.random() * 0.06); return; }
       var t = AC.currentTime;
       noise(t, 0.28, 'lowpass', 900, 0.8, 0.9);
       tone(t, 'sine', 140, 45, 0.25, 0.8);
