@@ -519,20 +519,33 @@
     g.fillStyle = '#ffffff'; for (i = 0; i < 8; i++) { g.beginPath(); g.arc(32 + i * 64, 36, 10, 0, 7); g.fill(); g.beginPath(); g.arc(i * 64, 220, 10, 0, 7); g.fill(); }
     return tex(c, true);
   })();
-  var ballGeo = new T.SphereGeometry(R.BALL_R * 1.3, 40, 28);   // drawn a little larger than its collider so it reads at distance
+  var ballGeo = new T.SphereGeometry(R.BALL_R * 1.55, 40, 28);   // drawn a little larger than its collider so it reads at distance
   var ballMat = phys({ map: ballTex, roughness: 0.1, clearcoat: 1 });
   var ballMeshes = {};
   function syncBalls(S) {
     var seen = {};
     for (var i = 0; i < S.ballsLive.length; i++) {
       var bl = S.ballsLive[i], m = ballMeshes[bl.n];
-      if (!m) { m = ballMeshes[bl.n] = new T.Mesh(ballGeo, ballMat); m.castShadow = true; m.userData.off = muzzleWorld().sub(new T.Vector3(R.CANNON.x, R.CANNON.y, R.CANNON.z)); scene.add(m); }
+      if (!m) {
+        m = ballMeshes[bl.n] = new T.Group();
+        var core = new T.Mesh(ballGeo, ballMat); m.add(core); m.userData.core = core;
+        var halo = new T.Sprite(new T.SpriteMaterial({ map: softTex, color: 0xfff1a0, transparent: true, opacity: 0.85, depthWrite: false, blending: T.AdditiveBlending }));
+        halo.scale.setScalar(1.9); m.add(halo); m.userData.halo = halo;
+        m.userData.off = muzzleWorld().sub(new T.Vector3(R.CANNON.x, R.CANNON.y, R.CANNON.z)); m.userData.last = null; scene.add(m);
+      }
       seen[bl.n] = 1;
       var p = bl.body.translation(), q = bl.body.rotation();
       var k = Math.max(0, 1 - bl.age / 14);          // blend from the drawn muzzle into the physics path
       m.position.set(p.x, p.y, p.z).addScaledVector(m.userData.off, k * k);
-      m.quaternion.set(q.x, q.y, q.z, q.w);
-      if (bl.age < R.FLIGHT_STEPS + 2 && Math.random() < 0.9) spawnSoft(m.position, 0.42, 0xffffff, 0.35, 0.22, 0.5);
+      m.userData.core.quaternion.set(q.x, q.y, q.z, q.w);
+      var inFlight = !bl.free;
+      m.userData.halo.material.opacity = inFlight ? 0.85 : Math.max(0, m.userData.halo.material.opacity - 0.05);
+      // comet trail: a chain of glowing puffs filling the gap since last frame
+      if (inFlight && m.userData.last) {
+        var from = m.userData.last, d = m.position.distanceTo(from), n = Math.min(6, Math.ceil(d / 0.25));
+        for (var t = 1; t <= n; t++) { var tp = from.clone().lerp(m.position, t / n); spawnSoft(tp, 0.75, 0xffe7a0, 0.55, 0.22, -1.5, true); }
+      }
+      m.userData.last = m.position.clone();
     }
     for (var n in ballMeshes) if (!seen[n]) { scene.remove(ballMeshes[n]); delete ballMeshes[n]; }
   }
@@ -550,21 +563,17 @@
     im.count = 0; scene.add(im);
     return { im: im, items: [], max: n };
   }
-  var shardGeo = (function () {   // a curved sliver of jar wall
-    var g = new T.BufferGeometry(), v = [], seg = 3;
-    for (var i = 0; i < seg; i++) {
-      var a0 = (i / seg - 0.5) * 0.9, a1 = ((i + 1) / seg - 0.5) * 0.9, y0 = -0.5 + Math.abs(i - 1) * 0.15, y1 = 0.5 - i * 0.12;
-      var p = function (a, y) { return [Math.sin(a) * 0.6, y, Math.cos(a) * 0.6 - 0.6]; };
-      v.push.apply(v, p(a0, y0).concat(p(a1, y0 + 0.1), p(a1, y1)));
-      v.push.apply(v, p(a0, y0).concat(p(a1, y1), p(a0, y1 + 0.15)));
-    }
+  var shardGeo = (function () {   // a curved, jagged piece of jar wall
+    var g = new T.BufferGeometry(), v = [], ring = [[-0.5, -0.45], [0.05, -0.55], [0.5, -0.3], [0.42, 0.2], [0.1, 0.55], [-0.35, 0.4], [-0.55, 0.0]];
+    function at(u, y) { return [Math.sin(u * 0.9) * 0.6, y, Math.cos(u * 0.9) * 0.6 - 0.6]; }
+    for (var i = 0; i < ring.length; i++) { var a = ring[i], b = ring[(i + 1) % ring.length]; v.push.apply(v, at(0, 0).concat(at(a[0], a[1]), at(b[0], b[1]))); }
     g.setAttribute('position', new T.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); return g;
   })();
-  var shards = makePool(shardGeo, phys({ color: 0xffffff, roughness: 0.12, clearcoat: 1, side: T.DoubleSide, envMapIntensity: 0.9, emissive: 0x1a1a1a }), 1200, true);
+  var shards = makePool(shardGeo, mat({ color: 0xffffff, roughness: 0.05, clearcoat: 1, side: T.DoubleSide, kind: 'jar' }), 1200, true);
   var needles = makePool(new T.BoxGeometry(1, 0.07, 0.07), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false }), 900, false);
   var chipMat = mat({ map: tex(woodCanvas[1], true), roughness: 0.65 });
   var chips = makePool(roundedBox(1, 1, 1, 0.12, 2), chipMat, 600, true);
-  var drops = makePool(new T.SphereGeometry(0.5, 10, 8), phys({ color: 0xffffff, roughness: 0.1, clearcoat: 1, transparent: true, opacity: 0.9 }), 500, false);
+  var drops = makePool(new T.SphereGeometry(0.5, 16, 12), phys({ color: 0xffffff, roughness: 0.1, clearcoat: 1, transparent: true, opacity: 0.9 }), 500, false);
   var confs = makePool(new T.PlaneGeometry(0.24, 0.13), new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide }), 300, false);
   var softs = [], fallers = [], ripples = [];
   var tmpM = new T.Matrix4(), tmpQ = new T.Quaternion(), tmpS = new T.Vector3(), XAX = new T.Vector3(1, 0, 0), tmpD = new T.Vector3();
@@ -585,32 +594,25 @@
   var ICE = '#bfe9ff';
   function glassBreak(p, q, col, power) {
     var gcol = col < 0 ? ICE : GLASS[col];
-    var c = L(gcol), lite = c.clone().lerp(new T.Color(1, 1, 1), 0.5), white = new T.Color(1, 1, 1), i;
+    var c = L(gcol), lite = c.clone().lerp(new T.Color(1, 1, 1), 0.45), white = new T.Color(1, 1, 1), i;
     var rot = new T.Quaternion(q.x, q.y, q.z, q.w);
-    for (i = 0; i < Math.round(46 * power); i++) {
-      var local = new T.Vector3(rnd(-0.45, 0.45), rnd(-0.6, 0.6), rnd(-0.45, 0.45)).applyQuaternion(rot);
-      var pp = new T.Vector3(p.x, p.y, p.z).add(local);
-      var dir = local.clone().setZ(local.z + 0.5).normalize();
-      addItem(shards, { p: pp, v: dir.multiplyScalar(rnd(3, 9) * power).add(new T.Vector3(rnd(-1, 1), rnd(2, 5), rnd(0, 2))), r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)),
-        w: new T.Vector3(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12)), s: rnd(0.18, 0.5), life: rnd(1.6, 2.6), col: Math.random() < 0.25 ? lite : c, rest: 0 });
+    // big glossy pieces of the jar wall, blown outward and toward the camera
+    for (i = 0; i < Math.round(34 * power); i++) {
+      var local = new T.Vector3(rnd(-0.42, 0.42), rnd(-0.55, 0.55), rnd(-0.42, 0.42)).applyQuaternion(rot);
+      var dir = local.clone().setZ(local.z + 0.45).normalize();
+      addItem(shards, { p: new T.Vector3(p.x, p.y, p.z).add(local), v: dir.multiplyScalar(rnd(2.5, 5.5) * power).add(new T.Vector3(rnd(-1.2, 1.2), rnd(4, 8), rnd(0.8, 2.6))),
+        r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)), w: new T.Vector3(rnd(-7, 7), rnd(-7, 7), rnd(-7, 7)), s: rnd(0.55, 1.05), life: rnd(1.8, 2.6), col: Math.random() < 0.3 ? lite : c, rest: 0 });
     }
-    for (i = 0; i < 10; i++) {    // lid bits
-      addItem(shards, { p: new T.Vector3(p.x, p.y + 0.5, p.z), v: new T.Vector3(rnd(-4, 4), rnd(3, 8), rnd(0, 4)), r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)),
-        w: new T.Vector3(rnd(-15, 15), rnd(-15, 15), rnd(-15, 15)), s: rnd(0.12, 0.28), life: rnd(1.4, 2.2), col: i % 2 ? white : c, rest: 0 });
-    }
-    // the splash: a starburst of long coloured streaks, mostly in the screen plane
-    for (i = 0; i < 56; i++) {
-      var a = Math.random() * Math.PI * 2, el = rnd(-0.25, 0.6);
-      var d = new T.Vector3(Math.cos(a) * Math.cos(el), Math.sin(a) * Math.cos(el) + 0.15, Math.sin(el) * 0.6 + 0.2);
-      addItem(needles, { p: new T.Vector3(p.x + rnd(-0.15, 0.15), p.y + rnd(-0.2, 0.2), p.z + 0.5), v: d.multiplyScalar(rnd(8, 19) * power), len: rnd(0.6, 1.7), th: rnd(0.07, 0.15), life: rnd(0.28, 0.55), col: Math.random() < 0.25 ? white : (Math.random() < 0.45 ? lite : c) });
-    }
-    var ring = spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.6), 0.6, gcol, 0.9, 0.35, 9, true, ringTexture());
-    for (i = 0; i < 18; i++) { var gl = spawnSoft(new T.Vector3(p.x + rnd(-0.5, 0.5), p.y + rnd(-0.5, 0.5), p.z + 0.7), rnd(0.18, 0.34), gcol, 1, rnd(0.8, 1.4), -0.2, true, starTex); if (gl) { gl.v.set(rnd(-3.5, 3.5), rnd(1, 5), rnd(0, 2)); gl.g = 6; } }
-    for (i = 0; i < 24; i++) addItem(drops, { p: new T.Vector3(p.x, p.y, p.z + 0.4), v: new T.Vector3(rnd(-6, 6), rnd(-1, 8), rnd(0, 5)), r: new T.Euler(), w: new T.Vector3(), s: rnd(0.05, 0.12), life: rnd(0.5, 0.9), col: lite, rest: 0 });
-    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.7), 2.2, 0xffffff, 1, 0.14, 8, true, starTex);
-    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.6), 1.6, 0xffffff, 1, 0.16, 10, true);
-    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.5), 3, gcol, 0.8, 0.32, 5, true);
-    for (i = 0; i < 12; i++) { var st = spawnSoft(new T.Vector3(p.x + rnd(-0.5, 0.5), p.y + rnd(-0.6, 0.6), p.z + 0.6), rnd(0.3, 0.6), 0xffffff, 1, rnd(0.4, 0.9), -0.3, true, starTex); if (st) st.v.set(rnd(-3, 3), rnd(0, 4), rnd(0, 2)); }
+    // the lid pops off in a few white and coloured bits
+    for (i = 0; i < 6; i++) addItem(shards, { p: new T.Vector3(p.x, p.y + 0.5, p.z), v: new T.Vector3(rnd(-3, 3), rnd(4, 8), rnd(0.5, 3)), r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)),
+      w: new T.Vector3(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12)), s: rnd(0.22, 0.36), life: rnd(1.4, 2), col: i % 2 ? white : c, rest: 0 });
+    // juice: glossy drops of the jar colour
+    for (i = 0; i < Math.round(30 * power); i++) addItem(drops, { p: new T.Vector3(p.x + rnd(-0.2, 0.2), p.y + rnd(-0.2, 0.2), p.z + 0.4), v: new T.Vector3(rnd(-6, 6), rnd(2, 10), rnd(1, 3.5)),
+      r: new T.Euler(), w: new T.Vector3(), s: rnd(0.14, 0.32), life: rnd(0.7, 1.1), col: Math.random() < 0.3 ? lite : c, rest: 0 });
+    // one clean flash and a handful of sparkles
+    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.9), 3.4, 0xffffff, 1, 0.16, 6, true);
+    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.8), 3.6, gcol, 0.9, 0.3, 3, true);
+    for (i = 0; i < 7; i++) { var st = spawnSoft(new T.Vector3(p.x + rnd(-0.7, 0.7), p.y + rnd(-0.7, 0.7), p.z + 1), rnd(0.7, 1.2), 0xffffff, 1, rnd(0.35, 0.6), -0.6, true, starTex); if (st) st.v.set(rnd(-2, 2), rnd(0.5, 2.5), 0); }
   }
   var plankCols = ['#e08a3c', '#c86f28', '#f0a458', '#b8601f'].map(L);
   function woodBreak(p, q, w, h, span) {
@@ -638,7 +640,7 @@
   }
   function puff(p, n, col, s) {
     for (var i = 0; i < n; i++) {
-      var d = spawnSoft(new T.Vector3(p.x + rnd(-0.5, 0.5) * s, p.y + rnd(-0.3, 0.3) * s, (p.z || 0) + rnd(0, 0.6)), rnd(0.7, 1.2) * s, col, 0.6, rnd(0.6, 1.1), 1.5);
+      var d = spawnSoft(new T.Vector3(p.x + rnd(-0.5, 0.5) * s, p.y + rnd(-0.3, 0.3) * s, (p.z || 0) + rnd(0, 0.6)), rnd(0.5, 0.9) * s, col, 0.35, rnd(0.4, 0.7), 1.2);
       if (d) d.v.set(rnd(-1.2, 1.2), rnd(0.2, 1.4), rnd(-0.3, 0.6));
     }
   }
@@ -948,7 +950,7 @@
     if (S && S.shield) { var sp = S.shield.body.translation(); shield.position.set(sp.x, sp.y, sp.z); }
     for (var bid in blockMeshes) { var sk = blockMeshes[bid].g.userData.spark; if (sk) { sk.scale.setScalar(0.35 + Math.random() * 0.25); sk.material.rotation = Math.random() * 6; } }
     if (S && S.fan) { var fp = S.fan.body.translation(), fq = S.fan.body.rotation(); fan.position.set(fp.x, fp.y, fp.z); fan.quaternion.set(fq.x, fq.y, fq.z, fq.w); }
-    stepPool(shards, dt, 'glass'); stepPool(needles, dt, 'needle'); stepPool(chips, dt, 'wood'); stepPool(drops, dt, 'drop'); stepPool(confs, dt, 'conf');
+    stepPool(shards, dt, 'glass'); stepPool(chips, dt, 'wood'); stepPool(drops, dt, 'drop'); stepPool(confs, dt, 'conf');
     stepSofts(dt); stepFallers(dt);
     if (tinkle > 0 && Math.random() < 0.35) { A.play('tinkle'); tinkle -= 1; }
     crushCool -= dt; kick *= 0.85; aimCannon();
@@ -975,6 +977,6 @@
     document.getElementById('menuBest').textContent = bestScore();
   });
 
-  window.__kt = { get S() { return S; }, R: R, tapToTarget: tapToTarget,
+  window.__kt = { fxGlass: function (x, y, col) { glassBreak({ x: x, y: y, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, col, 1.15); }, get S() { return S; }, R: R, tapToTarget: tapToTarget,
     toScreen: function (x, y, z) { var p = new T.Vector3(x, y, z === undefined ? R.FRONT : z).project(pickCam); return { x: fitRect.x + (p.x + 1) / 2 * fitRect.w, y: fitRect.y + (1 - p.y) / 2 * fitRect.h }; } };
 })();

@@ -94,18 +94,16 @@
     .screen.hide { opacity: 0; pointer-events: none; }
     .dim { background: radial-gradient(ellipse at 50% 42%, rgba(43,11,74,.25), rgba(43,11,74,.78)); }
 
-    #menu { justify-content: flex-start; padding-top: 70px; gap: 0; background: radial-gradient(ellipse at 50% 38%, rgba(43,11,74,.15), rgba(43,11,74,.72) 75%); }
-    .logo { position: relative; width: 340px; height: 230px; }
-    .logo .burst { position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; margin: -150px 0 0 -150px;
-      background: radial-gradient(circle, rgba(255,240,170,.85) 0 18%, rgba(255,240,170,0) 60%); animation: pulseGlow 2.4s ease-in-out infinite; }
-    @keyframes pulseGlow { 50% { transform: scale(1.08); opacity: .8; } }
-    .logo svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-    .logo .w1, .logo .w2 { font-family: var(--font); text-anchor: middle; paint-order: stroke fill; stroke: var(--ink); stroke-linejoin: round; }
-    .logo .w1 { font-size: 104px; stroke-width: 16px; }
-    .logo .w2 { font-size: 112px; stroke-width: 16px; }
-    .shard { position: absolute; width: 18px; height: 22px; background: linear-gradient(135deg, #e9fbff, #7fd3ff); clip-path: polygon(50% 0, 100% 70%, 30% 100%); filter: drop-shadow(0 2px 0 var(--ink)); animation: floaty 2.8s ease-in-out infinite; }
-    @keyframes floaty { 50% { transform: translateY(-8px) rotate(14deg); } }
-    .bestChip { margin-top: 6px; padding: 5px 16px 7px; border-radius: 14px; border: 3px solid var(--ink); font-size: 18px; color: var(--ink2);
+    #menu { justify-content: flex-start; padding-top: 56px; gap: 0; background: radial-gradient(ellipse at 50% 38%, rgba(43,11,74,.15), rgba(43,11,74,.72) 75%); }
+    .logo { position: relative; width: 360px; height: 250px; margin-bottom: 6px; animation: logoIn .7s cubic-bezier(.3,1.6,.5,1) both; }
+    @keyframes logoIn { 0% { transform: scale(.3) rotate(-10deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+    .logo svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 10px 14px rgba(30,6,60,.35)); }
+    .logo .star { transform-origin: 180px 122px; animation: starSpin 3s ease-in-out infinite; }
+    @keyframes starSpin { 50% { transform: scale(1.04) rotate(3deg); } }
+    .logo .fly { animation: flyBob 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .logo .f2 { animation-delay: .5s; } .logo .f3 { animation-delay: 1s; } .logo .f4 { animation-delay: 1.5s; }
+    @keyframes flyBob { 50% { transform: translateY(-7px) rotate(18deg); } }
+    .bestChip { margin-top: 18px; padding: 5px 16px 7px; border-radius: 14px; border: 3px solid var(--ink); font-size: 18px; color: var(--ink2);
       background: linear-gradient(#fff, var(--paper2)); box-shadow: 0 4px 0 var(--ink); }
     .bestChip b { font-weight: 400; color: var(--red2); }
     .how { display: flex; gap: 10px; margin: 26px 0 30px; }
@@ -146,7 +144,7 @@
     .toggle { position: relative; width: 78px; height: 40px; border-radius: 22px; border: 3px solid var(--ink); cursor: pointer; background: var(--green2); box-shadow: inset 0 3px 4px rgba(0,0,0,.25); }
     .toggle::after { content: ''; position: absolute; top: 2px; left: 38px; width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--ink); background: #fff; transition: left .2s; }
     .toggle.off { background: #b9a9c6; } .toggle.off::after { left: 2px; }
-    @media (prefers-reduced-motion: reduce) { #playBtn, #banner .rays, .logo .burst, .shard { animation: none !important; } }
+    @media (prefers-reduced-motion: reduce) { #playBtn, #banner .rays, .logo, .logo .star, .logo .fly { animation: none !important; } }
   </style>
   <script src="js/vendor/three.min.js"></script>
   <script src="js/vendor/rapier.js"></script>
@@ -165,16 +163,45 @@
 
     <div id="menu" class="screen">
       <div class="logo">
-        <div class="burst"></div>
-        <i class="shard" style="left:14px;top:40px"></i><i class="shard" style="right:20px;top:24px;animation-delay:.6s;transform:scale(1.3)"></i><i class="shard" style="right:6px;top:150px;animation-delay:1.2s"></i><i class="shard" style="left:30px;top:170px;animation-delay:1.8s;transform:scale(.8)"></i>
-        <svg viewBox="0 0 340 230" aria-label="Smash It">
+        <svg viewBox="0 0 360 250" aria-label="Smash It">
           <defs>
-            <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6c2"/><stop offset=".5" stop-color="#ffcb2f"/><stop offset="1" stop-color="#ef8a00"/></linearGradient>
-            <linearGradient id="lg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a98"/><stop offset=".5" stop-color="#ee2b47"/><stop offset="1" stop-color="#b3122d"/></linearGradient>
+            <linearGradient id="gFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe0"/><stop offset=".38" stop-color="#ffd84a"/><stop offset=".72" stop-color="#ffab17"/><stop offset="1" stop-color="#f07c00"/></linearGradient>
+            <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb1bb"/><stop offset=".4" stop-color="#ff4058"/><stop offset="1" stop-color="#c3102f"/></linearGradient>
+            <linearGradient id="gShine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".45" stop-color="#fff" stop-opacity=".15"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+            <linearGradient id="gGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#9fe2ff"/></linearGradient>
+            <radialGradient id="gGlow"><stop offset="0" stop-color="#fff6c8" stop-opacity=".95"/><stop offset=".55" stop-color="#ffe680" stop-opacity=".35"/><stop offset="1" stop-color="#ffe680" stop-opacity="0"/></radialGradient>
           </defs>
-          <g transform="rotate(-5 170 115)">
-            <text class="w1" x="170" y="98" fill="url(#lg1)" filter="drop-shadow(0 6px 0 #2b0b4a)">SMASH</text>
-            <text class="w2" x="178" y="200" fill="url(#lg2)" filter="drop-shadow(0 6px 0 #2b0b4a)">IT!</text>
+          <circle cx="180" cy="120" r="150" fill="url(#gGlow)"/>
+          <!-- a shattered-glass star behind the words -->
+          <g class="star">
+            <polygon points="180,0 200,25 229,9 232,47 278,25 270,59 301,64 280,91 334,99 295,122 315,141 284,153 316,186 265,180 268,208 237,203 233,243 198,208 180,237 159,217 127,240 127,196 86,213 88,185 51,182 82,151 32,143 60,122 39,101 80,92 45,58 90,60 90,34 125,44 126,0 160,30" fill="url(#gGlass)" stroke="#2b0b4a" stroke-width="6" stroke-linejoin="round"/>
+            <path d="M180 122 L213 34 M180 122 L274 72 M180 122 L291 133 M180 122 L256 189 M180 122 L185 213 M180 122 L112 195 M180 122 L70 142 M180 122 L80 79 M180 122 L136 37" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+            <path d="M180 122 L213 34 M180 122 L274 72 M180 122 L291 133 M180 122 L256 189 M180 122 L185 213 M180 122 L112 195 M180 122 L70 142 M180 122 L80 79 M180 122 L136 37" stroke="#6cc4f0" stroke-width="2" stroke-linecap="round"/>
+          </g>
+          <g transform="rotate(-6 180 120)">
+            <g font-family="Lilita One, Arial Rounded MT Bold, sans-serif" text-anchor="middle">
+              <!-- SMASH: extruded depth, outline, face, shine -->
+              <g font-size="96">
+                <text x="180" y="122" fill="#2b0b4a" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 9)">SMASH</text>
+                <text x="180" y="122" fill="#5a1a9a" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 4)">SMASH</text>
+                <text x="180" y="122" fill="url(#gFace)" stroke="#2b0b4a" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill">SMASH</text>
+                <text x="180" y="122" fill="url(#gShine)">SMASH</text>
+              </g>
+              <!-- IT!: red, bigger, kicked to the right -->
+              <g font-size="104" transform="rotate(7 200 210)">
+                <text x="196" y="218" fill="#2b0b4a" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 9)">IT!</text>
+                <text x="196" y="218" fill="#7a0a20" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 4)">IT!</text>
+                <text x="196" y="218" fill="url(#gRed)" stroke="#2b0b4a" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill">IT!</text>
+                <text x="196" y="218" fill="url(#gShine)">IT!</text>
+              </g>
+            </g>
+          </g>
+          <!-- flying shards -->
+          <g stroke="#2b0b4a" stroke-width="3" stroke-linejoin="round" fill="url(#gGlass)">
+            <polygon class="fly f1" points="24,40 44,30 38,56"/>
+            <polygon class="fly f2" points="322,30 346,44 324,56"/>
+            <polygon class="fly f3" points="334,188 352,206 330,212"/>
+            <polygon class="fly f4" points="14,170 34,160 30,186"/>
           </g>
         </svg>
       </div>

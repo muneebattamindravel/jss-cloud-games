@@ -10,7 +10,7 @@
   var DT = 1 / 60, GRAVITY = -20;
   var CELL = 1, ROW = 1.3, DEPTH = 0.98, FRONT = 0.5;
   var PLANK_H = 0.8;
-  var BALL_R = 0.3, BALL_DENSITY = 9, BALL_SPEED = 46, FLIGHT_STEPS = 18;
+  var BALL_R = 0.3, BALL_DENSITY = 15, BALL_SPEED = 33, FLIGHT_STEPS = 24;
   var CANNON = { x: 0, y: -1.2, z: 13 };
   var FALL_Y = -2.6;
   var JAR_BREAK_F = 800, CRUSH_F = 1e9;
