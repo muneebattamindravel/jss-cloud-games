@@ -167,15 +167,20 @@
     S.layout = lay.kind;
     var per = 23 + L * 2, add = Math.max(5, ((cost + per - 1) / per) | 0) + (L === 1 ? 4 : 2);
     S.balls += add;
-    // obstacles: a sliding shield from tower 3, the spinning fan from tower 5
+    // obstacles stack up with depth: one shield (tower 3), the fan (tower 5), shield + fan
+    // together (tower 8), two shields + fan (tower 12); every obstacle speeds up as towers rise
     var ob = hash(S.seed, L, 6) % 4;
-    if (L >= 3 && (L < 5 ? (ob & 1) === 0 : ob === 1 || ob === 3)) {
-      var sy = (2 + (hash(S.seed, L, 9) % 3)) * ROW * 0.7;
+    var nShield = L < 3 ? 0 : L < 5 ? ((ob & 1) === 0 ? 1 : 0) : L < 8 ? (ob === 1 || ob === 3 ? 1 : 0) : L < 12 ? 1 : 2;
+    var wantFan = L >= 8 || (L >= 5 && ob >= 2);
+    S.shields = [];
+    for (var si = 0; si < nShield; si++) {
+      var sy = (nShield === 2 ? (si === 0 ? 1 : 3.4) : (2 + (hash(S.seed, L, 9) % 3)) * ROW * 0.7) + (si ? 0.4 : 0);
       var sb = S.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, sy, SHIELD_Z));
       S.world.createCollider(R.ColliderDesc.roundCuboid(SHIELD_W / 2 - 0.08, SHIELD_H / 2 - 0.08, 0.1, 0.08).setRestitution(0.6), sb);
-      S.shield = { body: sb, y: sy, k: hash(S.seed, L, 10) & 1023, spd: L >= 8 ? 6 : 4, range: 2.6 };
+      S.shields.push({ body: sb, y: sy, k: ((hash(S.seed, L, 10) & 1023) + si * 512) & 1023, spd: Math.min(10, 3 + (L >> 1)) * (si ? -1 : 1), range: 2.6 });
     }
-    if (L >= 5 && ob >= 2) {
+    S.shield = S.shields[0] || null;
+    if (wantFan) {
       var fb = S.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, Math.max(2.2, towerH * 0.55), FAN_Z));
       for (var k = 0; k < 4; k++) {
         var a = k * 256, cx = FAN_LEN / 2 * icos(a) / 1e6, cy = FAN_LEN / 2 * isin(a) / 1e6;
@@ -183,7 +188,7 @@
         S.world.createCollider(R.ColliderDesc.cuboid(FAN_LEN / 2, FAN_HALF, 0.12).setTranslation(cx, cy, 0).setRotation(rot).setRestitution(0.5), fb);
       }
       S.world.createCollider(R.ColliderDesc.cylinder(0.2, 0.42).setRotation({ x: isin(128) / 1e6, y: 0, z: 0, w: icos(128) / 1e6 }), fb);
-      S.fan = { body: fb, k: hash(S.seed, L, 7) & 1023, spd: (L >= 9 ? 3 : 2) * ((hash(S.seed, L, 8) & 1) ? 1 : -1) };
+      S.fan = { body: fb, k: hash(S.seed, L, 7) & 1023, spd: Math.min(6, 2 + ((L - 5) >> 2)) * ((hash(S.seed, L, 8) & 1) ? 1 : -1) };
     }
     S.events.push({ e: 'tower', add: add, level: L, kind: lay.kind, tables: S.tables.map(function (t) { return { cx: t.cx, w: t.w, round: t.round }; }) });
   }
@@ -193,7 +198,7 @@
     S.world = new R.World({ x: 0, y: GRAVITY, z: 0 });
     S.world.timestep = DT;
     S.queue = new R.EventQueue(true);
-    S.blocks = []; S.byCollider = {}; S.ballsLive = []; S.fan = null; S.shield = null; S.tables = [];
+    S.blocks = []; S.byCollider = {}; S.ballsLive = []; S.fan = null; S.shield = null; S.shields = []; S.tables = [];
   }
 
   function initSim(seed, startLevel) {          // startLevel: QA only, never used by a scored run
@@ -263,9 +268,9 @@
       S.fan.k = (S.fan.k + S.fan.spd) & 1023;
       S.fan.body.setNextKinematicRotation({ x: 0, y: 0, z: isin(S.fan.k) / 1e6, w: icos(S.fan.k) / 1e6 });
     }
-    if (S.shield) {
-      S.shield.k = (S.shield.k + S.shield.spd) & 1023;
-      S.shield.body.setNextKinematicTranslation({ x: S.shield.range * isin(S.shield.k) / 1e6, y: S.shield.y, z: SHIELD_Z });
+    for (var sh = 0; sh < S.shields.length; sh++) {
+      var SH = S.shields[sh]; SH.k = (SH.k + SH.spd) & 1023;
+      SH.body.setNextKinematicTranslation({ x: SH.range * isin(SH.k) / 1e6, y: SH.y, z: SHIELD_Z });
     }
     for (i = 0; i < S.ballsLive.length; i++) { var lv = S.ballsLive[i].body.linvel(); S.ballsLive[i].pv = { x: lv.x, y: lv.y, z: lv.z }; }
     S.world.step(S.queue);
@@ -285,7 +290,7 @@
       if (!blk) {
         if (sp2 > 16) {
           var oc = S.world.getCollider(other), par = oc && oc.parent();
-          var what = par && S.fan && par.handle === S.fan.body.handle ? 'fan' : par && S.shield && par.handle === S.shield.body.handle ? 'shield' : 'table';
+          var what = par && S.fan && par.handle === S.fan.body.handle ? 'fan' : par && S.shields.some(function (q) { return q.body.handle === par.handle; }) ? 'shield' : 'table';
           S.events.push({ e: 'bonk', n: ball.n, v: Math.sqrt(sp2), what: what });
         }
         return;

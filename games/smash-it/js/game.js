@@ -367,16 +367,22 @@
   })();
   function barrelGeo(h) { var key = 'k' + h.toFixed(3); return geoCache[key] || (geoCache[key] = new T.CylinderGeometry(0.46, 0.46, h, 40)); }
 
+  // dark cartoon outline (inverted hull) so obstacles read against any backdrop
+  var outlineMat = new T.MeshBasicMaterial({ color: 0x2b0b4a, side: T.BackSide });
+  function outline(geo, grow) { var o = new T.Mesh(geo, outlineMat); o.scale.setScalar(1);
+    var g2 = geo.clone(); g2.computeBoundingBox(); var bb = g2.boundingBox, sx = (bb.max.x - bb.min.x), sy = (bb.max.y - bb.min.y), sz = (bb.max.z - bb.min.z);
+    o.scale.set((sx + grow * 2) / sx, (sy + grow * 2) / sy, (sz + grow * 2) / Math.max(sz, 0.01)); return o; }
   // sliding steel shield
   var shield = new T.Group(); scene.add(shield); shield.visible = false;
+  var shield2 = null;
   (function () {
     var c = canvasEl(512, 128), g = c.getContext('2d');
-    g.fillStyle = '#9fb3c8'; g.fillRect(0, 0, 512, 128);
+    g.fillStyle = '#5ec8ff'; g.fillRect(0, 0, 512, 128);
     for (var i = 0; i < 2; i++) { var x0 = i ? 448 : 0; g.save(); g.beginPath(); g.rect(x0, 0, 64, 128); g.clip(); g.fillStyle = '#ffd23a'; g.fillRect(x0, 0, 64, 128); g.fillStyle = '#2b1d22'; for (var k = -3; k < 6; k++) { g.beginPath(); g.moveTo(x0 + k * 28, 128); g.lineTo(x0 + k * 28 + 14, 128); g.lineTo(x0 + k * 28 + 14 + 40, 0); g.lineTo(x0 + k * 28 + 40, 0); g.fill(); } g.restore(); }
-    g.fillStyle = '#c8d6e4'; g.fillRect(64, 10, 384, 10);
-    for (i = 0; i < 6; i++) { g.fillStyle = '#5f7488'; g.beginPath(); g.arc(96 + i * 64, 64, 9, 0, 7); g.fill(); g.fillStyle = '#e8f0f8'; g.beginPath(); g.arc(93 + i * 64, 61, 3, 0, 7); g.fill(); }
-    var m = new T.Mesh(roundedBox(R.SHIELD_W, R.SHIELD_H, 0.22, 0.08, 4), mat({ map: tex(c, true), clearcoat: 1, roughness: 0.15 }));
-    shield.add(m);
+    g.fillStyle = '#d4f1ff'; g.fillRect(64, 10, 384, 14);
+    for (i = 0; i < 6; i++) { g.fillStyle = '#1d6fb8'; g.beginPath(); g.arc(96 + i * 64, 64, 9, 0, 7); g.fill(); g.fillStyle = '#e8f0f8'; g.beginPath(); g.arc(93 + i * 64, 61, 3, 0, 7); g.fill(); }
+    var m = new T.Mesh(roundedBox(R.SHIELD_W, R.SHIELD_H, 0.22, 0.08, 4), new T.MeshMatcapMaterial({ map: tex(c, true), matcap: matcapTex('#ffffff', 1, 'neutral') }));
+    shield.add(m); shield.add(outline(roundedBox(R.SHIELD_W, R.SHIELD_H, 0.22, 0.08, 4), 0.06));
   })();
 
   // ---------------------------------------------------------------- tables
@@ -426,7 +432,9 @@
         }
       }
       // painted shadows: under the base, the tower's long shadow on the ground behind, contact shade on the top
-      var sb = blob(2.6, 1.4, null, 0.9); sb.position.y = GROUND_Y + 0.03; g.add(sb);
+      if (theme !== 'beach') { var dp = new T.Mesh(new T.CircleGeometry(1, 48), dirt.material); dp.rotation.x = -Math.PI / 2; dp.scale.set(2.6, 1.5, 1); dp.position.y = GROUND_Y + 0.015; g.add(dp); }
+      var sb = blob(3.2, 1.7, null, 1); sb.position.y = GROUND_Y + 0.03; g.add(sb);
+      var sc2 = blob(1.9, 1.0, null, 1); sc2.position.y = GROUND_Y + 0.035; g.add(sc2);
       var ts = blob(t.w * 1.15, 9, slabShadowTex, theme === 'beach' ? 0.5 : 0.8); ts.position.set(0.6, GROUND_Y + 0.025, -4.6); g.add(ts);
       var cs = blob(t.w * 0.98, 1.3, slabShadowTex, 0.55); cs.position.y = 0.012; g.add(cs);
       g.position.x = t.cx;
@@ -441,14 +449,16 @@
     var s = new T.Shape();
     s.moveTo(0.35, -hw * 0.5); s.lineTo(Lb - 0.45, -hw); s.quadraticCurveTo(Lb + 0.05, 0, Lb - 0.45, hw); s.lineTo(0.35, hw * 0.5); s.closePath();
     var bg = new T.ExtrudeGeometry(s, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 4 }); bg.translate(0, 0, -0.07);
-    var woodY = phys({ color: L('#ffc93a'), roughness: 0.35, clearcoat: 0.7 });
+    var woodY = mat({ color: '#ffd84a', roughness: 0.1, clearcoat: 1 });
     for (var k = 0; k < 4; k++) {
       var arm = new T.Group(); arm.rotation.z = k * Math.PI / 2;
       var bl = new T.Mesh(bg, woodY); bl.castShadow = true; arm.add(bl);
+      var blo = new T.Mesh(bg, outlineMat); blo.scale.set(1.03, 1.45, 1.9); arm.add(blo);
       var tip = new T.Mesh(new T.SphereGeometry(hw * 1.1, 24, 16), purpleMat); tip.position.x = Lb - 0.38; tip.scale.set(0.8, 1, 0.55); tip.castShadow = true; arm.add(tip);
       fan.add(arm);
     }
     var hub = new T.Mesh(new T.CylinderGeometry(0.42, 0.42, 0.34, 40), goldMat); hub.rotation.x = Math.PI / 2; fan.add(hub);
+    var hubo = new T.Mesh(new T.CylinderGeometry(0.48, 0.48, 0.3, 40), outlineMat); hubo.rotation.x = Math.PI / 2; fan.add(hubo);
     var hub2 = new T.Mesh(new T.CylinderGeometry(0.3, 0.3, 0.36, 40), purpleMat); hub2.rotation.x = Math.PI / 2; fan.add(hub2);
   })();
   var fanPole = (function () {
@@ -801,7 +811,7 @@
   function setTheme(t) {
     theme = t;
     bgMat.map = backdrop(t); bgMat.needsUpdate = true;
-    dirt.visible = t !== 'beach'; water.visible = t === 'beach';
+    dirt.visible = false; water.visible = t === 'beach';
   }
 
   // ---------------------------------------------------------------- events -> effects
@@ -814,6 +824,8 @@
         case 'tower':
           towerTotal = Math.max(1, S.blocks.length); lastScore = S.score;
           shield.visible = !!S.shield;
+          if (!shield2) { shield2 = shield.clone(); scene.add(shield2); }
+          shield2.visible = S.shields.length > 1;
           curTables = e.tables;
           setTheme(themeFor(e.level));
           buildTables(e.tables, theme);
@@ -955,6 +967,7 @@
     if (S) syncBalls(S);
     fan.visible = !!(S && S.fan);
     if (S && S.shield) { var sp = S.shield.body.translation(); shield.position.set(sp.x, sp.y, sp.z); }
+    if (S && shield2 && S.shields.length > 1) { var sp2 = S.shields[1].body.translation(); shield2.position.set(sp2.x, sp2.y, sp2.z); }
     for (var bid in blockMeshes) { var sk = blockMeshes[bid].g.userData.spark; if (sk) { sk.scale.setScalar(0.35 + Math.random() * 0.25); sk.material.rotation = Math.random() * 6; } }
     if (S && S.fan) { var fp = S.fan.body.translation(), fq = S.fan.body.rotation(); fan.position.set(fp.x, fp.y, fp.z); fan.quaternion.set(fq.x, fq.y, fq.z, fq.w); }
     stepPool(shards, dt, 'glass'); stepPool(petals, dt, 'petal'); stepPool(plates, dt, 'glass'); stepPool(chips, dt, 'wood'); stepPool(drops, dt, 'drop'); stepPool(confs, dt, 'conf');
