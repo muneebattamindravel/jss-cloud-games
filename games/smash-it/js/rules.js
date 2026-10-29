@@ -278,6 +278,7 @@
         else if (S.ballsLive[k].collider.handle === h2) { ball = S.ballsLive[k]; other = h1; }
       }
       if (!ball) return;
+      ball.hits = (ball.hits || 0) + 1;
       if (!ball.free) { ball.free = true; ball.body.setGravityScale(1, true); }
       var blk = S.byCollider[other];
       var sp2 = ball.pv.x * ball.pv.x + ball.pv.y * ball.pv.y + ball.pv.z * ball.pv.z;
@@ -298,9 +299,9 @@
         if (sp2 > 25) {
           blk.hp -= 1;
           if (blk.hp <= 0) { toBreak.push([blk, 'ball']); restore.push([ball, 0.7]); }
-          else S.events.push({ e: 'crack', t: blk.t, id: blk.id, hp: blk.hp, x: blk.body.translation().x, y: blk.body.translation().y });
+          else { S.events.push({ e: 'crack', t: blk.t, id: blk.id, hp: blk.hp, x: blk.body.translation().x, y: blk.body.translation().y }); restore.push([ball, 0.6]); }
         }
-      } else if (sp2 > 9) S.events.push({ e: 'knock', id: blk.id, v: Math.sqrt(sp2) });
+      } else if (sp2 > 9) { S.events.push({ e: 'knock', id: blk.id, v: Math.sqrt(sp2) }); restore.push([ball, 0.6]); }
     });
     S.queue.drainContactForceEvents(function (ev) {
       var f = ev.totalForceMagnitude();

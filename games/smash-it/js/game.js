@@ -718,7 +718,7 @@
             A.play('groundGlass'); scene.remove(g); fallers.splice(i, 1); continue;
           } else {
             g.position.y = GROUND_Y + f.h * 0.35;
-            if (f.v.y < -4) { puff(g.position, 5, 0xe6cfa0, 1); A.play('thud', Math.min(200, -f.v.y * 12), f.t); }
+            if (f.v.y < -4) { puff(g.position, 5, 0xe6cfa0, 1); A.play('land', Math.min(200, -f.v.y * 12)); }
             f.v.y = -f.v.y * 0.25; f.v.x *= 0.5; f.v.z *= 0.5; f.avMag *= 0.5;
           }
         }
@@ -858,7 +858,7 @@
         case 'knock': A.play('knock', e.v); m = blockMeshes[e.id]; if (m) m.hitWob = 0.6; break;
         case 'thud':
           if (e.f > 400) { puff({ x: e.x, y: e.y - 0.5, z: e.z }, 2, 0xf3e6cf, 0.6); }
-          A.play('thud', Math.min(220, e.f / 8), e.t === 'jar' ? 'g' : 'w');
+          A.play('land', Math.min(220, e.f / 8));
           break;
         case 'bonk':
           if (e.what === 'fan' || e.what === 'shield') { A.play('fan'); shake = Math.max(shake, 0.08); }
