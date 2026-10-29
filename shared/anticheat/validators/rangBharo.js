@@ -34,8 +34,9 @@
   const STEPS_PER_TILE = 4;          // the ball crosses one tile in 4 steps
   const CLEAR_PAUSE = 54;            // steps between a clear and the next maze
   const MAZE_BASE = 10;              // a clear pays MAZE_BASE x its number
-  const PERFECT_BASE = 25;           // PERFECT pays PERFECT_BASE + PERFECT_PER x n
-  const PERFECT_PER = 5;
+  const PERFECT_BASE = 40;           // PERFECT pays PERFECT_BASE + PERFECT_PER x n
+  const PERFECT_PER = 8;
+  const OVER_COST = 3;               // each move over par costs this, taken from the clear
   const MAX_W = 11;
   const MAX_H = 13;
   const GEN_ATTEMPTS = 120;
@@ -311,11 +312,13 @@
     }
     if (s.left === 0) {
       const perfect = s.moves <= m.par;
-      const bonus = MAZE_BASE * s.n + (perfect ? PERFECT_BASE + PERFECT_PER * s.n : 0);
+      const base = MAZE_BASE * s.n;
+      const cost = Math.min(base, OVER_COST * Math.max(0, s.moves - m.par));
+      const bonus = base - cost + (perfect ? PERFECT_BASE + PERFECT_PER * s.n : 0);
       s.score += bonus; s.mazes++;
       if (perfect) s.perfects++;
       s.dir = -1; s.pause = CLEAR_PAUSE;
-      s.ev = s.ev.concat([{ k: 'clear', bonus, perfect, moves: s.moves, par: m.par }]);
+      s.ev = s.ev.concat([{ k: 'clear', bonus, cost, perfect, moves: s.moves, par: m.par }]);
       return;
     }
     if (blockedAt(s, s.bx, s.by, s.dir)) {
@@ -505,7 +508,7 @@ module.exports = {
   RULES_VERSION,
   init, processEvent, finalize, simulate,
   _sim: {
-    RULES_VERSION, STEP_HZ, TIME_STEPS, STEPS_PER_TILE, CLEAR_PAUSE, MAZE_BASE, PERFECT_BASE, PERFECT_PER,
+    RULES_VERSION, STEP_HZ, TIME_STEPS, STEPS_PER_TILE, CLEAR_PAUSE, MAZE_BASE, PERFECT_BASE, PERFECT_PER, OVER_COST,
     MAX_W, MAX_H, GEN_ATTEMPTS, SOLVE_CAP, DX, DY, MAX_INPUTS, MAX_SIM_STEPS,
     seedToInt, hash3, mazeDims, floorPercent, moveBudget, greed, twist, minPar, slideEnd, solvePar, trapFree, ringMaze, genMaze, genMazeRaw,
     initSim, loadMaze, blockedAt, inputDir, tryStart, stepSim, MAZE_MEMO,

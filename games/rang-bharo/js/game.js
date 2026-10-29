@@ -10,8 +10,9 @@
   const STEPS_PER_TILE = 4;          // the ball crosses one tile in 4 steps
   const CLEAR_PAUSE = 54;            // steps between a clear and the next maze
   const MAZE_BASE = 10;              // a clear pays MAZE_BASE x its number
-  const PERFECT_BASE = 25;           // PERFECT pays PERFECT_BASE + PERFECT_PER x n
-  const PERFECT_PER = 5;
+  const PERFECT_BASE = 40;           // PERFECT pays PERFECT_BASE + PERFECT_PER x n
+  const PERFECT_PER = 8;
+  const OVER_COST = 3;               // each move over par costs this, taken from the clear
   const MAX_W = 11;
   const MAX_H = 13;
   const GEN_ATTEMPTS = 120;
@@ -287,11 +288,13 @@
     }
     if (s.left === 0) {
       const perfect = s.moves <= m.par;
-      const bonus = MAZE_BASE * s.n + (perfect ? PERFECT_BASE + PERFECT_PER * s.n : 0);
+      const base = MAZE_BASE * s.n;
+      const cost = Math.min(base, OVER_COST * Math.max(0, s.moves - m.par));
+      const bonus = base - cost + (perfect ? PERFECT_BASE + PERFECT_PER * s.n : 0);
       s.score += bonus; s.mazes++;
       if (perfect) s.perfects++;
       s.dir = -1; s.pause = CLEAR_PAUSE;
-      s.ev = s.ev.concat([{ k: 'clear', bonus, perfect, moves: s.moves, par: m.par }]);
+      s.ev = s.ev.concat([{ k: 'clear', bonus, cost, perfect, moves: s.moves, par: m.par }]);
       return;
     }
     if (blockedAt(s, s.bx, s.by, s.dir)) {
@@ -877,7 +880,8 @@
           flash = 0.35; SFX.perfect();
           floatText('PERFECT!', cxw, cyw - 78, 46, '#fff6c8', 1.3, 30);
         } else {
-          floatText(e.moves + ' MOVES, PAR ' + e.par, cxw, cyw - 70, 22, '#ffffff', 1.2, 20);
+          const over = e.moves - e.par;
+          floatText(over + ' OVER PAR  -' + e.cost, cxw, cyw - 70, 22, '#ffb08a', 1.3, 20);
         }
         slideTiles = 0;
         // warm the next maze while the confetti flies
@@ -1126,7 +1130,7 @@
     const wrong = nowMs - prac.wrongT < 900;
     let big = (i === 0 ? 'SWIPE ' : i === PRAC_PATH.length - 1 ? 'LAST ONE: ' : 'NOW ') + DIR_NAME[want];
     if (i === PRAC_PATH.length - 1) big = 'LAST ONE: SWIPE ' + DIR_NAME[want];
-    const small = i < 2 ? 'The ball rolls until a wall stops it' : i < PRAC_PATH.length - 1 ? 'Paint every tile to clear the maze' : 'Clear it in the fewest moves for a PERFECT bonus';
+    const small = i < 2 ? 'The ball rolls until a wall stops it' : i < PRAC_PATH.length - 1 ? 'Paint every tile to clear the maze' : 'Par moves = PERFECT bonus. Extra moves cost points';
     const pop = Math.max(0.01, spring(Math.min(1, (nowMs - (prac.shownT || 0)) / 500) * 1.2));
     if (prac.shownI !== prac.i) { prac.shownI = prac.i; prac.shownT = nowMs; }
     g.save(); g.translate(DW / 2 + (wrong ? Math.sin(nowMs / 25) * 4 * (1 - (nowMs - prac.wrongT) / 900) : 0), 86); g.scale(pop, pop);

@@ -249,7 +249,7 @@ describe('Rang Bharo scoring edges (hand-placed)', () => {
         const b = run(W.traceOf(sched), { seed }).fin;
         expect(b.debug.mazes).toBe(1);
         expect(b.debug.perfects).toBe(0);
-        expect(b.score).toBe(a.score - (S.PERFECT_BASE + S.PERFECT_PER));
+        expect(b.score).toBe(a.score - (40 + 8) - 3);   // no PERFECT at maze 1, and one move over par costs 3
         hit++;
         break;
       }
@@ -265,12 +265,36 @@ describe('Rang Bharo scoring edges (hand-placed)', () => {
     expect(sim.moves).toBe(0);
     expect(sim.ev.some((e) => e.k === 'bump')).toBe(true);
   });
+  test('each move over par costs 3, taken from the clear and never more than the clear pays', () => {
+    let partial = 0, capped = 0;
+    for (let i = 0; i < 6; i++) {
+      const seed = H.seedHex(60 + i);
+      const g = H.boot({ seed });
+      H.fly(g, i % 2 ? 'novice' : 'lazy', { rngSeed: i, maxSteps: 60 * 90 });
+      const sched = W.movesOf(g.trace);
+      const sim = S.initSim(seed, 1);
+      const check = () => {
+        for (const e of sim.ev) if (e.k === 'clear') {
+          const n = sim.n, base = 10 * n, over = Math.max(0, e.moves - e.par);
+          const cost = Math.min(base, 3 * over);
+          expect(e.cost).toBe(cost);
+          expect(e.bonus).toBe(base - cost + (e.perfect ? 40 + 8 * n : 0));
+          expect(e.perfect).toBe(e.moves <= e.par);
+          if (cost > 0 && cost < base) partial++;
+          if (cost === base) capped++;
+        }
+      };
+      for (const t of sched) { while (!sim.over && sim.step < t.step) { S.stepSim(sim); check(); } if (sim.over) break; if (sim.step === t.step && t.n === sim.inputs) S.inputDir(sim, t.dir); }
+    }
+    expect(partial).toBeGreaterThan(0);
+    expect(capped).toBeGreaterThan(0);
+  });
   test('a clear pays MAZE_BASE x n plus the PERFECT bonus, once', () => {
     const R = routeSchedule(SEED, 3);
     const fin = run(W.traceOf(R.out)).fin;
     let want = fin.debug.tiles;
-    for (let n = 1; n <= fin.debug.mazes; n++) want += S.MAZE_BASE * n;
-    want += fin.debug.perfects ? (S.PERFECT_BASE * fin.debug.perfects + S.PERFECT_PER * [1, 2, 3].slice(0, fin.debug.perfects).reduce((a, b) => a + b, 0)) : 0;
+    for (let n = 1; n <= fin.debug.mazes; n++) want += 10 * n;
+    want += fin.debug.perfects ? (40 * fin.debug.perfects + 8 * [1, 2, 3].slice(0, fin.debug.perfects).reduce((a, b) => a + b, 0)) : 0;
     expect(fin.debug.perfects).toBe(3);
     expect(fin.score).toBe(want);
   });
