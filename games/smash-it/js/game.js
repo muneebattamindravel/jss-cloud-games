@@ -948,7 +948,7 @@
   }
   // one physical press is one tap; the shot is queued and fired before the next fixed step
   function onPress(ev) {
-    if (mode !== 'play' || RP) return;
+    if (mode !== 'play') return;          // in a replay the step loop never fires a pending tap
     A.init();
     var p = tapToTarget(ev.clientX, ev.clientY);
     if (p) pendingShot = p;
