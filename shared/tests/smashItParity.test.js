@@ -101,14 +101,14 @@ describe('Smash It rules: one block, pinned', () => {
 
   test('the quarter sine table folds into a whole integer wave that matches its definition', () => {
     expect(X.SINQ.length).toBe(257);   // a quarter wave; isin folds the other three
-    for (let i = 0; i < 1024; i++) expect(X.isin(i)).toBe(Math.round(Math.sin(i * 2 * Math.PI / 1024) * 1e6) || 0);
+    for (let i = 0; i < 1024; i++) expect(X.isin(i) + 0).toBe(Math.round(Math.sin(i * 2 * Math.PI / 1024) * 1e6) + 0);
     for (let i = 0; i < 1024; i++) expect(X.icos(i)).toBe(X.isin(i + 256));
   });
 
   test('the seed hashes and the obstacle plan are pinned for fixed seeds', () => {
     expect([X.seedToInt('0123456789abcdef0123456789abcdef'), X.seedToInt(''), X.hash(1, 2, 3), X.hash(0xdeadbeef, 40, 7)]).toEqual(GOLDEN.pins.hashes);
     const plans = [];
-    for (let L = 1; L <= 24; L++) plans.push(JSON.stringify(X.obstaclePlan(12345, L, !!X.isBoss(L))));
+    for (let L = 1; L <= 24; L++) plans.push(JSON.stringify(X.obstaclePlan(12345, L)));
     expect(crypto.createHash('sha256').update(plans.join('|')).digest('hex')).toBe(GOLDEN.pins.plans);
   });
 

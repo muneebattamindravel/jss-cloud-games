@@ -214,7 +214,7 @@ const ready = RAPIER.init({}).then(() => { R = RAPIER; });
 
   function isBoss(L) { return L >= 10 && L % 5 === 0; }
   // at most one obstacle type early, two from level 8, three on boss levels; picked from those unlocked
-  function obstaclePlan(seed, L, single) {
+  function obstaclePlan(seed, L) {
     var c = [];
     if (L >= 3) c.push('shield'); if (L >= 5) c.push('fan'); 
     if (L >= 9) c.push('pend');
@@ -222,23 +222,17 @@ const ready = RAPIER.init({}).then(() => { R = RAPIER; });
     if (isBoss(L)) maxN = 3;
     if (L < 5 && (hash(seed, L, 6) & 1)) maxN = 0;
     for (var i = c.length - 1; i > 0; i--) { var r = hash(seed, L, 30 + i) % (i + 1), t = c[i]; c[i] = c[r]; c[r] = t; }
-    var out = [], hasMotion = false;
-    for (i = 0; i < c.length && out.length < maxN; i++) {
-      var mv = c[i] === 'slide' || c[i] === 'turn';
-      if (mv && hasMotion) continue;
-      if (mv) hasMotion = true;
-      out.push(c[i]);
-    }
-    return { shield: out.indexOf('shield') >= 0, fan: out.indexOf('fan') >= 0, pend: out.indexOf('pend') >= 0, motion: out.indexOf('slide') >= 0 ? 1 : out.indexOf('turn') >= 0 ? 2 : 0 };
+    var out = c.slice(0, maxN);
+    return { shield: out.indexOf('shield') >= 0, fan: out.indexOf('fan') >= 0, pend: out.indexOf('pend') >= 0 };
   }
 
   function buildTower(S) {
     var L = S.level, lay = layout(S.seed, L), cost = 0;
-    var plan = obstaclePlan(S.seed, L, lay.tables.length === 1);
+    var plan = obstaclePlan(S.seed, L);
     S.tables = []; var towerH = 0;
     for (var ti = 0; ti < lay.tables.length; ti++) {
       var tb = lay.tables[ti], tw = tb.cols * CELL + 0.5;
-      var tbody = S.world.createRigidBody((plan.motion ? R.RigidBodyDesc.kinematicPositionBased() : R.RigidBodyDesc.fixed()).setTranslation(tb.cx, -0.15, 0));
+      var tbody = S.world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(tb.cx, -0.15, 0));
       S.world.createCollider(R.ColliderDesc.cuboid(tw / 2, 0.15, 0.8).setFriction(0.8), tbody);
       S.tables.push({ cx: tb.cx, w: tw, body: tbody, round: !!lay.round });
       var hs = tb.rows.map(rowHeight), y = 0;
@@ -249,8 +243,7 @@ const ready = RAPIER.init({}).then(() => { R = RAPIER; });
           if (cell.skip || cell.gap) continue;
           var span = cell.span, ch = cell.t === 'plank' ? PLANK_H : hs[r];
           if (cell.tall && r + 1 < hs.length) ch = hs[r] + hs[r + 1];
-          var nb = addBlock(S, cell.t, cell.col, x0 + (cell.x + span / 2) * CELL, y + ch / 2, span, ch);
-          if (plan.motion) nb.body.wakeUp();
+          addBlock(S, cell.t, cell.col, x0 + (cell.x + span / 2) * CELL, y + ch / 2, span, ch);
           cost += cell.t === 'jar' || cell.t === 'bomb' ? 10 : cell.t === 'brick' ? 12 : cell.t === 'ice' ? 16 : cell.t === 'crate' ? 22 : 30;
         }
         y += hs[r];
@@ -266,8 +259,6 @@ const ready = RAPIER.init({}).then(() => { R = RAPIER; });
     // together (tower 8), two shields + fan (tower 12); every obstacle speeds up as towers rise
     var nShield = plan.shield ? (L >= 12 ? 2 : 1) : 0;
     var wantFan = plan.fan;
-    var mo = plan.motion;
-    S.motion = mo ? { kind: mo, k: 0, spd: 1, body: S.tables[0].body, cx: S.tables[0].cx } : null;
     // pendulum from level 9 (always on boss levels)
     S.pend = null;
     if (plan.pend) {
@@ -304,7 +295,7 @@ const ready = RAPIER.init({}).then(() => { R = RAPIER; });
     S.world = new R.World({ x: 0, y: GRAVITY, z: 0 });
     S.world.timestep = DT;
     S.queue = new R.EventQueue(true);
-    S.blocks = []; S.byCollider = {}; S.ballsLive = []; S.fan = null; S.shield = null; S.shields = []; S.motion = null; S.pend = null; S.tables = [];
+    S.blocks = []; S.byCollider = {}; S.ballsLive = []; S.fan = null; S.shield = null; S.shields = []; S.pend = null; S.tables = [];
   }
 
   function initSim(seed, startLevel) {          // startLevel: QA only, never used by a scored run
@@ -370,11 +361,6 @@ const ready = RAPIER.init({}).then(() => { R = RAPIER; });
     if (S.fan) {
       S.fan.k = (S.fan.k + S.fan.spd) & 1023;
       S.fan.body.setNextKinematicRotation({ x: 0, y: 0, z: isin(S.fan.k) / 1e6, w: icos(S.fan.k) / 1e6 });
-    }
-    if (S.motion) {
-      var M = S.motion; M.k = (M.k + M.spd) & 1023;
-      if (M.kind === 1) M.body.setNextKinematicTranslation({ x: M.cx + 1.0 * isin(M.k) / 1e6, y: -0.15, z: 0 });
-      else M.body.setNextKinematicRotation({ x: 0, y: isin(M.k >> 1) / 1e6, z: 0, w: icos(M.k >> 1) / 1e6 });
     }
     if (S.pend) {
       var P = S.pend; P.k = (P.k + P.spd) & 1023;

@@ -1046,7 +1046,6 @@
     fan.visible = !!(S && S.fan);
     pend.visible = !!(S && S.pend);
     if (S && S.pend) { var pp = S.pend.body.translation(), pq = S.pend.body.rotation(); pend.position.set(pp.x, pp.y, pp.z); pend.quaternion.set(pq.x, pq.y, pq.z, pq.w); }
-    if (S && S.motion && tableMeshes[0]) { var mt = S.motion.body.translation(), mq = S.motion.body.rotation(); tableMeshes[0].position.x = mt.x; tableMeshes[0].quaternion.set(mq.x, mq.y, mq.z, mq.w); }
     if (S && S.shield) { var sp = S.shield.body.translation(); shield.position.set(sp.x, sp.y, sp.z); }
     if (S && shield2 && S.shields.length > 1) { var sp2 = S.shields[1].body.translation(); shield2.position.set(sp2.x, sp2.y, sp2.z); }
     for (var bid in blockMeshes) { var sk = blockMeshes[bid].g.userData.spark; if (sk) { sk.scale.setScalar(0.35 + Math.random() * 0.25); sk.material.rotation = Math.random() * 6; } }

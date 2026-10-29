@@ -33,7 +33,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
       designs: sha(JSON.stringify(X.DESIGNS)),
       sinq: sha(JSON.stringify(Array.from(X.SINQ))),
       hashes: [X.seedToInt('0123456789abcdef0123456789abcdef'), X.seedToInt(''), X.hash(1, 2, 3), X.hash(0xdeadbeef, 40, 7)],
-      plans: (() => { const p = []; for (let L = 1; L <= 24; L++) p.push(JSON.stringify(X.obstaclePlan(12345, L, !!X.isBoss(L)))); return sha(p.join('|')); })(),
+      plans: (() => { const p = []; for (let L = 1; L <= 24; L++) p.push(JSON.stringify(X.obstaclePlan(12345, L))); return sha(p.join('|')); })(),
     },
     runs: [],
   };
