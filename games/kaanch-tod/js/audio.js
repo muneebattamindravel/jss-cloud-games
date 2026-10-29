@@ -124,6 +124,14 @@
       tone(t, 'sine', 300, 120, 0.2, 0.3);
       for (var i = 0; i < 5; i++) tone(t + 0.08 + Math.random() * 0.3, 'sine', 900 + Math.random() * 900, 1500, 0.05, 0.06);
     },
+    boom: function () {
+      var t = AC.currentTime;
+      noise(t, 1.2, 'lowpass', 600, 0.7, 1.0, 0.005);
+      noise(t, 0.5, 'lowpass', 2400, 0.6, 0.6, 0.002);
+      tone(t, 'sine', 90, 28, 0.9, 1.0);
+      tone(t, 'triangle', 160, 40, 0.4, 0.5);
+      for (var i = 0; i < 6; i++) noise(t + 0.1 + Math.random() * 0.5, 0.08, 'bandpass', 600 + Math.random() * 1200, 2, 0.25);
+    },
     tinkle: function () {
       if (!throttle('tk', 60)) return;
       var t = AC.currentTime, f = 3000 + Math.random() * 3500;

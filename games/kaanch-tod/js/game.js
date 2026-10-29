@@ -1,12 +1,14 @@
 /* Kaanch Tod: the 3D view, effects, HUD and input.
    Rules and physics live in rules.js (window.KTRules, Rapier deterministic).
    This file only READS the sim: block meshes follow their rigid bodies, the
-   painted backdrop comes from scenery.js, and every effect here is cosmetic
+   painted backdrop is a pre-rendered image (tools/scenery.js), and every effect here is cosmetic
    (Math.random is fine). A tap is raycast onto the tower face and sent to the
    rules as an integer target point. */
 (function () {
   'use strict';
-  var R = window.KTRules, A = window.KTAudio, T = window.THREE, SC = window.KTScenery;
+  var R = window.KTRules, A = window.KTAudio, T = window.THREE;
+  // pre-rendered backdrops (painted by tools/scenery.js): 640 x 736 design px, 113 px of side margin, horizon at 232
+  var SC = { MARGIN: 113, DW: 640, DH: 736 };
   var GROUND_Y = -3.3, PITCH = 0.12, FOV = 36, TANH = Math.tan(FOV / 2 * Math.PI / 180), ASPECT = 414 / 736;
 
   // ---------------------------------------------------------------- renderer
@@ -14,10 +16,8 @@
   var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(2.5, window.devicePixelRatio || 1));
   renderer.outputEncoding = T.sRGBEncoding;
-  renderer.toneMapping = T.LinearToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = T.PCFSoftShadowMap;
+  // every asset is unlit: shading is baked into matcap and colour textures, so no lights or shadow maps
+  renderer.toneMapping = T.NoToneMapping;
   renderer.autoClear = false;
 
   var scene = new T.Scene();
@@ -37,11 +37,10 @@
   var bgGeo = new T.PlaneGeometry(2, 2);
   var bgMat = new T.MeshBasicMaterial({ depthWrite: false, depthTest: false, toneMapped: false });
   bgScene.add(new T.Mesh(bgGeo, bgMat));
-  var horizonY = (1 - PITCH / TANH) / 2 * 736;          // design px where the camera's horizon sits
-  var bgTex = {};
+  var bgTex = {}, bgLoader = new T.TextureLoader();
   function backdrop(theme) {
     if (!bgTex[theme]) {
-      var t = new T.CanvasTexture(SC.paint(theme, horizonY));
+      var t = bgLoader.load('img/backdrop-' + theme + '.jpg');
       t.encoding = T.sRGBEncoding; t.minFilter = T.LinearFilter; t.generateMipmaps = false;
       bgTex[theme] = t;
     }
@@ -175,34 +174,56 @@
     p.needsUpdate = true; n.needsUpdate = true;
     return g;
   }
-  function phys(o) { return new T.MeshPhysicalMaterial(o); }
+  // ---- matcaps: a painted sphere per material holds all of its shading and shine
+  var mcCache = {};
+  function matcapTex(css, gloss, kind) {
+    var key = css + '|' + gloss + '|' + (kind || '');
+    if (mcCache[key]) return mcCache[key];
+    var N = 256, c = canvasEl(N, N), g = c.getContext('2d'), img = g.createImageData(N, N), d = img.data;
+    var base = new T.Color(css), lx = -0.42, ly = 0.62, lz = 0.66, hx = lx, hy = ly, hz = lz + 1, hl = Math.sqrt(hx * hx + hy * hy + hz * hz);
+    hx /= hl; hy /= hl; hz /= hl;
+    var shin = 10 + gloss * 70;
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+      var x = (i + 0.5) / N * 2 - 1, y = 1 - (j + 0.5) / N * 2, r2 = x * x + y * y, k = (j * N + i) * 4;
+      if (r2 > 1) { x /= Math.sqrt(r2) * 1.0001; y /= Math.sqrt(r2) * 1.0001; r2 = 0.9999; }
+      var z = Math.sqrt(1 - r2);
+      var dif = Math.max(0, x * lx + y * ly + z * lz);
+      var shade = 0.5 + 0.62 * dif;
+      shade += 0.12 * Math.max(0, -y) * (1 - z);                    // warm bounce from below
+      shade *= 1 - 0.32 * Math.pow(1 - z, 2.2);                      // soft rim falloff
+      var spec = Math.pow(Math.max(0, x * hx + y * hy + z * hz), shin) * (0.25 + gloss * 0.9);
+      if (kind === 'jar') {                                          // two vertical glints like a glossy jar
+        spec += 0.75 * Math.exp(-Math.pow((x + 0.5) / 0.07, 2)) * (1 - Math.abs(y) * 0.6);
+        spec += 0.3 * Math.exp(-Math.pow((x - 0.55) / 0.05, 2)) * (1 - Math.abs(y) * 0.6);
+      }
+      var rim = kind === 'jar' ? 0.18 * Math.pow(1 - z, 3) : 0.08 * Math.pow(1 - z, 3);
+      d[k] = Math.min(255, (base.r * shade + spec + rim) * 255);
+      d[k + 1] = Math.min(255, (base.g * shade + spec + rim) * 255);
+      d[k + 2] = Math.min(255, (base.b * shade + spec + rim) * 255);
+      d[k + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    var t = tex(c, true); mcCache[key] = t; return t;
+  }
+  function srgbStyle(col) { var c = new T.Color(col); if (c.r <= 1 && col && col.isColor) c = col.clone().convertLinearToSRGB(); return '#' + c.getHexString(); }
+  // one material factory for everything: textured or coloured, always unlit (matcap)
+  function mat(o) {
+    var gloss = o.clearcoat !== undefined ? Math.min(1, o.clearcoat * 0.8 + (1 - (o.roughness || 0.5)) * 0.4) : (1 - (o.roughness === undefined ? 0.6 : o.roughness)) * 0.6;
+    var p = { matcap: o.map ? matcapTex('#f2f2f2', gloss * 0.7) : matcapTex(srgbStyle(o.color === undefined ? 0xffffff : o.color), gloss, o.kind) };
+    if (o.map) p.map = o.map;
+    if (o.normalMap) { p.normalMap = o.normalMap; p.normalScale = o.normalScale; }
+    ['transparent', 'opacity', 'side', 'depthWrite'].forEach(function (k) { if (o[k] !== undefined) p[k] = o[k]; });
+    return new T.MeshMatcapMaterial(p);
+  }
+  var phys = mat;
   function L(c) { return new T.Color(c).convertSRGBToLinear(); }
 
   // ---------------------------------------------------------------- environment light
-  (function makeEnv() {
-    var es = new T.Scene();
-    var geo = new T.SphereGeometry(50, 32, 16), cols = [], pos = geo.attributes.position;
-    var top = L('#9fd4ff'), mid = L('#ffffff'), bot = L('#7fb24a');
-    for (var i = 0; i < pos.count; i++) { var y = pos.getY(i) / 50, c = y > 0 ? mid.clone().lerp(top, y) : mid.clone().lerp(bot, Math.min(1, -y * 3)); cols.push(c.r, c.g, c.b); }
-    geo.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
-    es.add(new T.Mesh(geo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide })));
-    function panel(x, y, z, w, h, k) { var m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ color: new T.Color(k, k, k), side: T.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); es.add(m); }
-    panel(-18, 22, 28, 22, 12, 1.6); panel(26, 10, 22, 8, 22, 0.8); panel(0, 34, 0, 30, 30, 0.6);
-    scene.environment = new T.PMREMGenerator(renderer).fromScene(es, 0.03).texture;
-  })();
-
-  var hemi = new T.HemisphereLight(0xe8f4ff, 0x8aa860, 0.35); scene.add(hemi);
-  var sun = new T.DirectionalLight(0xfff2dc, 1.35);
-  sun.position.set(-8, 16, 14); sun.target.position.set(0, 2, 0);
-  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-  var sc = sun.shadow.camera; sc.left = -10; sc.right = 10; sc.top = 13; sc.bottom = -8; sc.near = 1; sc.far = 60;
-  sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02; sun.shadow.radius = 5;
-  scene.add(sun); scene.add(sun.target);
-  var rim = new T.DirectionalLight(0xcfe6ff, 0.35); rim.position.set(10, 6, -6); scene.add(rim);
-
   // ground: shadow catcher on the painted grass / sea
-  var shadowGround = new T.Mesh(new T.PlaneGeometry(80, 80), new T.ShadowMaterial({ opacity: 0.28 }));
-  shadowGround.rotation.x = -Math.PI / 2; shadowGround.position.y = GROUND_Y; shadowGround.receiveShadow = true; scene.add(shadowGround);
+  var blobTex = (function () { var c = canvasEl(128, 128), g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64); gr.addColorStop(0, 'rgba(20,40,10,0.55)'); gr.addColorStop(0.6, 'rgba(20,40,10,0.28)'); gr.addColorStop(1, 'rgba(20,40,10,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return tex(c, false); })();
+  var slabShadowTex = (function () { var c = canvasEl(256, 256), g = c.getContext('2d'); g.filter = 'blur(14px)'; g.fillStyle = 'rgba(20,45,10,0.42)'; g.fillRect(40, 40, 176, 176); return tex(c, false); })();
+  function blob(w, d, map, op) { var m = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({ map: map || blobTex, transparent: true, depthWrite: false, opacity: op || 1 })); m.rotation.x = -Math.PI / 2; m.scale.set(w, d, 1); return m; }
+  var shadowGround = new T.Group(); scene.add(shadowGround);
   var dirtTex = (function () {
     var c = canvasEl(512, 512), g = c.getContext('2d');
     var gr = g.createRadialGradient(256, 256, 30, 256, 256, 256);
@@ -212,7 +233,7 @@
     for (i = 0; i < 60; i++) { var a2 = Math.random() * Math.PI * 2; g.strokeStyle = '#5ea42e'; g.lineWidth = 2; var x = 256 + Math.cos(a2) * 222, y = 256 + Math.sin(a2) * 222; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 6, y - 10); g.stroke(); }
     return tex(c, true);
   })();
-  var dirt = new T.Mesh(new T.CircleGeometry(1, 64), new T.MeshStandardMaterial({ map: dirtTex, transparent: true, roughness: 1, depthWrite: false }));
+  var dirt = new T.Mesh(new T.CircleGeometry(1, 64), mat({ map: dirtTex, transparent: true, roughness: 1, depthWrite: false }));
   dirt.rotation.x = -Math.PI / 2; dirt.position.y = GROUND_Y + 0.01; dirt.receiveShadow = true; scene.add(dirt);
   var water = new T.Mesh(new T.PlaneGeometry(80, 60), phys({ color: L('#1aa3e0'), transparent: true, opacity: 0.55, roughness: 0.1, clearcoat: 1, depthWrite: false }));
   water.rotation.x = -Math.PI / 2; water.position.y = GROUND_Y + 0.02; water.receiveShadow = true; scene.add(water);
@@ -230,7 +251,7 @@
   var woodNormal = { 1: normalFrom(panelHeight(256, 340, false, 4), 5), 2: normalFrom(panelHeight(512, 220, false, 4), 5), 3: normalFrom(panelHeight(768, 220, false, 4), 5) };
   function woodMat(span, cracks) {
     var c = cracks ? crackOverlay(woodCanvas[span], cracks) : woodCanvas[span];
-    return new T.MeshStandardMaterial({ map: tex(c, true), normalMap: woodNormal[span], normalScale: new T.Vector2(1, 1), roughness: 0.62, envMapIntensity: 0.5 });
+    return mat({ map: tex(c, true), normalMap: woodNormal[span], normalScale: new T.Vector2(1, 1), roughness: 0.62, envMapIntensity: 0.5 });
   }
   var woodMats = { 1: [woodMat(1, 0), woodMat(1, 4)], 2: [woodMat(2, 0), woodMat(2, 3), woodMat(2, 6)], 3: [woodMat(3, 0), woodMat(3, 4), woodMat(3, 8)] };
   // painted glints: an emissive map adds the two bright vertical highlights the reference jars have
@@ -241,7 +262,7 @@
     return tex(c, true);
   })();
   var glassMats = GLASS.map(function (c) {
-    return phys({ color: L(c), roughness: 0.25, metalness: 0, clearcoat: 0.35, clearcoatRoughness: 0.1, envMapIntensity: 0.35, emissive: new T.Color(1, 1, 1), emissiveMap: jarGlint, emissiveIntensity: 0.7 });
+    return mat({ color: c, clearcoat: 1, roughness: 0.1, kind: 'jar' });
   });
   function stripeLid(c) {
     var cv = canvasEl(512, 64), g = cv.getContext('2d');
@@ -274,6 +295,11 @@
     if (b.t === 'jar') {
       m = new T.Mesh(jarGeo(b.h - 0.01), glassMats[b.col]); m.castShadow = m.receiveShadow = true; g.add(m);
       var lid = new T.Mesh(lidGeo, lidMats[b.col]); lid.position.y = b.h / 2 - 0.1; lid.castShadow = true; g.add(lid);
+    } else if (b.t === 'bomb') {
+      m = new T.Mesh(barrelGeo(b.h - 0.02), bombMats); g.add(m);
+      var fuse = new T.Mesh(new T.CylinderGeometry(0.035, 0.035, 0.3, 8), mat({ color: '#3a2a1a' })); fuse.position.set(0.12, b.h / 2 + 0.12, 0); fuse.rotation.z = -0.4; g.add(fuse);
+      var spark = new T.Sprite(new T.SpriteMaterial({ map: starTex, color: 0xffd060, blending: T.AdditiveBlending, depthWrite: false, transparent: true }));
+      spark.position.set(0.19, b.h / 2 + 0.27, 0.05); spark.scale.setScalar(0.45); g.add(spark); g.userData.spark = spark;
     } else if (b.t === 'brick') {
       m = new T.Mesh(boxGeo(b.w, b.h), brickMats[b.col]); m.castShadow = m.receiveShadow = true; g.add(m);
     } else {
@@ -283,6 +309,36 @@
     scene.add(g);
     return { g: g, b: b, drop: 0, hitWob: 0 };
   }
+
+  // TNT barrel: red staves, dark hoops, a hazard label
+  var bombMats = (function () {
+    var c = canvasEl(512, 256), g = c.getContext('2d');
+    g.fillStyle = '#d8202f'; g.fillRect(0, 0, 512, 256);
+    for (var i = 0; i < 16; i++) { g.fillStyle = i % 2 ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'; g.fillRect(i * 32, 0, 32, 256); }
+    g.fillStyle = '#2b1d22'; g.fillRect(0, 18, 512, 22); g.fillRect(0, 216, 512, 22);
+    g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(0, 20, 512, 4); g.fillRect(0, 218, 512, 4);
+    for (var k = 0; k < 2; k++) {
+      var cx = 128 + k * 256;
+      g.fillStyle = '#ffd23a'; g.beginPath(); g.moveTo(cx, 62); g.lineTo(cx + 62, 128); g.lineTo(cx, 194); g.lineTo(cx - 62, 128); g.closePath(); g.fill();
+      g.strokeStyle = '#2b1d22'; g.lineWidth = 6; g.stroke();
+      g.fillStyle = '#2b1d22'; g.font = 'bold 40px Arial Black, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('TNT', cx, 130);
+    }
+    var side = mat({ map: tex(c, true), clearcoat: 0.6, roughness: 0.3 }), cap = mat({ color: '#8a1420', clearcoat: 0.5, roughness: 0.4 });
+    return [side, cap, cap];
+  })();
+  function barrelGeo(h) { var key = 'k' + h.toFixed(3); return geoCache[key] || (geoCache[key] = new T.CylinderGeometry(0.46, 0.46, h, 40)); }
+
+  // sliding steel shield
+  var shield = new T.Group(); scene.add(shield); shield.visible = false;
+  (function () {
+    var c = canvasEl(512, 128), g = c.getContext('2d');
+    g.fillStyle = '#9fb3c8'; g.fillRect(0, 0, 512, 128);
+    for (var i = 0; i < 2; i++) { var x0 = i ? 448 : 0; g.save(); g.beginPath(); g.rect(x0, 0, 64, 128); g.clip(); g.fillStyle = '#ffd23a'; g.fillRect(x0, 0, 64, 128); g.fillStyle = '#2b1d22'; for (var k = -3; k < 6; k++) { g.beginPath(); g.moveTo(x0 + k * 28, 128); g.lineTo(x0 + k * 28 + 14, 128); g.lineTo(x0 + k * 28 + 14 + 40, 0); g.lineTo(x0 + k * 28 + 40, 0); g.fill(); } g.restore(); }
+    g.fillStyle = '#c8d6e4'; g.fillRect(64, 10, 384, 10);
+    for (i = 0; i < 6; i++) { g.fillStyle = '#5f7488'; g.beginPath(); g.arc(96 + i * 64, 64, 9, 0, 7); g.fill(); g.fillStyle = '#e8f0f8'; g.beginPath(); g.arc(93 + i * 64, 61, 3, 0, 7); g.fill(); }
+    var m = new T.Mesh(roundedBox(R.SHIELD_W, R.SHIELD_H, 0.22, 0.08, 4), mat({ map: tex(c, true), clearcoat: 1, roughness: 0.15 }));
+    shield.add(m);
+  })();
 
   // ---------------------------------------------------------------- tables
   var tableMeshes = [], ringTex = null;
@@ -325,6 +381,10 @@
           rg.rotation.x = -Math.PI / 2; rg.position.y = GROUND_Y + 0.04; rg.scale.setScalar(1.1 + k * 0.7); g.add(rg);
         }
       }
+      // painted shadows: under the base, the tower's long shadow on the ground behind, contact shade on the top
+      var sb = blob(2.6, 1.4, null, 0.9); sb.position.y = GROUND_Y + 0.03; g.add(sb);
+      var ts = blob(t.w * 1.15, 9, slabShadowTex, theme === 'beach' ? 0.5 : 0.8); ts.position.set(0.6, GROUND_Y + 0.025, -4.6); g.add(ts);
+      var cs = blob(t.w * 0.98, 1.3, slabShadowTex, 0.55); cs.position.y = 0.012; g.add(cs);
       g.position.x = t.cx;
       scene.add(g); tableMeshes.push(g);
     });
@@ -350,10 +410,9 @@
   var fanPole = (function () {
     var c = canvasEl(64, 512), g = c.getContext('2d'); g.fillStyle = '#ffd04a'; g.fillRect(0, 0, 64, 512); g.fillStyle = '#8a2ef0';
     for (var i = -2; i < 20; i++) { g.beginPath(); g.moveTo(0, i * 32); g.lineTo(64, i * 32 + 22); g.lineTo(64, i * 32 + 38); g.lineTo(0, i * 32 + 16); g.fill(); }
-    var m = new T.Mesh(new T.CylinderGeometry(0.1, 0.1, 30, 16), new T.MeshStandardMaterial({ map: tex(c, true, [1, 8]), roughness: 0.5 }));
+    var m = new T.Mesh(new T.CylinderGeometry(0.1, 0.1, 30, 16), mat({ map: tex(c, true, [1, 8]), roughness: 0.5 }));
     m.position.y = 15; m.castShadow = true; return m;
   })();
-  fan.add(fanPole);
 
   // ---------------------------------------------------------------- cannon
   var cannon = new T.Group(); scene.add(cannon);
@@ -365,7 +424,7 @@
     return tex(c, true);
   })();
   (function buildCannon() {
-    var plat = new T.Mesh(new T.CylinderGeometry(5.2, 5.2, 0.5, 96), new T.MeshStandardMaterial({ map: marble, roughness: 0.4 })); plat.position.y = -1.85; plat.receiveShadow = true; cannon.add(plat);
+    var plat = new T.Mesh(new T.CylinderGeometry(5.2, 5.2, 0.5, 96), mat({ map: marble, roughness: 0.4 })); plat.position.y = -1.85; plat.receiveShadow = true; cannon.add(plat);
     var r1 = new T.Mesh(new T.TorusGeometry(5.2, 0.16, 16, 96), goldMat); r1.rotation.x = Math.PI / 2; r1.position.y = -1.6; cannon.add(r1);
     var r2 = new T.Mesh(new T.TorusGeometry(5.45, 0.2, 16, 96), purpleMat); r2.rotation.x = Math.PI / 2; r2.position.y = -1.78; cannon.add(r2);
   })();
@@ -461,7 +520,7 @@
   })();
   var shards = makePool(shardGeo, phys({ color: 0xffffff, roughness: 0.12, clearcoat: 1, side: T.DoubleSide, envMapIntensity: 0.9, emissive: 0x1a1a1a }), 1200, true);
   var needles = makePool(new T.BoxGeometry(1, 0.07, 0.07), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false }), 700, false);
-  var chipMat = new T.MeshStandardMaterial({ map: tex(woodCanvas[1], true), roughness: 0.65 });
+  var chipMat = mat({ map: tex(woodCanvas[1], true), roughness: 0.65 });
   var chips = makePool(roundedBox(1, 1, 1, 0.12, 2), chipMat, 600, true);
   var drops = makePool(new T.SphereGeometry(0.5, 10, 8), phys({ color: 0xffffff, roughness: 0.1, clearcoat: 1, transparent: true, opacity: 0.9 }), 500, false);
   var confs = makePool(new T.PlaneGeometry(0.24, 0.13), new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide }), 300, false);
@@ -622,7 +681,8 @@
   var elBalls = document.getElementById('ballsN'), elScore = document.getElementById('score'), elTower = document.getElementById('tower');
   var elBanner = document.getElementById('banner'), elFloats = document.getElementById('floats');
   var elMenu = document.getElementById('menu'), elOver = document.getElementById('over'), elFinal = document.getElementById('finalScore'), elCleared = document.getElementById('cleared');
-  var elMute = document.getElementById('mute'), elPlay = document.getElementById('playBtn');
+  var elPlay = document.getElementById('playBtn'), elFill = document.getElementById('towerFill'), elSet = document.getElementById('settings'), elSound = document.getElementById('soundTog');
+  var towerTotal = 1;
   function layoutHud() { hud.style.left = fitRect.x + 'px'; hud.style.top = fitRect.y + 'px'; hud.style.transform = 'scale(' + (fitRect.w / 414) + ')'; }
   function toHud(v) { var p = new T.Vector3(v.x, v.y, v.z).project(pickCam); return { x: (p.x + 1) / 2 * 414, y: (1 - p.y) / 2 * 736 }; }
   function floatText(world, txt, cls) {
@@ -639,9 +699,15 @@
       elBalls.textContent = S.balls; elBalls.parentNode.classList.toggle('low', S.balls <= 3);
       elBalls.parentNode.classList.remove('bump'); void elBalls.offsetWidth; elBalls.parentNode.classList.add('bump'); shownBalls = S.balls;
     }
-    elTower.textContent = 'TOWER ' + S.level;
+    var label = 'TOWER ' + S.level;
+    if (elTower.textContent !== label) elTower.textContent = label;
+    var pct = Math.round((1 - S.blocks.length / towerTotal) * 100);
+    if (elFill.dataset.p !== String(pct)) { elFill.dataset.p = pct; elFill.style.width = 'calc(' + pct + '% - ' + (pct ? 6 * pct / 100 : 0) + 'px)'; }
   }
-  function banner(txt, sub) { elBanner.innerHTML = '<b>' + txt + '</b><span>' + sub + '</span>'; elBanner.classList.remove('show'); void elBanner.offsetWidth; elBanner.classList.add('show'); }
+  var lastScore = 0;
+  function bumpScore(S) { if (S.score !== lastScore) { lastScore = S.score; elScore.classList.remove('pop'); void elScore.offsetWidth; elScore.classList.add('pop'); } }
+  function banner(txt, sub) { elBanner.querySelector('b').textContent = txt; elBanner.querySelector('span').textContent = sub; elBanner.classList.remove('show'); void elBanner.offsetWidth; elBanner.classList.add('show'); }
+  function bestScore(v) { try { if (v !== undefined) localStorage.setItem('kaanchTodBest', String(v)); return parseInt(localStorage.getItem('kaanchTodBest'), 10) || 0; } catch (e) { return 0; } }
 
   // ---------------------------------------------------------------- tower framing and theme
   var curTables = [];
@@ -663,7 +729,6 @@
     theme = t;
     bgMat.map = backdrop(t); bgMat.needsUpdate = true;
     dirt.visible = t !== 'beach'; water.visible = t === 'beach';
-    shadowGround.material.opacity = t === 'beach' ? 0.18 : 0.28;
   }
 
   // ---------------------------------------------------------------- events -> effects
@@ -674,6 +739,8 @@
       var e = ev[i], q, m;
       switch (e.e) {
         case 'tower':
+          towerTotal = Math.max(1, S.blocks.length); lastScore = S.score;
+          shield.visible = !!S.shield;
           curTables = e.tables;
           setTheme(themeFor(e.level));
           buildTables(e.tables, theme);
@@ -693,7 +760,8 @@
           m = blockMeshes[e.id];
           if (m) { scene.remove(m.g); delete blockMeshes[e.id]; }
           var pos = { x: e.x, y: e.y, z: e.z };
-          if (e.t === 'jar') { glassBreak(pos, e.q, e.col, e.how === 'crush' ? 0.85 : 1.15); A.play('glass', e.how !== 'ball'); }
+          if (e.t === 'bomb') { /* the boom event draws this */ }
+          else if (e.t === 'jar') { glassBreak(pos, e.q, e.col, e.how === 'crush' ? 0.85 : 1.15); A.play('glass', e.how !== 'ball'); }
           else { woodBreak(pos, e.q, e.w, e.h, e.w > 1.5 ? (e.w > 2.5 ? 3 : 2) : 1); A.play('woodBreak', e.t === 'plank'); }
           shake = Math.max(shake, e.t === 'plank' ? 0.32 : e.how === 'crush' ? 0.22 : 0.18);
           floatText(pos, '+' + e.pts, e.how === 'crush' ? 'gold' : '');
@@ -722,9 +790,21 @@
           A.play('thud', Math.min(220, e.f / 8), e.t === 'jar' ? 'g' : 'w');
           break;
         case 'bonk':
-          if (e.fan) { A.play('fan'); shake = Math.max(shake, 0.08); }
+          if (e.what === 'fan' || e.what === 'shield') { A.play('fan'); shake = Math.max(shake, 0.08); }
           else A.play('ballBounce', e.v * 6);
           break;
+        case 'boom': {
+          var bp = new T.Vector3(e.x, e.y, e.z + 0.4);
+          A.play('boom'); shake = Math.max(shake, 0.7);
+          spawnSoft(bp, 2, 0xffffff, 1, 0.2, 14, true);
+          spawnSoft(bp, 3.6, 0xffa020, 0.95, 0.45, 4, true);
+          for (q = 0; q < 14; q++) { var fb = spawnSoft(bp.clone(), rnd(0.9, 1.6), [0xffd040, 0xff8a1a, 0xff5010][q % 3], 0.95, rnd(0.3, 0.6), 2, true); if (fb) fb.v.set(rnd(-5, 5), rnd(-2, 6), rnd(0, 3)); }
+          for (q = 0; q < 12; q++) { var smk = spawnSoft(bp.clone(), rnd(1.2, 2), 0x5a5560, 0.7, rnd(1, 1.8), 1.2); if (smk) smk.v.set(rnd(-1.5, 1.5), rnd(1.5, 3.5), rnd(-0.5, 0.5)); }
+          for (q = 0; q < 30; q++) addItem(chips, { p: bp.clone(), v: new T.Vector3(rnd(-10, 10), rnd(2, 12), rnd(0, 6)), r: new T.Euler(rnd(0, 3), rnd(0, 3), rnd(0, 3)), w: new T.Vector3(rnd(-20, 20), rnd(-20, 20), rnd(-20, 20)), sv: new T.Vector3(rnd(0.15, 0.4), 0.08, 0.06), life: rnd(1.2, 2), col: L(q % 3 ? '#d8202f' : '#2b1d22'), rest: 0 });
+          floatText({ x: e.x, y: e.y + 1, z: e.z }, 'BOOM!', 'gold big');
+          break;
+        }
+        case 'ballGone': if (e.y > -2) spawnSoft(new T.Vector3(e.x, e.y, e.z), 0.8, 0xffffff, 0.7, 0.35, 2); break;
         case 'clear': banner('SAAF!', '+' + e.bonus); A.play('clear'); confetti(); break;
         case 'over': A.play('over'); break;
       }
@@ -768,7 +848,12 @@
   elPlay.addEventListener('click', function () { if (mode !== 'menu') return; A.init(); mode = 'play'; elMenu.classList.add('hide'); });
   document.getElementById('againBtn').addEventListener('click', function () { A.init(); startRun(); mode = 'play'; elOver.classList.add('hide'); });
   var muted = false;
-  elMute.addEventListener('click', function () { muted = !muted; A.mute(muted); elMute.classList.toggle('off', muted); });
+  var pausedFrom = null;
+  document.getElementById('gear').addEventListener('click', function () { A.init(); if (mode === 'play') { pausedFrom = 'play'; mode = 'paused'; } elSet.classList.remove('hide'); });
+  function closeSettings() { elSet.classList.add('hide'); if (pausedFrom) { mode = pausedFrom; pausedFrom = null; last = null; } }
+  document.getElementById('closeSet').addEventListener('click', closeSettings);
+  document.getElementById('resumeBtn').addEventListener('click', closeSettings);
+  elSound.addEventListener('click', function () { muted = !muted; A.mute(muted); elSound.classList.toggle('off', muted); });
 
   function frame(now) {
     if (last === null) last = now;
@@ -778,7 +863,7 @@
       acc -= STEP;
       if (mode === 'play') {
         R.stepSim(S); handleEvents(S);
-        if (S.phase === 'over') { mode = 'over'; elFinal.textContent = S.score; elCleared.textContent = S.level - 1; setTimeout(function () { elOver.classList.remove('hide'); }, 400); }
+        if (S.phase === 'over') { mode = 'over'; var prev = bestScore(); elFinal.textContent = S.score; elCleared.textContent = S.level - 1; document.getElementById('best').textContent = Math.max(prev, S.score); document.getElementById('newBest').classList.toggle('on', S.score > prev && S.score > 0); if (S.score > prev) bestScore(S.score); setTimeout(function () { elOver.classList.remove('hide'); }, 600); }
       }
     }
     if (camState.t < 1) {
@@ -791,6 +876,8 @@
     syncBlocks(dt);
     if (S) syncBalls(S);
     fan.visible = !!(S && S.fan);
+    if (S && S.shield) { var sp = S.shield.body.translation(); shield.position.set(sp.x, sp.y, sp.z); }
+    for (var bid in blockMeshes) { var sk = blockMeshes[bid].g.userData.spark; if (sk) { sk.scale.setScalar(0.35 + Math.random() * 0.25); sk.material.rotation = Math.random() * 6; } }
     if (S && S.fan) { var fp = S.fan.body.translation(), fq = S.fan.body.rotation(); fan.position.set(fp.x, fp.y, fp.z); fan.quaternion.set(fq.x, fq.y, fq.z, fq.w); }
     stepPool(shards, dt, 'glass'); stepPool(needles, dt, 'needle'); stepPool(chips, dt, 'wood'); stepPool(drops, dt, 'drop'); stepPool(confs, dt, 'conf');
     stepSofts(dt); stepFallers(dt);
@@ -800,7 +887,7 @@
     shake *= 0.86;
     camera.position.copy(pickCam.position); camera.quaternion.copy(pickCam.quaternion);
     camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake;
-    if (S) updateHud(S);
+    if (S) { updateHud(S); bumpScore(S); }
     renderer.clear();
     renderer.render(bgScene, bgCam);
     renderer.render(scene, camera);
@@ -808,7 +895,7 @@
   }
 
   window.addEventListener('resize', resize);
-  setTheme('meadow');
+  setTheme('meadow'); backdrop('beach');
   placeCam(pickCam, camState.d, camState.look);
   resize();
   requestAnimationFrame(frame);
