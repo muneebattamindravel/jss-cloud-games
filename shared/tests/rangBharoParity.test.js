@@ -66,7 +66,7 @@ describe('Rang Bharo rules: one block, pinned', () => {
 
   (SKIP_PIN ? test.skip : test)('the rules block hash is pinned (a change is a version bump)', () => {
     const h = crypto.createHash('sha256').update(block(game)).digest('hex');
-    expect(h).toBe('26de99d81f5d94cbf4d190d1cfb6e56bbf32dda9c1882528cc0e3dca5c3742ab');
+    expect(h).toBe('98c19df7c8382c3f872fd008a6aa63eff4bbc480eb7a30248da2c67cd58febe6');
   });
 
   (SKIP_PIN ? test.skip : test)('every rules constant is pinned by value', () => {

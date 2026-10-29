@@ -70,8 +70,8 @@ const M = [
   ['budget base', 'both', 'return Math.min(40, 3 + n + (n >> 1));', 'return Math.min(40, 2 + n + (n >> 1));'],
   ['greed early', 'both', 'return n < 4 ? 2 : (n < 16 ? 1 : 0);', 'return n < 3 ? 2 : (n < 16 ? 1 : 0);'],
   ['greed late', 'both', 'return n < 4 ? 2 : (n < 16 ? 1 : 0);', 'return n < 4 ? 2 : (n < 15 ? 1 : 0);'],
-  ['twist start', 'both', 'return n < 20 ? 0 : Math.min(2, (n - 16) >> 2);', 'return n < 19 ? 0 : Math.min(2, (n - 16) >> 2);'],
-  ['twist cap', 'both', 'return n < 20 ? 0 : Math.min(2, (n - 16) >> 2);', 'return n < 20 ? 0 : Math.min(1, (n - 16) >> 2);'],
+  ['twist start', 'both', 'return Math.min(2, Math.max(0, (n - 16) >> 2));', 'return Math.min(2, Math.max(0, (n - 15) >> 2));'],
+  ['twist cap', 'both', 'return Math.min(2, Math.max(0, (n - 16) >> 2));', 'return Math.min(1, Math.max(0, (n - 16) >> 2));'],
   ['twist picks longer', 'both', 'if (pool[j].L < pool[idx].L) idx = j;', 'if (pool[j].L > pool[idx].L) idx = j;'],
   ['minPar early', 'both', 'return n < 4 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2));', 'return n < 3 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2));'],
   ['minPar base', 'both', 'return n < 4 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2));', 'return n < 4 ? 2 : Math.min(20, 1 + (n >> 1) + (n >> 2));'],
@@ -180,7 +180,10 @@ const M = [
 ];
 
 const INERT = {
-  'GEN_ATTEMPTS': 'INERT_GEN',
+  'GEN_ATTEMPTS': 'measured: no maze needs the 120th attempt (0 ring fallbacks in 3600 mazes); GEN_ATTEMPTS small is caught',
+  // Measured by regenerating the mazes the constant can reach: 0 change.
+  'minPar early': 'measured: no maze 3 in 400 seeds has par below 3, so 2 or 3 is the same; minPar not enforced is caught',
+  'minPar cap': 'measured: no maze 24 to 30 in 400 seeds has par below 20; minPar base is caught',
   // The per-frame cap only spreads owed steps over frames (nothing is ever
   // dropped), so 3 or 6 give the same steps on the same wall clock; measured:
   // every suite passes with 6. 'c: catch-up 1' (cannot keep up at 30 Hz) is caught.

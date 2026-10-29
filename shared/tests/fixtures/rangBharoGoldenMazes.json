@@ -1,6 +1,6 @@
 {
  "version": 1,
- "note": "Mazes that sit on rare generator branches (the 38% floor gate, the minimum-par cap at maze 16), found by measuring 4800 mazes. A change here is a rules version bump.",
+ "note": "Mazes that sit on rare generator branches (the 38% floor gate, the minimum-par cap, the first mazes where slides start to shorten), found by measurement. A change here is a rules version bump.",
  "mazes": [
   {
    "seed": "g80",
@@ -55,6 +55,24 @@
    "n": 16,
    "par": 26,
    "digest": "f19b16cc27623158"
+  },
+  {
+   "seed": "p0",
+   "n": 19,
+   "par": 23,
+   "digest": "058cdb69cfb895d2"
+  },
+  {
+   "seed": "p0",
+   "n": 23,
+   "par": 37,
+   "digest": "fab116baa3839d3e"
+  },
+  {
+   "seed": "p1",
+   "n": 19,
+   "par": 31,
+   "digest": "b179ecffd234937d"
   }
  ]
 }

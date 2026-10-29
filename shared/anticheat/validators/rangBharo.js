@@ -70,7 +70,7 @@
   function floorPercent(n) { return Math.min(62, 48 + n); }
   function moveBudget(n) { return Math.min(40, 3 + n + (n >> 1)); }
   function greed(n) { return n < 4 ? 2 : (n < 16 ? 1 : 0); }
-  function twist(n) { return n < 20 ? 0 : Math.min(2, (n - 16) >> 2); }
+  function twist(n) { return Math.min(2, Math.max(0, (n - 16) >> 2)); }
   function minPar(n) { return n < 4 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2)); }
 
   // The slide the ball makes from cell c in direction d: the cell it stops on.
