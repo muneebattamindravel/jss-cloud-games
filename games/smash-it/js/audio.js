@@ -50,11 +50,6 @@
       noise(t, 0.09, 'highpass', 2500, 0.7, 0.9);                 // the crack
       noise(t + 0.01, 0.35 + Math.random() * 0.2, 'bandpass', 5200, 1.2, 0.35);  // spray
       tone(t, 'triangle', 1900 + Math.random() * 400, 900, 0.06, 0.25);
-      var n = big ? 9 : 6;
-      for (var i = 0; i < n; i++) {                                // tinkles as shards land
-        var dt = 0.03 + Math.random() * 0.45, f = 2600 + Math.random() * 4200;
-        tone(t + dt, 'sine', f, f * 0.97, 0.08 + Math.random() * 0.18, 0.06 + Math.random() * 0.08);
-      }
     },
     land: function (v) {
       // a block settling on the table or the grass: a quiet, soft low thump
