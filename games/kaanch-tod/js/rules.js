@@ -18,9 +18,9 @@
   var BOMB_R = 2.6, BOMB_PUSH = 9;
   var SHIELD_W = 2.6, SHIELD_H = 0.5, SHIELD_Z = FRONT + 0.7;
   var FAN_LEN = 3.1, FAN_HALF = 0.16, FAN_Y = 5.2, FAN_Z = FRONT + 0.95;
-  var PTS = { jar: 10, brick: 15, crate: 25, plank: 40, bomb: 30 };
-  var FALL_PTS = { jar: 10, brick: 15, crate: 15, plank: 20, bomb: 15 };
-  var HP = { jar: 1, brick: 0, crate: 2, plank: 3, bomb: 1 };
+  var PTS = { jar: 10, brick: 15, crate: 25, plank: 40, bomb: 30, ice: 20 };
+  var FALL_PTS = { jar: 10, brick: 15, crate: 15, plank: 20, bomb: 15, ice: 10 };
+  var HP = { jar: 1, brick: 0, crate: 2, plank: 3, bomb: 1, ice: 2 };
   var SINQ = [0,6136,12272,18407,24541,30675,36807,42938,49068,55195,61321,67444,73565,79682,85797,91909,98017,104122,110222,116319,122411,128498,134581,140658,146730,152797,158858,164913,170962,177004,183040,189069,195090,201105,207111,213110,219101,225084,231058,237024,242980,248928,254866,260794,266713,272621,278520,284408,290285,296151,302006,307850,313682,319502,325310,331106,336890,342661,348419,354164,359895,365613,371317,377007,382683,388345,393992,399624,405241,410843,416430,422000,427555,433094,438616,444122,449611,455084,460539,465976,471397,476799,482184,487550,492898,498228,503538,508830,514103,519356,524590,529804,534998,540171,545325,550458,555570,560662,565732,570781,575808,580814,585798,590760,595699,600616,605511,610383,615232,620057,624859,629638,634393,639124,643832,648514,653173,657807,662416,667000,671559,676093,680601,685084,689541,693971,698376,702755,707107,711432,715731,720003,724247,728464,732654,736817,740951,745058,749136,753187,757209,761202,765167,769103,773010,776888,780737,784557,788346,792107,795837,799537,803208,806848,810457,814036,817585,821103,824589,828045,831470,834863,838225,841555,844854,848120,851355,854558,857729,860867,863973,867046,870087,873095,876070,879012,881921,884797,887640,890449,893224,895966,898674,901349,903989,906596,909168,911706,914210,916679,919114,921514,923880,926210,928506,930767,932993,935184,937339,939459,941544,943593,945607,947586,949528,951435,953306,955141,956940,958703,960431,962121,963776,965394,966976,968522,970031,971504,972940,974339,975702,977028,978317,979570,980785,981964,983105,984210,985278,986308,987301,988258,989177,990058,990903,991710,992480,993212,993907,994565,995185,995767,996313,996820,997290,997723,998118,998476,998795,999078,999322,999529,999699,999831,999925,999981,1000000];
   function isin(i) { i &= 1023; if (i < 256) return SINQ[i]; if (i < 512) return SINQ[512 - i]; if (i < 768) return -SINQ[i - 512]; return -SINQ[1024 - i]; }
   function icos(i) { return isin(i + 256); }
@@ -41,54 +41,86 @@
 
   // ---------------------------------------------------------------- layouts
   // a layout is a list of tables, each with rows of cells: {t, col, span}
+  // ---------------------------------------------------------------- level designs
+  // Each design is a picture, top row first. Characters:
+  //   . empty   0-6 crown brick (colour slot)   S castle stone   A-E jar (colour slot)
+  //   c crate   i ice (2 hits)   T TNT barrel   = plank (runs join, up to 3 wide)
+  //   P pillar: a brick two rows tall, the cell above it is |
+  // Colour slots map to real colours through a seeded shuffle, so one design has many looks.
+  // min: first tower it can appear on. twin: built on two tables (split at the space).
+  var DESIGNS = [
+    { min: 1, rows: ['AAABBB', 'AAABBB', 'AAABBB'] },
+    { min: 1, rows: ['ABABAB', 'BABABA', 'ABABAB'] },
+    { min: 2, rows: ['...A...', '..BBB..', '.AAAAA.', 'BBBBBBB'] },
+    { min: 2, rows: ['0000111', '0000111', '0000111', '0000111'] },
+    { min: 3, rows: ['00000000', '11111111', '22222222', '33333333', '44444444'] },
+    { min: 3, rows: ['====', 'AcAc', 'cAcA', 'AcAc', '===='] },
+    { min: 3, rows: ['AABB BBAA', 'AABB BBAA', 'AABB BBAA', 'AABB BBAA'], twin: true },
+    { min: 4, rows: ['0000000', '0111110', '01AAA10', '01ABA10', '01AAA10', '0111110'] },
+    { min: 4, rows: ['....A....', '...ABA...', '..ABCBA..', '.ABBCBBA.', 'AAAAAAAAA'] },
+    { min: 4, rows: ['000A000', '000A000', 'AAAAAAA', '000A000', '000A000'] },
+    { min: 5, rows: ['=======', 'P0P0P0P', '|A|A|A|', 'P0P0P0P', '|A|A|A|'] },
+    { min: 5, rows: ['iiiiiii', 'i00000i', 'i0AAA0i', 'i0AAA0i', 'i00000i', 'iiiiiii'] },
+    { min: 5, rows: ['0011 2233', '0011 2233', 'AABB CCDD', 'AABB CCDD', '0011 2233'], twin: true },
+    { min: 6, rows: ['=========', 'AcAcAcAcA', 'cAcAcAcAc', 'AcAcTcAcA', 'cAcAcAcAc', '========='] },
+    { min: 6, rows: ['S.S.S.S', 'SSSSSSS', 'SAAAAAS', 'SABBBAS', 'SAAAAAS', 'SSSSSSS'] },
+    { min: 6, rows: ['.AA.AA.', 'ABBABBA', 'ABBBBBA', '.ABBBA.', '..ABA..', '...A...'] },
+    { min: 7, rows: ['00000000', '0AAAAAA0', '0A1111A0', '0A1BB1A0', '0A1111A0', '0AAAAAA0', '00000000'] },
+    { min: 7, rows: ['iii.iii', 'iAi.iAi', 'iii.iii', '=======', 'P0P0P0P', '|A|B|A|'] },
+    { min: 8, rows: ['SSSSSSSS', 'S0T00T0S', 'SAAAAAAS', 'SBBBBBBS', 'SAAAAAAS', 'S0iiii0S', 'SSSSSSSS'] },
+    { min: 8, rows: ['AB0 0BA', 'BA0 0AB', 'AB0 0BA', 'BA0 0AB', 'AB0 0BA', '=== ==='], twin: true },
+    { min: 9, rows: ['=========', 'P1i1i1i1P', '|AAAAAAA|', 'P2i2i2i2P', '|BBBBBBB|', '========='] }
+  ];
+  var BRICK_COLS = 7, JAR_COLS = 5;
+
   function layout(seed, L) {
-    var kinds = L === 1 ? ['jars'] : L === 2 ? ['jars', 'bricks'] : L === 3 ? ['checker'] : L === 4 ? ['twin'] : ['jars', 'bricks', 'checker', 'twin', 'mix', 'twin', 'checker'];
-    var kind = kinds[hash(seed, L, 1) % kinds.length];
-    var rows = Math.min(7, 2 + L), cols = Math.min(8, 5 + (L >> 1));
-    var c2 = hash(seed, L, 2), jarA = c2 % 5, jarB = (jarA + 1 + (c2 >>> 8) % 4) % 5, brickA = (c2 >>> 16) & 1;
-    function jarRow(n, split) { var r = []; for (var c = 0; c < n; c++) r.push({ t: 'jar', col: c < split ? jarA : jarB, span: 1 }); return r; }
-    function brickRow(n, split) { var r = []; for (var c = 0; c < n; c++) r.push({ t: 'brick', col: c < split ? brickA : 1 - brickA, span: 1 }); return r; }
-    function plankRow(n) { var r = [], c = 0; while (c < n) { var s = n - c >= 5 ? 3 : n - c >= 2 ? 2 : 1; if (s === 1) r.push({ t: 'crate', col: 0, span: 1 }); else r.push({ t: 'plank', col: 0, span: s }); c += s; } return r; }
-    var tables = [], t, r, rr;
-    if (kind === 'twin') {
-      var half = Math.max(3, Math.min(4, cols - 3)), tr = Math.min(6, rows);
-      var A = [], B = [];
-      for (r = 0; r < tr; r++) { A.push(jarRow(half, 2 + (hash(seed, L, 3) % 2))); B.push(r === tr - 1 && L > 5 ? plankRow(half) : brickRow(half, 2)); }
-      if (hash(seed, L, 4) & 1) { var tmp = A; A = B; B = tmp; }
-      tables.push({ cx: -(half / 2 + 0.6), cols: half, rows: A });
-      tables.push({ cx: half / 2 + 0.6, cols: half, rows: B });
-    } else {
-      var split = (cols >> 1) + (hash(seed, L, 5) % 2);
-      rr = [];
-      for (r = 0; r < rows; r++) {
-        if (kind === 'jars') rr.push(jarRow(cols, split));
-        else if (kind === 'bricks') rr.push(r === rows - 1 && L > 3 ? jarRow(cols, split) : brickRow(cols, split));
-        else if (kind === 'mix') rr.push(r < (rows >> 1) ? brickRow(cols, split) : jarRow(cols, split));
-        else {                                   // checker: planks top and bottom, jars and crates alternate
-          if (r === 0 || r === rows - 1) { rr.push(plankRow(cols)); continue; }
-          var row = [];
-          for (var c = 0; c < cols; c++) {
-            var edge = c === 0 || c === cols - 1;
-            row.push(edge ? { t: 'jar', col: jarB, span: 1 } : ((c + r) % 2 ? { t: 'jar', col: jarA, span: 1 } : { t: 'crate', col: 0, span: 1 }));
-          }
-          rr.push(row);
+    var pool = [];
+    for (var k = 0; k < DESIGNS.length; k++) if (DESIGNS[k].min <= L && DESIGNS[k].min >= Math.max(1, L - 6)) pool.push(k);
+    var di = pool[hash(seed, L, 1) % pool.length], D = DESIGNS[di];
+    // seeded colour slots
+    function perm(n, salt) { var a = []; for (var q = 0; q < n; q++) a.push(q); for (q = n - 1; q > 0; q--) { var r = hash(seed, L, salt + q) % (q + 1), t = a[q]; a[q] = a[r]; a[r] = t; } return a; }
+    var bp = perm(BRICK_COLS, 40), jp = perm(JAR_COLS, 60);
+    function cellOf(ch) {
+      if (ch >= '0' && ch <= '6') return { t: 'brick', col: bp[ch.charCodeAt(0) - 48], span: 1 };
+      if (ch >= 'A' && ch <= 'E') return { t: 'jar', col: jp[ch.charCodeAt(0) - 65], span: 1 };
+      if (ch === 'S') return { t: 'brick', col: 7, span: 1 };
+      if (ch === 'c') return { t: 'crate', col: 0, span: 1 };
+      if (ch === 'i') return { t: 'ice', col: 0, span: 1 };
+      if (ch === 'T') return { t: 'bomb', col: 0, span: 1 };
+      if (ch === 'P') return { t: 'brick', col: bp[(hash(seed, L, 80) % 3)], span: 1, tall: 1 };
+      return null;
+    }
+    // split into tables, then turn each picture into bottom-up rows of cells
+    var parts = D.twin ? [0, 1] : [0], tables = [];
+    parts.forEach(function (pi) {
+      var pic = D.rows.map(function (row) { return D.twin ? row.split(' ')[pi] : row; });
+      var cols = pic[0].length, rows = [];
+      for (var r = pic.length - 1; r >= 0; r--) {
+        var line = pic[r], out = [], c = 0;
+        while (c < cols) {
+          var ch = line.charAt(c);
+          if (ch === '=') { var run = 0; while (c + run < cols && line.charAt(c + run) === '=') run++; while (run > 0) { var sp = run >= 5 || run === 3 ? 3 : run >= 2 ? 2 : 1; out.push(sp === 1 ? { t: 'crate', col: 0, span: 1, x: c } : { t: 'plank', col: 0, span: sp, x: c }); c += sp; run -= sp; } continue; }
+          if (ch === '|') out.push({ skip: 1, x: c });
+          else { var cell = cellOf(ch); if (cell) { cell.x = c; out.push(cell); } else out.push({ gap: 1, x: c }); }
+          c += 1;
         }
+        rows.push(out);
       }
-      tables.push({ cx: 0, cols: cols, rows: rr });
-    }
-    // TNT barrels from tower 4: swap a few jars for barrels that blow their neighbours apart
-    if (L >= 4) {
-      var nb = L >= 8 ? 2 : 1, tries = 0;
-      while (nb > 0 && tries < 40) {
-        var hv = hash(seed, L, 600 + tries), tb2 = tables[hv % tables.length], rw = tb2.rows[(hv >>> 4) % tb2.rows.length], cl = rw[(hv >>> 12) % rw.length];
-        if (cl.t === 'jar') { cl.t = 'bomb'; nb -= 1; }
-        tries += 1;
+      tables.push({ cols: cols, rows: rows });
+    });
+    if (tables.length === 2) { var gap = 1.2, w0 = tables[0].cols, w1 = tables[1].cols; tables[0].cx = -(w1 + gap) / 2 - 0.3 + (w1 - w0) / 4; tables[1].cx = (w0 + gap) / 2 + 0.3 - (w1 - w0) / 4; tables[0].cx = -(w0 / 2 + gap / 2 + 0.25); tables[1].cx = w1 / 2 + gap / 2 + 0.25; }
+    else tables[0].cx = 0;
+    // TNT from tower 4 on designs that have none: swap one jar for a barrel
+    if (L >= 4 && D.rows.join('').indexOf('T') < 0 && (hash(seed, L, 5) & 1)) {
+      for (var tries = 0; tries < 30; tries++) {
+        var hv = hash(seed, L, 600 + tries), tb = tables[hv % tables.length], rw = tb.rows[(hv >>> 4) % tb.rows.length], cl = rw[(hv >>> 12) % rw.length];
+        if (cl && cl.t === 'jar') { cl.t = 'bomb'; break; }
       }
     }
-    return { kind: kind, tables: tables };
+    return { kind: 'd' + di, tables: tables, round: (hash(seed, L, 7) % 3) === 0 && !D.twin };
   }
 
-  function rowHeight(row) { for (var i = 0; i < row.length; i++) if (row[i].t === 'plank') return PLANK_H; return ROW; }
+  function rowHeight(row) { var plank = false, other = false; for (var i = 0; i < row.length; i++) { if (row[i].t === 'plank') plank = true; else if (row[i].t) other = true; } return plank && !other ? PLANK_H : ROW; }
 
   // ---------------------------------------------------------------- world
   function addBlock(S, t, col, cx, cy, span, h) {
@@ -116,22 +148,23 @@
       var tb = lay.tables[ti], tw = tb.cols * CELL + 0.5;
       var tbody = S.world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(tb.cx, -0.15, 0));
       S.world.createCollider(R.ColliderDesc.cuboid(tw / 2, 0.15, 0.8).setFriction(0.8), tbody);
-      S.tables.push({ cx: tb.cx, w: tw, body: tbody });
-      var y = 0;
+      S.tables.push({ cx: tb.cx, w: tw, body: tbody, round: !!lay.round });
+      var hs = tb.rows.map(rowHeight), y = 0;
       for (var r = 0; r < tb.rows.length; r++) {
-        var row = tb.rows[r], h = rowHeight(row), x = tb.cx - tb.cols * CELL / 2;
+        var row = tb.rows[r], x0 = tb.cx - tb.cols * CELL / 2;
         for (var c = 0; c < row.length; c++) {
-          var cell = row[c], span = cell.span;
-          var ch = cell.t === 'plank' ? PLANK_H : h;
-          addBlock(S, cell.t, cell.col, x + span * CELL / 2, y + ch / 2, span, ch);
-          x += span * CELL;
-          cost += cell.t === 'jar' || cell.t === 'bomb' ? 10 : cell.t === 'brick' ? 12 : cell.t === 'crate' ? 22 : 30;
+          var cell = row[c];
+          if (cell.skip || cell.gap) continue;
+          var span = cell.span, ch = cell.t === 'plank' ? PLANK_H : hs[r];
+          if (cell.tall && r + 1 < hs.length) ch = hs[r] + hs[r + 1];
+          addBlock(S, cell.t, cell.col, x0 + (cell.x + span / 2) * CELL, y + ch / 2, span, ch);
+          cost += cell.t === 'jar' || cell.t === 'bomb' ? 10 : cell.t === 'brick' ? 12 : cell.t === 'ice' ? 16 : cell.t === 'crate' ? 22 : 30;
         }
-        y += h;
+        y += hs[r];
       }
     }
     S.layout = lay.kind;
-    var per = 26 + L * 2, add = Math.max(5, ((cost + per - 1) / per) | 0) + (L === 1 ? 6 : 1);
+    var per = 20 + L * 2, add = Math.max(6, ((cost + per - 1) / per) | 0) + (L === 1 ? 4 : 2);
     S.balls += add;
     // obstacles: a sliding shield from tower 3, the spinning fan from tower 5
     var ob = hash(S.seed, L, 6) % 4;
@@ -151,7 +184,7 @@
       S.world.createCollider(R.ColliderDesc.cylinder(0.2, 0.42).setRotation({ x: isin(128) / 1e6, y: 0, z: 0, w: icos(128) / 1e6 }), fb);
       S.fan = { body: fb, k: hash(S.seed, L, 7) & 1023, spd: (L >= 9 ? 3 : 2) * ((hash(S.seed, L, 8) & 1) ? 1 : -1) };
     }
-    S.events.push({ e: 'tower', add: add, level: L, kind: lay.kind, tables: S.tables.map(function (t) { return { cx: t.cx, w: t.w }; }) });
+    S.events.push({ e: 'tower', add: add, level: L, kind: lay.kind, tables: S.tables.map(function (t) { return { cx: t.cx, w: t.w, round: t.round }; }) });
   }
 
   function clearWorld(S) {
@@ -258,7 +291,7 @@
       if (blk.t === 'jar' || blk.t === 'bomb') {
         toBreak.push([blk, 'ball']);
         if (ball.pierced < PIERCE && sp2 > 16) { ball.pierced += 1; restore.push([ball, 0.88]); }
-      } else if (blk.t === 'crate' || blk.t === 'plank') {
+      } else if (blk.t === 'crate' || blk.t === 'plank' || blk.t === 'ice') {
         if (sp2 > 25) {
           blk.hp -= 1;
           if (blk.hp <= 0) { toBreak.push([blk, 'ball']); restore.push([ball, 0.7]); }

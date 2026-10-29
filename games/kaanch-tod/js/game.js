@@ -243,13 +243,45 @@
 
   // ---------------------------------------------------------------- materials
   var GLASS = ['#1677ff', '#ee1a32', '#ffae00', '#8f2cff', '#16c043'];
-  var BRICK = ['#e21a2c', '#ffb80a'];
+  // crown bricks in seven colours, plus slot 7: castle stone (blue-grey with a gold battlement band)
   var panelHeightMap = normalFrom(panelHeight(256, 340, true, 3), 7);
-  var brickMats = BRICK.map(function (c) {
-    var base = new T.Color(c), lite = base.clone().lerp(new T.Color(1, 1, 1), 0.35).getStyle(), dark = base.clone().multiplyScalar(0.82).getStyle();
-    return phys({ map: tex(paintPanel(c, lite, dark, 256, 340, true), true), normalMap: panelHeightMap, normalScale: new T.Vector2(1.1, 1.1),
-      roughness: 0.32, clearcoat: 0.7, clearcoatRoughness: 0.25, envMapIntensity: 0.6 });
-  });
+  var BRICK = ['#e21a2c', '#ffb80a', '#8a2ef0', '#2a7ff0', '#22b84a', '#ff7a1a', '#f04ab0'];
+  function stonePanel(w, h) {
+    var c = canvasEl(w, h), g = c.getContext('2d');
+    g.fillStyle = '#9db3e0'; g.fillRect(0, 0, w, h);
+    var m = Math.round(w * 0.1);
+    g.fillStyle = '#b8cbef'; rrect(g, m, m, w - 2 * m, h - 2 * m, m * 0.5); g.fill();
+    var by = h * 0.36, bh = h * 0.28;
+    g.fillStyle = '#ffc72c'; g.fillRect(0, by, w, bh);
+    g.fillStyle = '#9db3e0';
+    for (var i = 0; i < 4; i++) { var x = (i + 0.25) * w / 4; g.fillRect(x, by + bh * 0.3, w / 8, bh * 0.7); }
+    g.fillStyle = '#d98a00'; g.fillRect(0, by + bh - 6, w, 6);
+    g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(0, by, w, 5);
+    return c;
+  }
+  var brickTex = {};
+  function brickMat(col, tall) {
+    var key = col + (tall ? 't' : '');
+    if (brickTex[key]) return brickTex[key];
+    var w = 256, h = tall ? 680 : 340, c;
+    if (col === 7) c = stonePanel(w, h);
+    else { var base = new T.Color(BRICK[col]), lite = base.clone().lerp(new T.Color(1, 1, 1), 0.38).getStyle(), dark = base.clone().multiplyScalar(0.84).getStyle(); c = paintPanel(BRICK[col], lite, dark, w, h, true); }
+    brickTex[key] = phys({ map: tex(c, true), normalMap: tall ? panelHeightTall() : panelHeightMap, normalScale: new T.Vector2(1.1, 1.1), roughness: 0.3, clearcoat: 0.7 });
+    return brickTex[key];
+  }
+  var tallNormal = null;
+  function panelHeightTall() { return tallNormal || (tallNormal = normalFrom(panelHeight(256, 680, true, 3), 7)); }
+  // ice: pale translucent blocks with a wave pattern, cracked after the first hit
+  function icePanel(cracks) {
+    var c = canvasEl(256, 340), g = c.getContext('2d');
+    g.fillStyle = '#d6f2ff'; g.fillRect(0, 0, 256, 340);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 7; g.lineCap = 'round';
+    for (var r = 0; r < 3; r++) { var y = 90 + r * 80; g.beginPath(); for (var x = 20; x <= 236; x += 4) { var yy = y + Math.sin(x / 18) * 10; if (x === 20) g.moveTo(x, yy); else g.lineTo(x, yy); } g.stroke(); }
+    g.strokeStyle = 'rgba(120,190,230,0.7)'; g.lineWidth = 6; rrect(g, 12, 12, 232, 316, 24); g.stroke();
+    if (cracks) { g.strokeStyle = 'rgba(255,255,255,0.95)'; g.lineWidth = 4; for (var i = 0; i < 5; i++) { var px = 60 + Math.random() * 140, py = 60 + Math.random() * 220; g.beginPath(); g.moveTo(px, py); for (var k = 0; k < 4; k++) { px += (Math.random() - 0.5) * 90; py += (Math.random() - 0.5) * 90; g.lineTo(px, py); } g.stroke(); } }
+    return c;
+  }
+  var iceMats = [0, 1].map(function (k) { return mat({ map: tex(icePanel(k), true), clearcoat: 1, roughness: 0.05, transparent: true, opacity: 0.88 }); });
   var woodCanvas = { 1: woodPanel(256, 340, 1), 2: woodPanel(512, 220, 2), 3: woodPanel(768, 220, 3) };
   var woodNormal = { 1: normalFrom(panelHeight(256, 340, false, 4), 5), 2: normalFrom(panelHeight(512, 220, false, 4), 5), 3: normalFrom(panelHeight(768, 220, false, 4), 5) };
   function woodMat(span, cracks) {
@@ -304,7 +336,9 @@
       var spark = new T.Sprite(new T.SpriteMaterial({ map: starTex, color: 0xffd060, blending: T.AdditiveBlending, depthWrite: false, transparent: true }));
       spark.position.set(0.19, b.h / 2 + 0.27, 0.05); spark.scale.setScalar(0.45); g.add(spark); g.userData.spark = spark;
     } else if (b.t === 'brick') {
-      m = new T.Mesh(boxGeo(b.w, b.h), brickMats[b.col]); m.castShadow = m.receiveShadow = true; g.add(m);
+      m = new T.Mesh(boxGeo(b.w, b.h), brickMat(b.col, b.h > 2)); g.add(m);
+    } else if (b.t === 'ice') {
+      m = new T.Mesh(boxGeo(b.w, b.h), iceMats[0]); g.add(m);
     } else {
       m = new T.Mesh(boxGeo(b.w, b.h), woodMats[b.span][0]); m.castShadow = m.receiveShadow = true; g.add(m);
     }
@@ -365,10 +399,15 @@
     tableMeshes = [];
     list.forEach(function (t) {
       var g = new T.Group();
-      var top = slab(octo(t.w, 1.5, 0.25), 0.1, creamMat, 0.04); top.position.y = 0.0; g.add(top);
-      var gold1 = slab(octo(t.w + 0.08, 1.58, 0.27), 0.08, goldMat, 0.03); gold1.position.y = -0.12; g.add(gold1);
-      var band = slab(octo(t.w - 0.1, 1.4, 0.24), 0.14, purpleMat, 0.02); band.position.y = -0.22; g.add(band);
-      var gold2 = slab(octo(t.w + 0.04, 1.54, 0.26), 0.07, goldMat, 0.03); gold2.position.y = -0.34; g.add(gold2);
+      if (t.round) {                    // a round table: stacked discs, squashed in depth
+        var disc = function (r, h, m, y) { var d = new T.Mesh(new T.CylinderGeometry(r, r, h, 64), m); d.scale.z = 2.4 / t.w; d.position.y = y; g.add(d); };
+        disc(t.w / 2 + 0.25, 0.12, creamMat, -0.06); disc(t.w / 2 + 0.3, 0.09, goldMat, -0.16); disc(t.w / 2 + 0.15, 0.16, purpleMat, -0.28); disc(t.w / 2 + 0.25, 0.08, goldMat, -0.4);
+      } else {
+        var top = slab(octo(t.w, 1.5, 0.25), 0.1, creamMat, 0.04); top.position.y = 0.0; g.add(top);
+        var gold1 = slab(octo(t.w + 0.08, 1.58, 0.27), 0.08, goldMat, 0.03); gold1.position.y = -0.12; g.add(gold1);
+        var band = slab(octo(t.w - 0.1, 1.4, 0.24), 0.14, purpleMat, 0.02); band.position.y = -0.22; g.add(band);
+        var gold2 = slab(octo(t.w + 0.04, 1.54, 0.26), 0.07, goldMat, 0.03); gold2.position.y = -0.34; g.add(gold2);
+      }
       var poleH = -GROUND_Y - 0.4;
       var pole = new T.Mesh(new T.CylinderGeometry(0.3, 0.3, poleH, 32), theme === 'beach' ? purpleMat : poleOrange);
       pole.position.y = -0.4 - poleH / 2; pole.castShadow = pole.receiveShadow = true; g.add(pole);
@@ -543,8 +582,10 @@
     for (var i = 0; i < curTables.length; i++) { var t = curTables[i]; if (Math.abs(p.x - t.cx) < t.w / 2 && Math.abs(p.z) < 0.75 && p.y > -0.4) return 0; }
     return GROUND_Y;
   }
+  var ICE = '#bfe9ff';
   function glassBreak(p, q, col, power) {
-    var c = L(GLASS[col]), lite = c.clone().lerp(new T.Color(1, 1, 1), 0.5), white = new T.Color(1, 1, 1), i;
+    var gcol = col < 0 ? ICE : GLASS[col];
+    var c = L(gcol), lite = c.clone().lerp(new T.Color(1, 1, 1), 0.5), white = new T.Color(1, 1, 1), i;
     var rot = new T.Quaternion(q.x, q.y, q.z, q.w);
     for (i = 0; i < Math.round(46 * power); i++) {
       var local = new T.Vector3(rnd(-0.45, 0.45), rnd(-0.6, 0.6), rnd(-0.45, 0.45)).applyQuaternion(rot);
@@ -563,12 +604,12 @@
       var d = new T.Vector3(Math.cos(a) * Math.cos(el), Math.sin(a) * Math.cos(el) + 0.15, Math.sin(el) * 0.6 + 0.2);
       addItem(needles, { p: new T.Vector3(p.x + rnd(-0.15, 0.15), p.y + rnd(-0.2, 0.2), p.z + 0.5), v: d.multiplyScalar(rnd(8, 19) * power), len: rnd(0.6, 1.7), th: rnd(0.07, 0.15), life: rnd(0.28, 0.55), col: Math.random() < 0.25 ? white : (Math.random() < 0.45 ? lite : c) });
     }
-    var ring = spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.6), 0.6, GLASS[col], 0.9, 0.35, 9, true, ringTexture());
-    for (i = 0; i < 18; i++) { var gl = spawnSoft(new T.Vector3(p.x + rnd(-0.5, 0.5), p.y + rnd(-0.5, 0.5), p.z + 0.7), rnd(0.18, 0.34), GLASS[col], 1, rnd(0.8, 1.4), -0.2, true, starTex); if (gl) { gl.v.set(rnd(-3.5, 3.5), rnd(1, 5), rnd(0, 2)); gl.g = 6; } }
+    var ring = spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.6), 0.6, gcol, 0.9, 0.35, 9, true, ringTexture());
+    for (i = 0; i < 18; i++) { var gl = spawnSoft(new T.Vector3(p.x + rnd(-0.5, 0.5), p.y + rnd(-0.5, 0.5), p.z + 0.7), rnd(0.18, 0.34), gcol, 1, rnd(0.8, 1.4), -0.2, true, starTex); if (gl) { gl.v.set(rnd(-3.5, 3.5), rnd(1, 5), rnd(0, 2)); gl.g = 6; } }
     for (i = 0; i < 24; i++) addItem(drops, { p: new T.Vector3(p.x, p.y, p.z + 0.4), v: new T.Vector3(rnd(-6, 6), rnd(-1, 8), rnd(0, 5)), r: new T.Euler(), w: new T.Vector3(), s: rnd(0.05, 0.12), life: rnd(0.5, 0.9), col: lite, rest: 0 });
     spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.7), 2.2, 0xffffff, 1, 0.14, 8, true, starTex);
     spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.6), 1.6, 0xffffff, 1, 0.16, 10, true);
-    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.5), 3, GLASS[col], 0.8, 0.32, 5, true);
+    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.5), 3, gcol, 0.8, 0.32, 5, true);
     for (i = 0; i < 12; i++) { var st = spawnSoft(new T.Vector3(p.x + rnd(-0.5, 0.5), p.y + rnd(-0.6, 0.6), p.z + 0.6), rnd(0.3, 0.6), 0xffffff, 1, rnd(0.4, 0.9), -0.3, true, starTex); if (st) st.v.set(rnd(-3, 3), rnd(0, 4), rnd(0, 2)); }
   }
   var plankCols = ['#e08a3c', '#c86f28', '#f0a458', '#b8601f'].map(L);
@@ -585,6 +626,10 @@
         r: new T.Euler(rnd(0, 3), rnd(0, 3), rnd(0, 3)), w: new T.Vector3(rnd(-20, 20), rnd(-20, 20), rnd(-20, 20)), sv: new T.Vector3(rnd(0.15, 0.5), 0.05, 0.05), life: rnd(1.2, 2.2), col: plankCols[i % 4], rest: 0 });
     }
     puff(p, 10, 0xeed9b8, 1.2);
+  }
+  function iceChips(p) {
+    for (var i = 0; i < 14; i++) addItem(shards, { p: new T.Vector3(p.x + rnd(-0.3, 0.3), p.y + rnd(-0.3, 0.3), 0.55), v: new T.Vector3(rnd(-4, 4), rnd(1, 6), rnd(1, 4)),
+      r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)), w: new T.Vector3(rnd(-15, 15), rnd(-15, 15), rnd(-15, 15)), s: rnd(0.1, 0.25), life: 1.2, col: L(ICE), rest: 0 });
   }
   function chipsAt(p) {
     for (var i = 0; i < 12; i++) addItem(chips, { p: new T.Vector3(p.x + rnd(-0.3, 0.3), p.y + rnd(-0.3, 0.3), 0.55), v: new T.Vector3(rnd(-4, 4), rnd(1, 6), rnd(1, 4)),
@@ -672,8 +717,8 @@
         var aq = new T.Quaternion().setFromAxisAngle(f.avAxis, f.avMag * dt); g.quaternion.premultiply(aq);
         if (g.position.y - f.h * 0.35 < GROUND_Y && f.v.y < 0) {
           if (theme === 'beach') { splash(g.position.x, g.position.z, true); A.play('splash', f.t !== 'jar'); f.sunk = true; f.v.set(f.v.x * 0.2, -1.5, f.v.z * 0.2); f.avMag *= 0.2; }
-          else if (f.t === 'jar') {         // glass that hits the ground shatters
-            var gq = g.quaternion; glassBreak({ x: g.position.x, y: g.position.y, z: g.position.z }, { x: gq.x, y: gq.y, z: gq.z, w: gq.w }, f.m.b.col, 0.8);
+          else if (f.t === 'jar' || f.t === 'ice') {         // glass and ice that hit the ground shatter
+            var gq = g.quaternion; glassBreak({ x: g.position.x, y: g.position.y, z: g.position.z }, { x: gq.x, y: gq.y, z: gq.z, w: gq.w }, f.t === 'ice' ? -1 : f.m.b.col, 0.8);
             A.play('glass', false); scene.remove(g); fallers.splice(i, 1); continue;
           } else {
             g.position.y = GROUND_Y + f.h * 0.35;
@@ -784,6 +829,7 @@
           var pos = { x: e.x, y: e.y, z: e.z };
           if (e.t === 'bomb') { /* the boom event draws this */ }
           else if (e.t === 'jar') { glassBreak(pos, e.q, e.col, e.how === 'crush' ? 0.85 : 1.15); A.play('glass', e.how !== 'ball'); }
+          else if (e.t === 'ice') { glassBreak(pos, e.q, -1, 1); A.play('glass', true); }
           else { woodBreak(pos, e.q, e.w, e.h, e.w > 1.5 ? (e.w > 2.5 ? 3 : 2) : 1); A.play('woodBreak', e.t === 'plank'); }
           shake = Math.max(shake, e.t === 'plank' ? 0.32 : e.how === 'crush' ? 0.22 : 0.18);
           floatText(pos, '+' + e.pts, e.how === 'crush' ? 'gold' : '');
@@ -802,6 +848,7 @@
         }
         case 'crack': {
           m = blockMeshes[e.id];
+          if (m && m.b.t === 'ice') { m.g.userData.main.material = iceMats[1]; m.hitWob = 1; iceChips({ x: e.x, y: e.y }); A.play('glass', false); shake = Math.max(shake, 0.1); break; }
           if (m) { var mats = m.b.t === 'crate' ? woodMats[1] : woodMats[m.b.span]; m.g.userData.main.material = mats[Math.min(mats.length - 1, (m.b.t === 'crate' ? 2 : 3) - e.hp)]; m.hitWob = 1; }
           chipsAt({ x: e.x, y: e.y }); A.play('woodHit'); shake = Math.max(shake, 0.1);
           break;
