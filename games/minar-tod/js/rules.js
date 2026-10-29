@@ -13,6 +13,10 @@ var TRANS_STEPS = 120;              // steps between towers (no input)
 var MAX_LEVELS = 20;
 var COPY_DOWN = 70, COPY_SIDE = 130;   // out of 256: how often a cell copies a neighbour
 var STAND_STEPS = 240;
+var MAX_TURN = 4096;                // most a drag can turn the tower in one step
+var MAX_FLICK = 1600;               // fastest flick, angle units per step
+var COMBO_MIN = 5;                  // a chunk this big keeps the combo going
+var COMBO_MAX = 4;
 
 var EMPTY = 0, STEEL = 6, BOMB = 7; // colours are 1..5
 
@@ -45,7 +49,7 @@ function hash(seed, k, j) {
 function towerSpec(seed, k) {
   var levels = Math.min(MAX_LEVELS, 10 + 2 * k);
   var colours = k < 1 ? 3 : k < 4 ? 4 : 5;
-  var base = Math.min(260, 110 + 15 * k);          // angle units per step (a turn in 10 s at first)
+  var base = Math.min(110, 30 + 10 * k);           // the tower's own drift, angle units per step
   var amp = k < 2 ? 0 : k < 6 ? 512 : 1400;         // spin swing, 1024 = 100 percent of base
   var hs = hash(seed, k, 9001);
   var dir = (hs & 1) ? 1 : -1;
@@ -162,7 +166,7 @@ function greedyShots(g) {
   return shots;
 }
 
-function ballBudget(shots) { return shots + 2 + ((shots / 10) | 0); }
+function ballBudget(shots) { return shots + 2 + ((shots / 7) | 0); }
 
 function startTower(s, k) {
   var spec = towerSpec(s.seed, k);
@@ -173,11 +177,12 @@ function startTower(s, k) {
   s.balls = ballBudget(s.par);
   s.towerStep = 0;
   s.angle = (hash(s.seed, k, 9002) & (ANG - 1));
+  s.turnV = 0;
 }
 
 function initSim(seed) {
   var s = { seed: seed >>> 0, step: 0, score: 0, phase: 'play', trans: 0, fired: 0,
-    ball: null, pending: 0, broken: 0, best: 0, cleared: 0, hits: 0 };
+    ball: null, pending: 0, broken: 0, best: 0, cleared: 0, hits: 0, combo: 0, bestCombo: 0, turnV: 0 };
   startTower(s, 0);
   return s;
 }
@@ -201,6 +206,21 @@ function angleAhead(s, ahead) {
   return a;
 }
 
+// The player turns the tower: a drag moves it by d, a flick (release) sets a
+// spin that fades. Accepted while the tower is in play.
+function turn(s, d) {
+  if (s.phase !== 'play' || d !== (d | 0)) return false;
+  d = Math.max(-MAX_TURN, Math.min(MAX_TURN, d));
+  s.angle = (s.angle + d) & (ANG - 1);
+  s.turnV = 0;
+  return true;
+}
+function flick(s, v) {
+  if (s.phase !== 'play' || v !== (v | 0)) return false;
+  s.turnV = Math.max(-MAX_FLICK, Math.min(MAX_FLICK, v));
+  return true;
+}
+
 // One tap on block (c, r). Accepted only while playing, with balls left, no
 // ball in the air, and a block there on the near side of the tower.
 function fire(s, c, r) {
@@ -222,7 +242,8 @@ function stepSim(s) {
     s.trans--;
     if (s.trans <= 0) { startTower(s, s.tower + 1); s.phase = 'play'; ev = { type: 'tower' }; }
   } else {
-    s.angle = (s.angle + spinSpeed(s.spec, s.towerStep)) & (ANG - 1);
+    s.angle = (s.angle + spinSpeed(s.spec, s.towerStep) + s.turnV) & (ANG - 1);
+    s.turnV = (s.turnV * 15 / 16) | 0;
     s.towerStep++;
     if (s.ball && s.step >= s.ball.land) ev = land(s);
   }
@@ -237,13 +258,17 @@ function land(s) {
   var ev = { type: 'miss', c: c, r: r, cells: [], pts: 0 };
   if (s.grid[c * MAX_LEVELS + r] !== EMPTY) {
     var v = s.grid[c * MAX_LEVELS + r];
-    if (v === STEEL) ev.type = 'steel';
+    if (v === STEEL) { ev.type = 'steel'; s.combo = 0; }
     else {
       var cells = hitCells(s.grid, c, r);
       ev.type = v === BOMB ? 'bomb' : 'break';
       ev.colour = v;
       ev.cells = cells;
-      ev.pts = groupPoints(cells.length);
+      // Chunks of COMBO_MIN or more in a row multiply: x1, x2, x3, x4.
+      if (cells.length >= COMBO_MIN) s.combo = Math.min(COMBO_MAX, s.combo + 1); else s.combo = 0;
+      ev.mult = Math.max(1, s.combo);
+      ev.pts = groupPoints(cells.length) * ev.mult;
+      if (s.combo > s.bestCombo) s.bestCombo = s.combo;
       ev.before = s.grid;
       s.grid = removeAndSettle(s.grid, cells);
       s.pending += ev.pts;
@@ -270,7 +295,7 @@ function land(s) {
 // ==== MINAR TOD RULES END ====
 
 if (typeof module !== 'undefined') {
-  module.exports = { initSim: initSim, stepSim: stepSim, fire: fire, colVisible: colVisible, angleAhead: angleAhead,
+  module.exports = { initSim: initSim, stepSim: stepSim, fire: fire, turn: turn, flick: flick, colVisible: colVisible, angleAhead: angleAhead,
     hitCells: hitCells, colHeight: colHeight, topHeight: topHeight, greedyShots: greedyShots,
     towerSpec: towerSpec, buildGrid: buildGrid, breakablesLeft: breakablesLeft, removeAndSettle: removeAndSettle,
     groupPoints: groupPoints, FLIGHT: FLIGHT, COLS: COLS, MAX_LEVELS: MAX_LEVELS, RUN_STEPS: RUN_STEPS,
