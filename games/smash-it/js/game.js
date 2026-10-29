@@ -46,14 +46,16 @@
     }
     return bgTex[theme];
   }
+  // the painted backdrop covers the whole screen at one scale, with its horizon pinned to the
+  // 3D horizon, so tall and wide screens get more picture instead of stretched edge pixels
+  var HORIZON = 232;
   function layoutBackdrop(w, h) {
-    var uv = bgGeo.attributes.uv;
-    // corners of the screen in design px -> texture uv
-    var x0 = -fitRect.x / fitRect.w * 414, x1 = (w - fitRect.x) / fitRect.w * 414;
-    var y0 = -fitRect.y / fitRect.h * 736, y1 = (h - fitRect.y) / fitRect.h * 736;
-    function u(x) { return (x + SC.MARGIN) / SC.DW; }
-    function v(y) { return 1 - y / SC.DH; }
-    uv.setXY(0, u(x0), v(y0)); uv.setXY(1, u(x1), v(y0)); uv.setXY(2, u(x0), v(y1)); uv.setXY(3, u(x1), v(y1));
+    var uv = bgGeo.attributes.uv, k = fitRect.w / 414;
+    var hs = fitRect.y + HORIZON * k;                                  // screen y of the horizon
+    var sc = Math.max(k, w / SC.DW, hs / HORIZON, (h - hs) / (SC.DH - HORIZON));
+    function u(sx) { return ((sx - w / 2) / sc + SC.DW / 2) / SC.DW; }
+    function v(sy) { return 1 - ((sy - hs) / sc + HORIZON) / SC.DH; }
+    uv.setXY(0, u(0), v(0)); uv.setXY(1, u(w), v(0)); uv.setXY(2, u(0), v(h)); uv.setXY(3, u(w), v(h));
     uv.needsUpdate = true;
   }
 
@@ -495,7 +497,9 @@
   scene.add(muzzleFlash);
   var cannonPos = new T.Vector3(), aimTarget = new T.Vector3(0, 3, 0), aimNow = new T.Vector3(0, 3, 0), kick = 0;
   function placeCannon() {
-    var dir = new T.Vector3(0, -1.0, 0.5).unproject(pickCam).sub(pickCam.position).normalize();
+    // anchor to the real bottom of the screen (tall phones show more below the design rect)
+    var ndcBottom = -1 - 2 * fitRect.y / fitRect.h;
+    var dir = new T.Vector3(0, ndcBottom, 0.5).unproject(pickCam).sub(pickCam.position).normalize();
     cannonPos.copy(pickCam.position).addScaledVector(dir, 10.5);
     cannon.position.copy(cannonPos); cannon.scale.setScalar(0.5);
   }
@@ -710,8 +714,8 @@
         if (g.position.y - f.h * 0.35 < GROUND_Y && f.v.y < 0) {
           if (theme === 'beach') { splash(g.position.x, g.position.z, true); A.play('splash', f.t !== 'jar'); f.sunk = true; f.v.set(f.v.x * 0.2, -1.5, f.v.z * 0.2); f.avMag *= 0.2; }
           else if (f.t === 'jar' || f.t === 'ice') {         // glass and ice that hit the ground shatter
-            var gq = g.quaternion; glassBreak({ x: g.position.x, y: g.position.y, z: g.position.z }, { x: gq.x, y: gq.y, z: gq.z, w: gq.w }, f.t === 'ice' ? -1 : f.m.b.col, 0.8);
-            A.play('glass', false); scene.remove(g); fallers.splice(i, 1); continue;
+            var gq = g.quaternion; glassBreak({ x: g.position.x, y: g.position.y, z: g.position.z }, { x: gq.x, y: gq.y, z: gq.z, w: gq.w }, f.t === 'ice' ? -1 : f.m.b.col, 0.55);
+            A.play('groundGlass'); scene.remove(g); fallers.splice(i, 1); continue;
           } else {
             g.position.y = GROUND_Y + f.h * 0.35;
             if (f.v.y < -4) { puff(g.position, 5, 0xe6cfa0, 1); A.play('thud', Math.min(200, -f.v.y * 12), f.t); }
@@ -733,18 +737,23 @@
   var towerTotal = 1;
   // zoom (not a transform) so text is laid out at the screen's own resolution and stays crisp
   var useZoom = 'zoom' in document.documentElement.style;
+  // the HUD spans the full screen height (top bar at the top, menu filling the screen);
+  // things tied to the scene are offset by --oy, the design rect's top in HUD units
+  var hudOY = 0;
   function layoutHud() {
-    var k = fitRect.w / 414;
-    if (useZoom) { hud.style.zoom = k; hud.style.left = fitRect.x / k + 'px'; hud.style.top = fitRect.y / k + 'px'; hud.style.transform = 'none'; }
-    else { hud.style.left = fitRect.x + 'px'; hud.style.top = fitRect.y + 'px'; hud.style.transform = 'scale(' + k + ')'; }
+    var k = fitRect.w / 414, H = window.innerHeight / k;
+    hudOY = fitRect.y / k;
+    hud.style.height = H + 'px'; hud.style.setProperty('--oy', hudOY + 'px');
+    if (useZoom) { hud.style.zoom = k; hud.style.left = fitRect.x / k + 'px'; hud.style.top = '0px'; hud.style.transform = 'none'; }
+    else { hud.style.left = fitRect.x + 'px'; hud.style.top = '0px'; hud.style.transform = 'scale(' + k + ')'; }
   }
-  function toHud(v) { var p = new T.Vector3(v.x, v.y, v.z).project(pickCam); return { x: (p.x + 1) / 2 * 414, y: (1 - p.y) / 2 * 736 }; }
+  function toHud(v) { var p = new T.Vector3(v.x, v.y, v.z).project(pickCam); return { x: (p.x + 1) / 2 * 414, y: (1 - p.y) / 2 * 736 + hudOY }; }
   var floatsLive = 0;
   function floatText(world, txt, cls) {
     if (floatsLive > 10 && !/big/.test(cls || '')) return;
     var p = toHud(world), d = document.createElement('div');
     d.className = 'float ' + (cls || ''); d.textContent = txt;
-    d.style.left = Math.max(30, Math.min(384, p.x)) + 'px'; d.style.top = Math.max(120, p.y) + 'px';
+    d.style.left = Math.max(30, Math.min(384, p.x)) + 'px'; d.style.top = Math.max(120 + hudOY, p.y) + 'px';
     d.style.setProperty('--tilt', (Math.random() * 10 - 5).toFixed(1) + 'deg');
     elFloats.appendChild(d); floatsLive++;
     setTimeout(function () { d.remove(); floatsLive--; }, 1000);
@@ -887,6 +896,7 @@
   // ---------------------------------------------------------------- loop + input
   var params = new URLSearchParams(location.search), seedArg = params.get('seed');
   function newSeed() { return seedArg ? (parseInt(seedArg, 10) >>> 0) : ((Math.random() * 4294967296) >>> 0); }
+  var menuLift = 1;
   var S = null, mode = 'loading', acc = 0, last = null, STEP = 1000 / 60, perfT = 0;
   var ray = new T.Raycaster(), plane = new T.Plane(new T.Vector3(0, 0, 1), -R.FRONT), hitP = new T.Vector3();
   function tapToTarget(cx, cy) {
@@ -933,7 +943,8 @@
       var k = camState.t * camState.t * (3 - 2 * camState.t);
       camState.d = camState.d0 + (camState.dT - camState.d0) * k; camState.look = camState.look0 + (camState.lookT - camState.look0) * k;
     }
-    placeCam(pickCam, camState.d, camState.look);
+    menuLift += ((mode === 'menu' || mode === 'loading' ? 1 : 0) - menuLift) * Math.min(1, dt * 2.5);
+    placeCam(pickCam, camState.d, camState.look + menuLift * camState.d * TANH * 0.2);
     placeCannon();
     syncBlocks(dt);
     if (S) syncBalls(S);
@@ -964,7 +975,6 @@
     startRun();
     mode = 'menu';
     elPlay.disabled = false; elPlay.textContent = 'PLAY';
-    document.getElementById('menuBest').textContent = bestScore();
   });
 
   window.__kt = { fxGlass: function (x, y, col) { glassBreak({ x: x, y: y, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, col, 1.15); }, get S() { return S; }, R: R, tapToTarget: tapToTarget,

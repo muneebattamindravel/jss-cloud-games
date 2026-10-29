@@ -51,6 +51,13 @@
       noise(t + 0.01, 0.35 + Math.random() * 0.2, 'bandpass', 5200, 1.2, 0.35);  // spray
       tone(t, 'triangle', 1900 + Math.random() * 400, 900, 0.06, 0.25);
     },
+    groundGlass: function () {
+      // a jar landing on grass: a soft, short crunch, well under the main smash
+      if (!throttle('gg', 90)) return;
+      var t = AC.currentTime;
+      noise(t, 0.12, 'bandpass', 3200, 0.9, 0.12);
+      noise(t, 0.06, 'lowpass', 900, 0.7, 0.1);
+    },
     woodBreak: function (log) {
       if (!throttle('woodB', 40)) return;
       var t = AC.currentTime;
