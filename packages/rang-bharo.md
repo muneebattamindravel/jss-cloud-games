@@ -101,7 +101,7 @@ ten hidden seconds are 598 to 603 steps.
   constants move.
 
 ## 7. Mutation battery
-`shared/tests/lib/rangBharoMutate.js`, 126 mutations over the constants, the
+`shared/tests/lib/rangBharoMutate.js`, 125 mutations over the constants, the
 seed and hash, the difficulty curve, the generator (stop pinning, trap check,
 solver, fallback ring, memo key), the sim (buffering, one input a step, the
 clock, scoring, PERFECT), the validator interface (rewind, index, typeof,
@@ -111,8 +111,16 @@ repeat, READY input, inbox, backup clock and catch-up, submit timing, one run
 per session, session gate, ?seed, trace marker, replay, the practice). Run
 from scratch copies only, 4 shards.
 
-- With the pin tables: **125 live caught, 1 inert, 0 survivors.**
-- Behaviour only (`--nopin`): NOPIN_RESULT
+- With the pin tables: **124 live caught, 1 inert, 0 survivors.**
+- Behaviour only (`--nopin`, pins and rules hash off): **121 live caught, 4 inert, 0 survivors.**
+  The three extra inerts are measured on 4800 regenerated mazes (300 seeds x 16):
+  `GEN_ATTEMPTS` 60 to 59, `stuck 13` and `SOLVE_CAP` 59999 change 0 mazes; their
+  large variants (`GEN_ATTEMPTS small`, `stuck 3`, `SOLVE_CAP small`) are caught.
+- Dead code found by the battery and removed (goldens unchanged): the 'best
+  attempt' fallback (0 of 4800 mazes reach it; the ring stays as the total
+  fallback), a queued-at-rest branch (a buffered swipe is always taken at the
+  wall or the next maze) and the stepSim over guard (the clock check ends the
+  run identically).
 - Inert, with a measurement: `c: catch-up 6` (owed steps are never dropped,
   so a per-frame cap of 3 or 6 runs the same steps on the same wall clock;
   every suite passes with 6). Its large variant `c: catch-up 1` is caught.
