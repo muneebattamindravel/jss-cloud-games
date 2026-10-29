@@ -116,13 +116,14 @@
       noise(t, 0.07, 'bandpass', 900, 2, 0.35 + 0.3 * k);
       tone(t, 'triangle', 520, 300, 0.05, 0.15);
     },
-    splash: function () {
-      if (!throttle('sp', 70)) return;
-      var t = AC.currentTime;
-      noise(t, 0.45, 'lowpass', 1400, 0.7, 0.55, 0.01);
-      noise(t + 0.02, 0.3, 'bandpass', 3000, 1, 0.25);
-      tone(t, 'sine', 300, 120, 0.2, 0.3);
-      for (var i = 0; i < 5; i++) tone(t + 0.08 + Math.random() * 0.3, 'sine', 900 + Math.random() * 900, 1500, 0.05, 0.06);
+    splash: function (big) {
+      // a soft water "plop": a bubble tone that drops in pitch, a hushed wash, a few droplets
+      if (!throttle('sp', 140)) return;
+      var t = AC.currentTime, v = big ? 1 : 0.6;
+      tone(t, 'sine', 520 + Math.random() * 120, 180, 0.12, 0.22 * v);
+      tone(t + 0.03, 'sine', 900 + Math.random() * 200, 420, 0.08, 0.08 * v);
+      noise(t + 0.01, 0.32, 'lowpass', 900, 0.5, 0.12 * v, 0.03);
+      for (var i = 0; i < 3; i++) { var f = 1100 + Math.random() * 900; tone(t + 0.12 + Math.random() * 0.25, 'sine', f, f * 1.35, 0.05, 0.035 * v); }
     },
     boom: function () {
       var t = AC.currentTime;
