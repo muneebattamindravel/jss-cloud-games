@@ -1,12 +1,27 @@
-/* Smash It rules (v2): everything that decides the score.
-   Real rigid-body physics on Rapier's deterministic build, stepped at a fixed
-   1/60 s. Inputs are integers (target point on the tower face in 1/100 world
-   units) applied on step numbers. Layouts and colours come from a seeded,
-   index-addressed hash. No engine trig: the fan uses an integer sine table.
-   The 3D view only reads this. */
+/* Smash It rules: everything that decides the score.
+   Real rigid-body physics on Rapier's deterministic build (identical results on
+   every engine), stepped at a fixed 1/60 s. A shot is an integer target point on
+   the tower face (1/100 world units) applied before a named step. Towers,
+   colours and obstacles come from a seeded, index-addressed hash. No engine
+   trig: rotating parts use an integer sine table. The 3D view only reads this. */
 (function (root) {
   'use strict';
-  var RULES_VERSION = 2;
+  // The physics engine handle. The rules block uses R; each file supplies it.
+  var R = null;
+  function ready() {
+    if (R) return Promise.resolve();
+    var lib = root.RAPIER;
+    return lib.init({}).then(function () { R = lib; });
+  }
+
+  // ==== SMASH IT RULES BEGIN ====
+  // Carried word for word in shared/anticheat/validators/smashIt.js.
+  // Fixed 1/60 s steps; shots apply before the step they name; every random
+  // choice is a pure function of (seed, level, index); rotations use SINQ.
+  var RULES_VERSION = 1;
+  var IDLE_STEPS = 1800;          // 30 s with no shot while a tower stands ends the run
+  var MAX_RUN_STEPS = 144000;     // 40 minutes: a run always ends inside the 60-minute session
+  var MAX_SHOTS = 6000;           // a work bound far above any run's ball supply
   var DT = 1 / 60, GRAVITY = -20;
   var CELL = 1, ROW = 1.3, DEPTH = 0.98, FRONT = 0.5;
   var PLANK_H = 0.8;
@@ -33,11 +48,11 @@
     return (h ^ (h >>> 16)) >>> 0;
   }
 
-  var R = null;
-  function ready() {
-    if (R) return Promise.resolve();
-    var lib = root.RAPIER;
-    return lib.init({}).then(function () { R = lib; });
+  // the session seed (a hex string) to a 32-bit integer: FNV-1a over its characters
+  function seedToInt(seed) {
+    var str = String(seed == null ? '' : seed), h = 0x811C9DC5;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i) & 255; h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
   }
 
   // ---------------------------------------------------------------- layouts
@@ -233,6 +248,7 @@
       S.pend = { body: pb, k: hash(S.seed, L, 23) & 1023, spd: Math.min(9, 4 + (L >> 3)), amp: 150, y: py };
     }
     S.boss = isBoss(L);
+    S.towerAt = S.step;
     S.shields = [];
     for (var si = 0; si < nShield; si++) {
       var sy = (nShield === 2 ? (si === 0 ? 1 : 3.4) : (2 + (hash(S.seed, L, 9) % 3)) * ROW * 0.7) + (si ? 0.4 : 0);
@@ -264,7 +280,7 @@
 
   function initSim(seed, startLevel) {          // startLevel: QA only, never used by a scored run
     var S = { v: RULES_VERSION, seed: seed >>> 0, step: 0, level: startLevel > 1 ? startLevel | 0 : 1, balls: 0, score: 0, nextId: 1, shots: 0, lastShot: -99,
-      phase: 'play', timer: 0, events: [], world: null };
+      phase: 'play', timer: 0, events: [], world: null, towerAt: 0, end: null };
     clearWorld(S);
     buildTower(S);
     return S;
@@ -272,7 +288,7 @@
 
   // ---------------------------------------------------------------- input
   function shoot(S, tx, ty) {
-    if (S.phase !== 'play' || S.balls <= 0 || S.step - S.lastShot < SHOT_GAP) return false;
+    if (S.phase !== 'play' || S.balls <= 0 || S.step - S.lastShot < SHOT_GAP || S.shots >= MAX_SHOTS) return false;
     if ((tx | 0) !== tx || (ty | 0) !== ty || tx < -700 || tx > 700 || ty < -150 || ty > 1300) return false;
     var x = tx / 100, y = ty / 100, z = FRONT;
     // straight like a bullet: no gravity until the ball first touches something
@@ -439,6 +455,8 @@
     }
     S.ballsLive = keep;
 
+    if (S.phase === 'play' && S.step >= MAX_RUN_STEPS) { S.phase = 'over'; S.end = 'time'; S.events.push({ e: 'over', score: S.score }); return; }
+    if (S.phase === 'play' && S.blocks.length && S.step - Math.max(S.lastShot, S.towerAt) > IDLE_STEPS) { S.phase = 'ending'; S.timer = 60; S.end = 'idle'; }
     if (S.phase === 'play') {
       if (!S.blocks.length) {
         var bonus = 100 + 50 * S.level;
@@ -447,7 +465,7 @@
       } else if (S.balls <= 0 && !S.ballsLive.length) {
         var moving = false;
         for (i = 0; i < S.blocks.length; i++) if (!S.blocks[i].body.isSleeping()) { moving = true; break; }
-        if (!moving || S.step - S.lastShot > 420) { S.phase = 'ending'; S.timer = 60; }
+        if (!moving || S.step - S.lastShot > 420) { S.phase = 'ending'; S.timer = 60; S.end = 'balls'; }
       }
     } else if (S.phase === 'clear') {
       if (--S.timer <= 0) {
@@ -461,7 +479,24 @@
     }
   }
 
-  root.KTRules = { RULES_VERSION: RULES_VERSION, ready: ready, initSim: initSim, stepSim: stepSim, shoot: shoot, hash: hash,
+  // The whole world as numbers, for step-by-step parity checks: every block's
+  // pose and velocity, every ball, every obstacle phase, and the run counters.
+  function snapshot(S) {
+    var out = [S.step, S.level, S.balls, S.score, S.shots, S.lastShot, S.timer, S.phase === 'play' ? 0 : S.phase === 'clear' ? 1 : S.phase === 'ending' ? 2 : 3, S.blocks.length, S.ballsLive.length];
+    var i, p, q, v;
+    for (i = 0; i < S.blocks.length; i++) {
+      var b = S.blocks[i]; p = b.body.translation(); q = b.body.rotation(); v = b.body.linvel();
+      out.push(b.id, b.hp, p.x, p.y, p.z, q.x, q.y, q.z, q.w, v.x, v.y, v.z);
+    }
+    for (i = 0; i < S.ballsLive.length; i++) { var bl = S.ballsLive[i]; p = bl.body.translation(); v = bl.body.linvel(); out.push(bl.n, bl.age, bl.pierced, p.x, p.y, p.z, v.x, v.y, v.z); }
+    if (S.fan) out.push(S.fan.k);
+    for (i = 0; i < S.shields.length; i++) out.push(S.shields[i].k);
+    if (S.pend) out.push(S.pend.k);
+    return out;
+  }
+  // ==== SMASH IT RULES END ====
+
+  root.KTRules = { RULES_VERSION: RULES_VERSION, ready: ready, initSim: initSim, stepSim: stepSim, shoot: shoot, hash: hash, seedToInt: seedToInt, snapshot: snapshot, addBlock: addBlock, IDLE_STEPS: IDLE_STEPS, MAX_RUN_STEPS: MAX_RUN_STEPS, MAX_SHOTS: MAX_SHOTS,
     DT: DT, GRAVITY: GRAVITY, CELL: CELL, ROW: ROW, DEPTH: DEPTH, FRONT: FRONT, PLANK_H: PLANK_H, BALL_R: BALL_R, CANNON: CANNON,
     FLIGHT_STEPS: FLIGHT_STEPS, FAN_LEN: FAN_LEN, FAN_HALF: FAN_HALF, FAN_Y: FAN_Y, FAN_Z: FAN_Z, SHIELD_W: SHIELD_W, SHIELD_H: SHIELD_H, SHIELD_Z: SHIELD_Z, PEND_LEN: PEND_LEN, PEND_R: PEND_R, layout: layout };
 })(typeof window !== 'undefined' ? window : globalThis);

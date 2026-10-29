@@ -6,6 +6,8 @@
    rules as an integer target point. */
 (function () {
   'use strict';
+  // a local handle on Math: the texture painters call it per pixel, and a closure lookup is cheap everywhere
+  var Math = window.Math;
   var R = window.KTRules, A = window.KTAudio, T = window.THREE;
   // pre-rendered backdrops (painted by tools/scenery.js): 640 x 736 design px, 113 px of side margin, horizon at 232
   var SC = { MARGIN: 113, DW: 640, DH: 736 };
@@ -926,48 +928,110 @@
   }
 
   // ---------------------------------------------------------------- loop + input
-  var params = new URLSearchParams(location.search), seedArg = params.get('seed');
+  // Platform contract: the seed comes from the session (window.__kjSeed), one session is one
+  // run, each ACCEPTED shot is emitted as {kind:'shot', n, x, y, step}, the score is sent once
+  // after the run has played out. QA switches (seed, level) work standalone only.
+  var EMBED = !!window.__kjEmbed;
+  var Q = EMBED ? '' : location.search;
+  var params = new URLSearchParams(Q), seedArg = params.get('seed');
+  var RP = (window.KJReplay && window.KJReplay.active()) ? window.KJReplay : null;
+  if (RP) RP.ready('smash-it');
   function newSeed() { return seedArg ? (parseInt(seedArg, 10) >>> 0) : ((Math.random() * 4294967296) >>> 0); }
   var menuLift = 1;
   var S = null, mode = 'loading', acc = 0, last = null, STEP = 1000 / 60, perfT = 0;
+  var engineReady = false, sessionReady = false, runsStarted = 0, traceVersion = 0, submitted = false, replayCur = null, pendingShot = null;
   var ray = new T.Raycaster(), plane = new T.Plane(new T.Vector3(0, 0, 1), -R.FRONT), hitP = new T.Vector3();
   function tapToTarget(cx, cy) {
     var nx = (cx - fitRect.x) / fitRect.w * 2 - 1, ny = -((cy - fitRect.y) / fitRect.h * 2 - 1);
     ray.setFromCamera({ x: nx, y: ny }, pickCam);
     if (!ray.ray.intersectPlane(plane, hitP)) return null;
-    return { x: Math.round(hitP.x * 100), y: Math.round(hitP.y * 100) };
+    return { x: Math.max(-700, Math.min(700, Math.round(hitP.x * 100))), y: Math.max(-150, Math.min(1300, Math.round(hitP.y * 100))) };
   }
-  canvas.addEventListener('pointerdown', function (ev) {
-    if (!ev.isPrimary || mode !== 'play') return;
-    ev.preventDefault(); A.init();
+  // one physical press is one tap; the shot is queued and fired before the next fixed step
+  function onPress(ev) {
+    if (mode !== 'play' || RP) return;
+    A.init();
     var p = tapToTarget(ev.clientX, ev.clientY);
-    if (p) R.shoot(S, Math.max(-700, Math.min(700, p.x)), Math.max(-150, Math.min(1300, p.y)));
-  });
-  function startRun() {
+    if (p) pendingShot = p;
+  }
+  function onCanvas(ev) { return !ev || ev.target === canvas; }
+  if (window.KJPress) window.KJPress.bind(onPress, { keys: [], ignore: function (ev) { return !onCanvas(ev); } });
+  else canvas.addEventListener('pointerdown', function (ev) { if (ev.isPrimary) onPress(ev); });
+  function fireShot(x, y, live) {
+    var n = S.shots, step = S.step;
+    if (R.shoot(S, x, y) !== true) return false;
+    // the ACTION only, never its result: the server replays it
+    if (live && traceVersion >= 1 && typeof window.__kjShot === 'function') { try { window.__kjShot(performance.now(), n, x, y, step); } catch (_e) {} }
+    return true;
+  }
+  function clearScene() {
     if (S && S.world) S.world.free();
     for (var id in blockMeshes) { scene.remove(blockMeshes[id].g); delete blockMeshes[id]; }
     fallers.forEach(function (f) { scene.remove(f.m.g); }); fallers = [];
-    S = R.initSim(newSeed(), parseInt(params.get('level'), 10) || 1); shownScore = 0; handleEvents(S);
   }
-  elPlay.addEventListener('click', function () { if (mode !== 'menu') return; A.init(); mode = 'play'; elMenu.classList.add('hide'); hud.classList.remove('inmenu'); if (S && S.shots === 0) document.getElementById('hint').classList.remove('hide'); });
-  document.getElementById('againBtn').addEventListener('click', function () { A.init(); startRun(); mode = 'play'; elOver.classList.add('hide'); });
+  // the title screen shows a preview tower (not a run: nothing is emitted or scored)
+  function previewTower() { clearScene(); S = R.initSim(newSeed(), 1); shownScore = 0; handleEvents(S); }
+  function startRun() {
+    if (!engineReady || !sessionReady) return false;
+    if (EMBED && runsStarted > 0) return false;          // inside the platform one session is one run
+    runsStarted++; submitted = false;
+    traceVersion = (typeof window.__kjGameStart === 'function') ? (Number(window.__kjGameStart(performance.now(), R.RULES_VERSION)) || 0) : 0;
+    if (RP) { traceVersion = RP.capVersion(traceVersion); replayCur = RP.cursor(['shot'], function (p) { return Number(p.step); }); RP.started(traceVersion); }
+    clearScene();
+    var seedInt = (EMBED || RP) ? R.seedToInt(window.__kjSeed) : newSeed();
+    S = R.initSim(seedInt, (EMBED || RP) ? 1 : (parseInt(params.get('level'), 10) || 1));
+    shownScore = 0; pendingShot = null; handleEvents(S);
+    return true;
+  }
+  function submitNow() {
+    if (submitted || !S) return; submitted = true;
+    if (RP) RP.setStep(S.step);
+    if (typeof window.__kjSubmit === 'function') window.__kjSubmit(S.score);
+  }
+  function setPlay() {
+    var ok = engineReady && sessionReady;
+    elPlay.disabled = !ok; elPlay.textContent = ok ? 'PLAY' : 'PREPARING YOUR GAME';
+  }
+  function play() {
+    if (mode !== 'menu') return;
+    A.init();
+    if (!startRun()) return;
+    mode = 'play'; elMenu.classList.add('hide'); hud.classList.remove('inmenu');
+    if (S && S.shots === 0) document.getElementById('hint').classList.remove('hide');
+  }
+  elPlay.addEventListener('click', play);
+  document.getElementById('againBtn').addEventListener('click', function () { if (EMBED) return; mode = 'menu'; elOver.classList.add('hide'); play(); });
   var muted = false;
   var pausedFrom = null;
-  document.getElementById('gear').addEventListener('click', function () { A.init(); if (mode === 'play') { pausedFrom = 'play'; mode = 'paused'; } elSet.classList.remove('hide'); });
+  document.getElementById('gear').addEventListener('click', function () { A.init(); if (mode === 'play' && !EMBED && !RP) { pausedFrom = 'play'; mode = 'paused'; } elSet.classList.remove('hide'); });
   function closeSettings() { elSet.classList.add('hide'); if (pausedFrom) { mode = pausedFrom; pausedFrom = null; last = null; } }
   document.getElementById('closeSet').addEventListener('click', closeSettings);
   document.getElementById('resumeBtn').addEventListener('click', closeSettings);
   elSound.addEventListener('click', function () { muted = !muted; A.mute(muted); elSound.classList.toggle('off', muted); });
 
+  // the run is over: let the last pieces fall, then send the score once (a timer backs up a hidden tab)
+  function endRun() {
+    mode = 'over';
+    setTimeout(submitNow, 1500);
+    if (EMBED || RP) return;
+    var prev = bestScore(); elFinal.textContent = S.score; elCleared.textContent = S.level - 1;
+    document.getElementById('best').textContent = Math.max(prev, S.score);
+    document.getElementById('newBest').classList.toggle('on', S.score > prev && S.score > 0);
+    if (S.score > prev) bestScore(S.score);
+    setTimeout(function () { elOver.classList.remove('hide'); }, 600);
+  }
+
   function frame(now) {
     if (last === null) last = now;
-    var dtMs = Math.min(now - last, STEP * 3); last = now; acc += dtMs;
+    var dtMs = RP ? RP.elapsed(now - last, STEP * 3) : Math.min(now - last, STEP * 3); last = now; acc += dtMs;
     var dt = dtMs / 1000; perfT += dt;
     while (acc >= STEP) {
       acc -= STEP;
       if (mode === 'play') {
+        if (RP) { var due = replayCur.due(S.step); for (var di = 0; di < due.length; di++) fireShot(Number(due[di].x), Number(due[di].y), false); }
+        else if (pendingShot) { fireShot(pendingShot.x, pendingShot.y, true); pendingShot = null; }
         R.stepSim(S); handleEvents(S);
-        if (S.phase === 'over') { mode = 'over'; var prev = bestScore(); elFinal.textContent = S.score; elCleared.textContent = S.level - 1; document.getElementById('best').textContent = Math.max(prev, S.score); document.getElementById('newBest').classList.toggle('on', S.score > prev && S.score > 0); if (S.score > prev) bestScore(S.score); setTimeout(function () { elOver.classList.remove('hide'); }, 600); }
+        if (S.phase === 'over') endRun();
       }
     }
     if (camState.t < 1) {
@@ -995,7 +1059,7 @@
     shake *= 0.86;
     camera.position.copy(pickCam.position); camera.quaternion.copy(pickCam.quaternion);
     camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake;
-    if (S) { updateHud(S); bumpScore(S); }
+    if (S) { updateHud(S); bumpScore(S); if (RP && mode === 'play') RP.report(S.step, S.score); }
     renderer.clear();
     renderer.render(bgScene, bgCam);
     renderer.render(scene, camera);
@@ -1007,12 +1071,19 @@
   placeCam(pickCam, camState.d, camState.look);
   resize();
   requestAnimationFrame(frame);
+  setPlay();
   R.ready().then(function () {
-    startRun();
+    engineReady = true;
+    previewTower();
     mode = 'menu';
-    elPlay.disabled = false; elPlay.textContent = 'PLAY';
+    setPlay();
+    if (RP && sessionReady) play();
   });
+  function onSessionReady() { sessionReady = true; setPlay(); if (RP && engineReady) play(); }
+  if (typeof window.__kjOnSessionReady === 'function') window.__kjOnSessionReady(onSessionReady); else onSessionReady();
 
-  window.__kt = { fxGlass: function (x, y, col) { glassBreak({ x: x, y: y, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, col, 1.15); }, get S() { return S; }, R: R, tapToTarget: tapToTarget,
+  // test hook only: the shipped page exposes no game state
+  if (window.__smashItHarness) window.__smashItHarness.game = { fxGlass: function (x, y, col) { glassBreak({ x: x, y: y, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, col, 1.15); }, get S() { return S; }, R: R, tapToTarget: tapToTarget, get mode() { return mode; }, get pendingShot() { return pendingShot; }, get acc() { return acc; },
+    get sessionReady() { return sessionReady; }, get engineReady() { return engineReady; }, get runsStarted() { return runsStarted; }, get traceVersion() { return traceVersion; }, get submitted() { return submitted; }, get fit() { return fitRect; },
     toScreen: function (x, y, z) { var p = new T.Vector3(x, y, z === undefined ? R.FRONT : z).project(pickCam); return { x: fitRect.x + (p.x + 1) / 2 * fitRect.w, y: fitRect.y + (1 - p.y) / 2 * fitRect.h }; } };
 })();

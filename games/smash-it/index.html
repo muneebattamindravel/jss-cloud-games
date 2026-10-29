@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <script src="/games/_shared/no-touch-ui.js"></script>
+  <!-- Global sound mute: must load before any audio is constructed. -->
+  <script src="../_shared/mute.js"></script>
+  <script src="../_shared/kj-press.js"></script>
+  <script src="../_shared/kj-replay.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Smash It</title>
   <style>
@@ -209,6 +214,119 @@
       </div>
     </div>
   </div>
+  <script src="/sdk/kj-sdk/kj-sdk-v2.js"></script>
+  <script>
+    (function () {
+      var GAME_ID = 'smash-it';
+      var _started = false;
+      var _submitted = false;
+
+      window.__kjEmbed = (window.parent !== window) || /[?&]replay=1(&|$)/.test(location.search);
+      if (window.__kjEmbed) document.body.classList.add('kj-embed');
+
+      var _sessionReady = false;
+      var _readyWaiters = [];
+      window.__kjSessionReady = function () { return _sessionReady; };
+      window.__kjOnSessionReady = function (cb) {
+        if (_sessionReady) { try { cb(); } catch (_e) {} return; }
+        _readyWaiters.push(cb);
+      };
+      function markReady() {
+        if (_sessionReady) return;
+        _sessionReady = true;
+        var q = _readyWaiters.splice(0);
+        for (var i = 0; i < q.length; i++) { try { q[i](); } catch (_e) {} }
+      }
+
+      var _platformReady = false;
+      var _wantSession = false;
+      window.addEventListener('message', function (e) {
+        if (!e.data) return;
+        if (e.data.type === 'KJ_CONFIG' || e.data.type === 'KJ_V2_START') {
+          _platformReady = true;
+          if (_wantSession) { _wantSession = false; window.__kjBeginSession(); }
+        }
+      });
+
+      window.__kjBeginSession = function () {
+        if (_started) return;
+        if (!window.__kjEmbed) { _started = true; markReady(); return; }
+        if (!_platformReady) { _wantSession = true; return; }
+        _started = true;
+        if (typeof window.kjStartV2 !== 'function') return;
+        window.kjStartV2({ gameId: GAME_ID })
+          .then(function () { markReady(); })
+          .catch(function (err) {
+            // Deliberately NOT markReady(): the SDK has told the platform, which offers Retry / Exit.
+            console.error('[smash-it] kjStartV2 failed', err);
+          });
+      };
+
+      try { window.parent.postMessage({ type: 'KJ_GAME_LOADED', gameId: GAME_ID }, '*'); } catch (_) {}
+      window.__kjBeginSession();
+
+      window.__kjGameStart = function (tHint, want) {
+        var v = Number(want) >= 1 ? 1 : 0;
+        try {
+          if (typeof window.kjEmit === 'function') {
+            window.kjEmit('input', { kind: 'start', v: v, tHint: typeof tHint === 'number' ? tHint : performance.now() });
+          }
+        } catch (_e) {}
+        return v;
+      };
+
+      // One accepted shot: its index in the run, the target on the tower face
+      // (1/100 world units) and the step it was fired before. The ACTION only,
+      // never its result.
+      window.__kjShot = function (tHint, n, x, y, step) {
+        try {
+          if (typeof window.kjEmit === 'function') {
+            window.kjEmit('input', {
+              kind: 'shot',
+              n: typeof n === 'number' ? n : null,
+              x: typeof x === 'number' ? x : null,
+              y: typeof y === 'number' ? y : null,
+              step: typeof step === 'number' ? step : null,
+              tHint: tHint || performance.now(),
+            });
+          }
+        } catch (_e) {}
+      };
+
+      window.__kjSubmit = function (score) {
+        if (_submitted) return;
+        _submitted = true;
+        if (!window.__kjEmbed) return;
+        if (typeof window.kjSubmitV2 !== 'function') return;
+        var clientScore = Number(score) || 0;
+        var navigated = false;
+        var safety = setTimeout(function () {
+          if (navigated) return; navigated = true;
+          try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: 'submit_timeout' }, '*'); } catch (_) {}
+        }, 75000);
+        window.kjSubmitV2({ clientClaimedScore: clientScore })
+          .then(function (result) {
+            if (navigated) return; navigated = true;
+            clearTimeout(safety);
+            try {
+              window.parent.postMessage({
+                type: 'KJ_V2_RESULT',
+                score: (result && result.authoritativeScore) != null ? result.authoritativeScore : clientScore,
+                authoritative: !!result && !result.alreadyFinalSession,
+                flagged: !!(result && result.flaggedForReview),
+                notCounted: !!(result && result.counted === false),
+              }, '*');
+            } catch (_) {}
+          })
+          .catch(function (err) {
+            console.error('[smash-it] kjSubmitV2 failed after retries', err);
+            if (navigated) return; navigated = true;
+            clearTimeout(safety);
+            try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: (err && err.message) || 'submit_failed' }, '*'); } catch (_) {}
+          });
+      };
+    })();
+  </script>
   <script src="js/rules.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/game.js"></script>

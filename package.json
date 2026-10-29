@@ -8,6 +8,17 @@
     "test:game": "jest --runInBand --testPathPattern",
     "check": "node scripts/check-game.js"
   },
-  "devDependencies": { "jest": "^29.7.0" },
-  "jest": { "testEnvironment": "node", "testTimeout": 120000, "roots": ["<rootDir>/shared/tests"] }
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 120000,
+    "roots": [
+      "<rootDir>/shared/tests"
+    ]
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-deterministic-compat": "0.19.0"
+  }
 }
