@@ -1,11 +1,11 @@
 /* Copies the rules block from games/smash-it/js/rules.js into
    shared/anticheat/validators/smashIt.js, so the two copies stay word for word
    the same. The parity suite checks they match; this only saves retyping.
-     node games/smash-it/tools/sync-validator.js */
+     node tools/smash-it/sync-validator.js */
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const RULES = path.join(ROOT, 'games', 'smash-it', 'js', 'rules.js');
 const VAL = path.join(ROOT, 'shared', 'anticheat', 'validators', 'smashIt.js');
 const BEGIN = '  // ==== SMASH IT RULES BEGIN ====', END = '  // ==== SMASH IT RULES END ====';

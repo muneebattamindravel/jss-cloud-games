@@ -761,7 +761,7 @@
   // ---------------------------------------------------------------- HUD
   var hud = document.getElementById('hud');
   var elBalls = document.getElementById('ballsN'), elScore = document.getElementById('score'), elTower = document.getElementById('tower');
-  var elBanner = document.getElementById('banner'), elFloats = document.getElementById('floats');
+  var elFloats = document.getElementById('floats');
   var elMenu = document.getElementById('menu'), elOver = document.getElementById('over'), elFinal = document.getElementById('finalScore'), elCleared = document.getElementById('cleared');
   var elPlay = document.getElementById('playBtn'), elFill = document.getElementById('towerFill'), elSet = document.getElementById('settings'), elSound = document.getElementById('soundTog');
   var towerTotal = 1;
@@ -804,7 +804,6 @@
   }
   var lastScore = 0;
   function bumpScore(S) { if (S.score !== lastScore) { lastScore = S.score; elScore.classList.remove('pop'); void elScore.offsetWidth; elScore.classList.add('pop'); } }
-  function banner(txt, sub) { elBanner.querySelector('.ribbon').textContent = txt; elBanner.querySelector('.bonus').textContent = sub; elBanner.classList.remove('show'); void elBanner.offsetWidth; elBanner.classList.add('show'); }
   function bestScore(v) { try { if (v !== undefined) localStorage.setItem('smashItBest', String(v)); return parseInt(localStorage.getItem('smashItBest'), 10) || 0; } catch (e) { return 0; } }
 
   // ---------------------------------------------------------------- tower framing and theme
