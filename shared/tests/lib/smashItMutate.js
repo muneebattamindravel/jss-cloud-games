@@ -33,8 +33,10 @@ const FILES = {
   html: path.join(ROOT, 'games/smash-it/index.html'),
   validator: path.join(ROOT, 'shared/anticheat/validators/smashIt.js'),
 };
-const SUITES = ['shared/tests/smashItParity.test.js', 'shared/tests/smashItAdversarial.test.js',
-  'shared/tests/smashItReplay.test.js', 'shared/tests/smashItRender.test.js'];
+// cheapest first: the pin table and the hand-placed edges, then the short
+// suites, then full parity. The first stage is skipped under --nopin.
+const SUITES = [['shared/tests/smashItParity.test.js', '-t', 'one block, pinned|reload gap'], ['shared/tests/smashItRender.test.js'],
+  ['shared/tests/smashItAdversarial.test.js'], ['shared/tests/smashItReplay.test.js'], ['shared/tests/smashItParity.test.js']];
 const SUITE_TIMEOUT_MS = 10 * 60 * 1000;
 let NOPIN = false;
 
@@ -164,7 +166,8 @@ function check() {
 
 function runSuites() {
   for (const suite of SUITES) {
-    const r = spawnSync(path.join(ROOT, 'node_modules/.bin/jest'), ['--runInBand', '--silent', '--ci', '--bail', suite],
+    if (NOPIN && suite.length > 1) continue;
+    const r = spawnSync(path.join(ROOT, 'node_modules/.bin/jest'), ['--runInBand', '--silent', '--ci', '--bail'].concat(suite),
       { cwd: ROOT, encoding: 'utf8', timeout: SUITE_TIMEOUT_MS, env: Object.assign({}, process.env, { CI: '1' }, NOPIN ? { SMASHIT_SKIP_PIN: '1' } : {}) });
     if (r.error && r.error.code === 'ETIMEDOUT') return false;   // a hang is a catch
     if (r.status !== 0) return false;
