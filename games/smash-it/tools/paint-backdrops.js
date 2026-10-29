@@ -1,7 +1,7 @@
-/* Paints the Kaanch Tod backdrops (tools/scenery.js) once and writes them to
+/* Paints the Smash It backdrops (tools/scenery.js) once and writes them to
    img/ as JPEGs, so the game ships pre-rendered images instead of painting at
    load. Run after changing tools/scenery.js:
-     node games/kaanch-tod/tools/paint-backdrops.js
+     node games/smash-it/tools/paint-backdrops.js
    Needs Playwright's Chromium. HORIZON must match game.js (camera pitch and fov). */
 'use strict';
 const path = require('path');

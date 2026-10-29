@@ -1,4 +1,4 @@
-/* Kaanch Tod: the 3D view, effects, HUD and input.
+/* Smash It: the 3D view, effects, HUD and input.
    Rules and physics live in rules.js (window.KTRules, Rapier deterministic).
    This file only READS the sim: block meshes follow their rigid bodies, the
    painted backdrop is a pre-rendered image (tools/scenery.js), and every effect here is cosmetic
@@ -766,15 +766,15 @@
       elBalls.textContent = S.balls; elBalls.parentNode.classList.toggle('low', S.balls <= 3);
       elBalls.parentNode.classList.remove('bump'); void elBalls.offsetWidth; elBalls.parentNode.classList.add('bump'); shownBalls = S.balls;
     }
-    var label = 'TOWER ' + S.level;
+    var label = 'LEVEL ' + S.level;
     if (elTower.textContent !== label) elTower.textContent = label;
     var pct = Math.round((1 - S.blocks.length / towerTotal) * 100);
     if (elFill.dataset.p !== String(pct)) { elFill.dataset.p = pct; elFill.style.width = 'calc(' + pct + '% - ' + (pct ? 6 * pct / 100 : 0) + 'px)'; }
   }
   var lastScore = 0;
   function bumpScore(S) { if (S.score !== lastScore) { lastScore = S.score; elScore.classList.remove('pop'); void elScore.offsetWidth; elScore.classList.add('pop'); } }
-  function banner(txt, sub) { elBanner.querySelector('b').textContent = txt; elBanner.querySelector('span').textContent = sub; elBanner.classList.remove('show'); void elBanner.offsetWidth; elBanner.classList.add('show'); }
-  function bestScore(v) { try { if (v !== undefined) localStorage.setItem('kaanchTodBest', String(v)); return parseInt(localStorage.getItem('kaanchTodBest'), 10) || 0; } catch (e) { return 0; } }
+  function banner(txt, sub) { elBanner.querySelector('.ribbon').textContent = txt; elBanner.querySelector('.bonus').textContent = sub; elBanner.classList.remove('show'); void elBanner.offsetWidth; elBanner.classList.add('show'); }
+  function bestScore(v) { try { if (v !== undefined) localStorage.setItem('smashItBest', String(v)); return parseInt(localStorage.getItem('smashItBest'), 10) || 0; } catch (e) { return 0; } }
 
   // ---------------------------------------------------------------- tower framing and theme
   var curTables = [];
@@ -783,7 +783,7 @@
     var minX = 1e9, maxX = -1e9, top = 0;
     S.tables.forEach(function (t) { minX = Math.min(minX, t.cx - t.w / 2); maxX = Math.max(maxX, t.cx + t.w / 2); });
     S.blocks.forEach(function (b) { var p = b.body.translation(); top = Math.max(top, p.y + b.h / 2); });
-    if (S.fan) top = Math.max(top, R.FAN_Y + 1);
+    if (S.fan) top = Math.max(top, S.fan.body.translation().y + 1);
     // table top sits a little below the middle of the screen, tower top stays under the HUD
     var halfW = Math.max(Math.abs(minX), Math.abs(maxX)) + 0.4;
     var d = Math.max(halfW / (TANH * ASPECT * 0.96), top / (0.74 * TANH), 15);
@@ -874,7 +874,7 @@
           break;
         }
         case 'ballGone': if (e.y > -2) spawnSoft(new T.Vector3(e.x, e.y, e.z), 0.8, 0xffffff, 0.7, 0.35, 2); break;
-        case 'clear': banner('SAAF!', '+' + e.bonus); A.play('clear'); confetti(); break;
+        case 'clear': banner('LEVEL CLEAR!', '+' + e.bonus + ' points'); A.play('clear'); confetti(); break;
         case 'over': A.play('over'); break;
       }
     }
@@ -914,7 +914,7 @@
     fallers.forEach(function (f) { scene.remove(f.m.g); }); fallers = [];
     S = R.initSim(newSeed(), parseInt(params.get('level'), 10) || 1); shownScore = 0; handleEvents(S);
   }
-  elPlay.addEventListener('click', function () { if (mode !== 'menu') return; A.init(); mode = 'play'; elMenu.classList.add('hide'); });
+  elPlay.addEventListener('click', function () { if (mode !== 'menu') return; A.init(); mode = 'play'; elMenu.classList.add('hide'); hud.classList.remove('inmenu'); });
   document.getElementById('againBtn').addEventListener('click', function () { A.init(); startRun(); mode = 'play'; elOver.classList.add('hide'); });
   var muted = false;
   var pausedFrom = null;
@@ -972,6 +972,7 @@
     startRun();
     mode = 'menu';
     elPlay.disabled = false; elPlay.textContent = 'PLAY';
+    document.getElementById('menuBest').textContent = bestScore();
   });
 
   window.__kt = { get S() { return S; }, R: R, tapToTarget: tapToTarget,

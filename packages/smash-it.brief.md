@@ -1,6 +1,6 @@
-# Game brief: Kaanch Tod (kaanch-tod)
+# Game brief: Smash It (smash-it)
 
-- **Display name / id:** Kaanch Tod / `kaanch-tod`
+- **Display name / id:** Smash It / `smash-it`
 - **One-line pitch:** Fire a cannon at a tower of glass jars, crates and logs; smash it off the table before the balls run out.
 - **Reference game:** a well known tower-smash cannon game (founder's screen recordings, branch `royal-smash-videos`, reference only, nothing copied). Name, art and audio here are original.
 - **Core loop:** tap a point on the tower, a ball flies there. Glass shatters in one hit, crates take 2, logs take 3. The ball keeps its energy and ricochets through neighbours. Anything unsupported falls; a crate or log falling fast onto glass crushes it.
@@ -15,3 +15,9 @@
 - **Difficulty ramp:** tower 1 small and all glass; crates and logs from tower 2; spinning fan in front from tower 3, faster from tower 7.
 - **Bot gap guess:** high (a seed reader can plan perfect ricochets); to measure in Phase 6.
 - **Out of scope for v1:** power-ups, continues, themes per level.
+
+## Changes since the first brief
+
+- Renamed from Kaanch Tod to Smash It at the founder's request.
+- Real 3D with rigid-body physics (Rapier deterministic build); towers are designed pictures from a library of 21 designs.
+- Backdrops: the founder supplied enhanced versions of the code-painted scenes (generated with ChatGPT from our originals) and asked for them to be used. Founder's say-so recorded here for rule 6.

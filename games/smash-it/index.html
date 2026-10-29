@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Smash It</title>
+  <style>
+    @font-face { font-family: 'Lilita One'; src: url('fonts/lilita-one.woff2') format('woff2'); font-display: swap; }
+    /* Smash It UI: candy plates with one dark ink outline, gold trims, soft drop shadows.
+       Everything is laid out in the 414 x 736 design rect and zoomed to the screen. */
+    :root {
+      --ink: #2b0b4a; --ink2: #4a1680;
+      --red1: #ff6b7d; --red2: #ee2b47; --red3: #b3122d;
+      --gold1: #fff3b0; --gold2: #ffcb2f; --gold3: #e08a00;
+      --green1: #a6f7a0; --green2: #3fd35c; --green3: #179140;
+      --blue1: #9be3ff; --blue2: #2f9df5; --blue3: #1559c7;
+      --violet1: #c79bff; --violet2: #8b3ff2; --violet3: #5617a8;
+      --paper: #fffaf3; --paper2: #f3e6f6; --bg: #5fae34;
+      --font: 'Lilita One', 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
+    }
+    html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+    canvas { display: block; width: 100vw; height: 100%; }
+    #hud { position: fixed; left: 0; top: 0; width: 414px; height: 736px; transform-origin: 0 0; pointer-events: none; font-family: var(--font); color: #fff; }
+    button { font-family: var(--font); -webkit-tap-highlight-color: transparent; }
+    .out { -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; }
+    .lift { filter: drop-shadow(0 3px 0 var(--ink)); }
+
+    /* ---------- in-game top bar */
+    #ballsCard { position: absolute; left: 12px; top: 20px; width: 88px; height: 92px; }
+    #ballsCard .plate { position: absolute; left: 0; right: 0; top: 12px; bottom: 0; border-radius: 22px; border: 3px solid var(--ink);
+      background: linear-gradient(var(--red1), var(--red2) 40%, var(--red3)); box-shadow: inset 0 3px 0 rgba(255,255,255,.45), inset 0 -4px 0 rgba(0,0,0,.18), 0 5px 0 var(--ink), 0 9px 14px rgba(0,0,0,.25); }
+    #ballsCard .face { position: absolute; left: 9px; right: 9px; top: 28px; bottom: 10px; border-radius: 14px; border: 2.5px solid var(--ink);
+      background: linear-gradient(#fff, var(--paper) 55%, var(--paper2)); box-shadow: inset 0 -4px 0 rgba(120,40,90,.14); }
+    #ballsCard .tag { position: absolute; left: 50%; top: 0; transform: translateX(-50%); padding: 2px 13px 4px; border-radius: 12px; border: 3px solid var(--ink); font-size: 16px; white-space: nowrap;
+      background: linear-gradient(var(--gold1), var(--gold2) 50%, var(--gold3)); color: var(--ink2); box-shadow: inset 0 2px 0 rgba(255,255,255,.6), 0 3px 0 var(--ink); }
+    #ballsN { position: absolute; left: 9px; right: 9px; top: 30px; bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 38px; color: var(--red2);
+      -webkit-text-stroke: 0; text-shadow: 0 2px 0 rgba(140,10,40,.18); }
+    #ballsCard.low #ballsN { animation: throb .7s ease-in-out infinite; }
+    @keyframes throb { 50% { transform: scale(1.14); color: #ff1636; } }
+    #ballsCard.bump { animation: bump .28s ease-out; }
+    @keyframes bump { 40% { transform: scale(1.1) rotate(-3deg); } }
+
+    #scoreBox { position: absolute; left: 112px; right: 112px; top: 22px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    #towerBar { position: relative; width: 132px; height: 26px; border-radius: 14px; border: 3px solid var(--ink); background: linear-gradient(#3b1468, #2a0b4d); box-shadow: 0 3px 0 var(--ink); overflow: hidden; }
+    #towerFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(var(--gold1), var(--gold2) 50%, var(--gold3)); transition: width .35s ease-out; }
+    #towerFill::after { content: ''; position: absolute; left: 6px; right: 6px; top: 3px; height: 4px; border-radius: 3px; background: rgba(255,255,255,.65); }
+    #tower { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; letter-spacing: .5px; -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; }
+    #score { font-size: 40px; line-height: 1.1; -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; filter: drop-shadow(0 3px 0 var(--ink)); }
+    #score.pop { animation: scorePop .25s ease-out; }
+    @keyframes scorePop { 40% { transform: scale(1.16); } }
+
+    #gear { position: absolute; right: 12px; top: 30px; width: 60px; height: 60px; border-radius: 50%; padding: 0; cursor: pointer; pointer-events: auto; border: 3px solid var(--ink);
+      background: radial-gradient(circle at 50% 35%, var(--red1), var(--red2) 55%, var(--red3)); box-shadow: inset 0 0 0 4px var(--gold2), inset 0 0 0 6px var(--ink), inset 0 4px 0 6px rgba(255,255,255,.25), 0 5px 0 var(--ink), 0 9px 14px rgba(0,0,0,.25); }
+    #gear svg { width: 30px; height: 30px; display: block; margin: auto; }
+    #gear:active { transform: translateY(3px); box-shadow: inset 0 0 0 4px var(--gold2), inset 0 0 0 6px var(--ink), 0 2px 0 var(--ink); }
+
+    #hud.inmenu #ballsCard, #hud.inmenu #scoreBox, #hud.inmenu #gear { opacity: 0; }
+    #ballsCard, #scoreBox, #gear { transition: opacity .3s; }
+
+    /* ---------- point pops */
+    #floats { position: absolute; inset: 0; overflow: hidden; }
+    .float { position: absolute; transform: translate(-50%, -50%); font-size: 26px; line-height: 1; white-space: nowrap; color: #fff;
+      -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; filter: drop-shadow(0 3px 0 var(--ink)); animation: rise 1s cubic-bezier(.2,.9,.3,1) forwards; }
+    .float.gold { color: var(--gold2); } .float.red { color: #ffd0d6; } .float.green { color: var(--green1); } .float.blue { color: var(--blue1); }
+    .float.big { font-size: 36px; -webkit-text-stroke-width: 8px; }
+    @keyframes rise {
+      0% { opacity: 0; transform: translate(-50%, -40%) scale(.3) rotate(var(--tilt, 0deg)); }
+      18% { opacity: 1; transform: translate(-50%, -75%) scale(1.15) rotate(var(--tilt, 0deg)); }
+      30% { transform: translate(-50%, -85%) scale(1) rotate(0deg); }
+      75% { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -190%) scale(.9) rotate(0deg); } }
+
+    /* ---------- level clear */
+    #banner { position: absolute; left: 0; right: 0; top: 200px; height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; }
+    #banner .rays { position: absolute; left: 50%; top: 50%; width: 460px; height: 460px; margin: -230px 0 0 -230px; border-radius: 50%;
+      background: repeating-conic-gradient(rgba(255,236,150,.42) 0 9deg, rgba(255,236,150,0) 9deg 20deg);
+      -webkit-mask: radial-gradient(circle, #000 20%, transparent 68%); mask: radial-gradient(circle, #000 20%, transparent 68%); animation: spin 7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #banner .ribbon { position: relative; padding: 10px 34px 14px; border-radius: 20px; border: 4px solid var(--ink); font-size: 40px; white-space: nowrap;
+      background: linear-gradient(var(--violet1), var(--violet2) 45%, var(--violet3)); box-shadow: inset 0 3px 0 rgba(255,255,255,.45), 0 6px 0 var(--ink), 0 12px 20px rgba(0,0,0,.3); }
+    #banner .ribbon::before, #banner .ribbon::after { content: ''; position: absolute; top: 18px; width: 34px; height: 44px; z-index: -1; border: 4px solid var(--ink); background: var(--violet3); }
+    #banner .ribbon::before { left: -26px; border-radius: 6px 0 0 6px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 35% 50%); }
+    #banner .ribbon::after { right: -26px; border-radius: 0 6px 6px 0; clip-path: polygon(0 0, 100% 0, 65% 50%, 100% 100%, 0 100%); }
+    #banner .stars { position: relative; display: flex; gap: 6px; margin-bottom: -8px; z-index: 1; }
+    #banner .stars i { width: 40px; height: 40px; background: var(--gold2); clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 60%, 80% 100%, 50% 77%, 20% 100%, 30% 60%, 0 38%, 38% 35%); filter: drop-shadow(0 2px 0 var(--ink)); }
+    #banner .stars i:nth-child(2) { width: 52px; height: 52px; margin-top: -10px; }
+    #banner .bonus { position: relative; margin-top: 12px; padding: 4px 18px 7px; border-radius: 14px; border: 3px solid var(--ink); font-size: 24px; color: var(--ink2);
+      background: linear-gradient(var(--gold1), var(--gold2) 50%, var(--gold3)); box-shadow: 0 4px 0 var(--ink); }
+    #banner.show { animation: bannerIn 1.8s ease-out forwards; }
+    @keyframes bannerIn { 0% { opacity: 0; transform: scale(.3) rotate(-6deg); } 14% { opacity: 1; transform: scale(1.12) rotate(2deg); } 22% { transform: scale(1) rotate(0); } 82% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.06); } }
+
+    /* ---------- screens */
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; transition: opacity .3s; }
+    .screen.hide { opacity: 0; pointer-events: none; }
+    .dim { background: radial-gradient(ellipse at 50% 42%, rgba(43,11,74,.25), rgba(43,11,74,.78)); }
+
+    #menu { justify-content: flex-start; padding-top: 70px; gap: 0; background: radial-gradient(ellipse at 50% 38%, rgba(43,11,74,.15), rgba(43,11,74,.72) 75%); }
+    .logo { position: relative; width: 340px; height: 230px; }
+    .logo .burst { position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; margin: -150px 0 0 -150px;
+      background: radial-gradient(circle, rgba(255,240,170,.85) 0 18%, rgba(255,240,170,0) 60%); animation: pulseGlow 2.4s ease-in-out infinite; }
+    @keyframes pulseGlow { 50% { transform: scale(1.08); opacity: .8; } }
+    .logo svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .logo .w1, .logo .w2 { font-family: var(--font); text-anchor: middle; paint-order: stroke fill; stroke: var(--ink); stroke-linejoin: round; }
+    .logo .w1 { font-size: 104px; stroke-width: 16px; }
+    .logo .w2 { font-size: 112px; stroke-width: 16px; }
+    .shard { position: absolute; width: 18px; height: 22px; background: linear-gradient(135deg, #e9fbff, #7fd3ff); clip-path: polygon(50% 0, 100% 70%, 30% 100%); filter: drop-shadow(0 2px 0 var(--ink)); animation: floaty 2.8s ease-in-out infinite; }
+    @keyframes floaty { 50% { transform: translateY(-8px) rotate(14deg); } }
+    .bestChip { margin-top: 6px; padding: 5px 16px 7px; border-radius: 14px; border: 3px solid var(--ink); font-size: 18px; color: var(--ink2);
+      background: linear-gradient(#fff, var(--paper2)); box-shadow: 0 4px 0 var(--ink); }
+    .bestChip b { font-weight: 400; color: var(--red2); }
+    .how { display: flex; gap: 10px; margin: 26px 0 30px; }
+    .how div { width: 104px; padding: 10px 6px 10px; border-radius: 18px; border: 3px solid var(--ink); text-align: center; font-size: 14px; line-height: 1.15; color: var(--ink2);
+      background: linear-gradient(#fff, var(--paper) 60%, var(--paper2)); box-shadow: 0 4px 0 var(--ink); }
+    .how svg { width: 52px; height: 52px; display: block; margin: 0 auto 4px; }
+
+    .btn { position: relative; font-size: 34px; color: #fff; border: 4px solid var(--ink); border-radius: 26px; padding: 12px 64px 16px; cursor: pointer;
+      background: linear-gradient(var(--green1), var(--green2) 45%, var(--green3)); box-shadow: inset 0 4px 0 rgba(255,255,255,.45), inset 0 -5px 0 rgba(0,0,0,.15), 0 7px 0 var(--ink), 0 14px 22px rgba(0,0,0,.3);
+      -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; }
+    .btn:active { transform: translateY(5px); box-shadow: inset 0 4px 0 rgba(255,255,255,.45), 0 2px 0 var(--ink); }
+    .btn:disabled { filter: saturate(.3) brightness(.95); }
+    .btn.gold { background: linear-gradient(var(--gold1), var(--gold2) 45%, var(--gold3)); }
+    .btn.small { font-size: 24px; padding: 8px 30px 11px; border-radius: 20px; }
+    #playBtn:not(:disabled) { animation: breathe 1.4s ease-in-out infinite; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+
+    .panel { position: relative; width: 324px; padding: 52px 18px 24px; border-radius: 32px; border: 4px solid var(--ink); text-align: center;
+      background: linear-gradient(var(--blue1), var(--blue2) 30%, var(--blue3)); box-shadow: inset 0 4px 0 rgba(255,255,255,.4), 0 8px 0 var(--ink), 0 22px 36px rgba(0,0,0,.45); animation: pop .45s cubic-bezier(.3,1.6,.5,1); }
+    .screen.hide .panel { animation: none; }
+    @keyframes pop { 0% { transform: scale(.4); } }
+    .panel .title { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); white-space: nowrap; padding: 8px 30px 12px; border-radius: 20px; border: 4px solid var(--ink); font-size: 32px;
+      background: linear-gradient(var(--red1), var(--red2) 45%, var(--red3)); box-shadow: inset 0 3px 0 rgba(255,255,255,.4), 0 6px 0 var(--ink); }
+    .panel .close { position: absolute; right: -14px; top: -14px; width: 48px; height: 48px; border-radius: 50%; border: 4px solid var(--ink); cursor: pointer; color: #fff; font-size: 24px; line-height: 38px;
+      background: radial-gradient(circle at 45% 35%, var(--red1), var(--red2) 55%, var(--red3)); box-shadow: 0 4px 0 var(--ink); -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; }
+    .card { position: relative; border-radius: 22px; border: 3px solid var(--ink); padding: 14px 12px 14px; color: var(--ink2); margin-bottom: 22px;
+      background: linear-gradient(#fff, var(--paper) 60%, var(--paper2)); box-shadow: inset 0 -5px 0 rgba(120,40,90,.12); }
+    .card small { display: block; font-size: 16px; letter-spacing: 1px; color: var(--blue3); }
+    .card .big { display: block; font-size: 62px; line-height: 1.05; color: var(--gold2); -webkit-text-stroke: 9px var(--ink); paint-order: stroke fill; filter: drop-shadow(0 4px 0 var(--ink)); }
+    .stats { display: flex; gap: 10px; margin-top: 12px; }
+    .stats div { flex: 1; padding: 7px 4px 9px; border-radius: 14px; background: #ecdff3; font-size: 14px; color: var(--violet3); }
+    .stats b { display: block; font-weight: 400; font-size: 26px; color: var(--ink); }
+    .newbest { display: none; position: absolute; right: -16px; top: -16px; padding: 4px 10px 6px; border-radius: 12px; border: 3px solid var(--ink); font-size: 15px; color: var(--ink);
+      background: linear-gradient(var(--gold1), var(--gold2)); transform: rotate(12deg); box-shadow: 0 3px 0 var(--ink); }
+    .newbest.on { display: block; animation: throb .9s ease-in-out infinite; }
+    .row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; margin-bottom: 18px; border-radius: 18px; border: 3px solid var(--ink);
+      background: linear-gradient(#fff, var(--paper2)); color: var(--ink); font-size: 24px; }
+    .toggle { position: relative; width: 78px; height: 40px; border-radius: 22px; border: 3px solid var(--ink); cursor: pointer; background: var(--green2); box-shadow: inset 0 3px 4px rgba(0,0,0,.25); }
+    .toggle::after { content: ''; position: absolute; top: 2px; left: 38px; width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--ink); background: #fff; transition: left .2s; }
+    .toggle.off { background: #b9a9c6; } .toggle.off::after { left: 2px; }
+    @media (prefers-reduced-motion: reduce) { #playBtn, #banner .rays, .logo .burst, .shard { animation: none !important; } }
+  </style>
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/vendor/rapier.js"></script>
+</head>
+<body>
+  <canvas id="game" aria-label="Smash It game"></canvas>
+  <div id="hud" class="inmenu">
+    <div id="ballsCard"><div class="plate"></div><div class="face"></div><div class="tag">Balls</div><div id="ballsN">0</div></div>
+    <div id="scoreBox">
+      <div id="towerBar"><div id="towerFill"></div><div id="tower">LEVEL 1</div></div>
+      <div id="score">0</div>
+    </div>
+    <button id="gear" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" stroke="#2b0b4a" stroke-width="1.6" stroke-linejoin="round" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.3 7.3 0 0 0-1.7-1L14.5 2.4a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9.1 5.1a7.3 7.3 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></button>
+    <div id="floats"></div>
+    <div id="banner"><div class="rays"></div><div class="stars"><i></i><i></i><i></i></div><div class="ribbon out">LEVEL CLEAR!</div><div class="bonus">+0</div></div>
+
+    <div id="menu" class="screen">
+      <div class="logo">
+        <div class="burst"></div>
+        <i class="shard" style="left:14px;top:40px"></i><i class="shard" style="right:20px;top:24px;animation-delay:.6s;transform:scale(1.3)"></i><i class="shard" style="right:6px;top:150px;animation-delay:1.2s"></i><i class="shard" style="left:30px;top:170px;animation-delay:1.8s;transform:scale(.8)"></i>
+        <svg viewBox="0 0 340 230" aria-label="Smash It">
+          <defs>
+            <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6c2"/><stop offset=".5" stop-color="#ffcb2f"/><stop offset="1" stop-color="#ef8a00"/></linearGradient>
+            <linearGradient id="lg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a98"/><stop offset=".5" stop-color="#ee2b47"/><stop offset="1" stop-color="#b3122d"/></linearGradient>
+          </defs>
+          <g transform="rotate(-5 170 115)">
+            <text class="w1" x="170" y="98" fill="url(#lg1)" filter="drop-shadow(0 6px 0 #2b0b4a)">SMASH</text>
+            <text class="w2" x="178" y="200" fill="url(#lg2)" filter="drop-shadow(0 6px 0 #2b0b4a)">IT!</text>
+          </g>
+        </svg>
+      </div>
+      <div class="bestChip">Best <b id="menuBest">0</b></div>
+      <div class="how">
+        <div><svg viewBox="0 0 52 52"><circle cx="26" cy="20" r="11" fill="#ffcb2f" stroke="#2b0b4a" stroke-width="3"/><path d="M22 30 L22 46 L30 41 L35 48 L39 45 L34 38 L42 36 Z" fill="#fff" stroke="#2b0b4a" stroke-width="3" stroke-linejoin="round"/></svg>Tap to fire</div>
+        <div><svg viewBox="0 0 52 52"><rect x="15" y="8" width="22" height="34" rx="6" fill="#2f9df5" stroke="#2b0b4a" stroke-width="3"/><path d="M8 20 L3 16 M44 20 L50 15 M10 34 L3 38 M43 33 L50 37 M26 46 L26 51" stroke="#2b0b4a" stroke-width="3" stroke-linecap="round"/><path d="M19 15 L26 24 L22 30 L30 38" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>Smash the jars</div>
+        <div><svg viewBox="0 0 52 52"><rect x="6" y="34" width="40" height="7" rx="3" fill="#8b3ff2" stroke="#2b0b4a" stroke-width="3"/><rect x="30" y="12" width="14" height="14" rx="3" fill="#ee2b47" stroke="#2b0b4a" stroke-width="3" transform="rotate(24 37 19)"/><path d="M10 26 q8 -14 16 -6" stroke="#2b0b4a" stroke-width="3" fill="none" stroke-linecap="round"/></svg>Clear the table</div>
+      </div>
+      <button class="btn" id="playBtn" type="button" disabled>LOADING</button>
+    </div>
+
+    <div id="over" class="screen dim hide">
+      <div class="panel">
+        <div class="title out">OUT OF BALLS!</div>
+        <div class="card">
+          <div class="newbest" id="newBest">NEW BEST!</div>
+          <small>SCORE</small><span class="big" id="finalScore">0</span>
+          <div class="stats"><div>Levels<b id="cleared">0</b></div><div>Best<b id="best">0</b></div></div>
+        </div>
+        <button class="btn" id="againBtn" type="button">PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <div id="settings" class="screen dim hide">
+      <div class="panel">
+        <div class="title out">PAUSED</div>
+        <button class="close" id="closeSet" type="button" aria-label="Close">&#x2715;</button>
+        <div class="row">Sound<button class="toggle" id="soundTog" type="button" aria-label="Sound"></button></div>
+        <button class="btn gold small" id="resumeBtn" type="button">RESUME</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/rules.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

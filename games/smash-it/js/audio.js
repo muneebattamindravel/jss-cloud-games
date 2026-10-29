@@ -1,4 +1,4 @@
-/* Kaanch Tod sound: all synthesised with Web Audio, no files. */
+/* Smash It sound: all synthesised with Web Audio, no files. */
 (function () {
   'use strict';
   // ---------------------------------------------------------------- audio

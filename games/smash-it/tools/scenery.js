@@ -1,4 +1,4 @@
-/* Kaanch Tod scenery: painted backdrops, drawn in code once at load and used
+/* Smash It scenery: painted backdrops, drawn in code once at load and used
    as a pre-rendered image behind the 3D scene (no image files). The painter
    works like an illustrator: silhouettes first, then soft shading clipped to
    each shape, then texture and rim light, with haze on anything far away.

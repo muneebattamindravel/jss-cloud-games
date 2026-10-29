@@ -1,4 +1,4 @@
-/* Kaanch Tod rules (v2): everything that decides the score.
+/* Smash It rules (v2): everything that decides the score.
    Real rigid-body physics on Rapier's deterministic build, stepped at a fixed
    1/60 s. Inputs are integers (target point on the tower face in 1/100 world
    units) applied on step numbers. Layouts and colours come from a seeded,
@@ -143,7 +143,7 @@
 
   function buildTower(S) {
     var L = S.level, lay = layout(S.seed, L), cost = 0;
-    S.tables = [];
+    S.tables = []; var towerH = 0;
     for (var ti = 0; ti < lay.tables.length; ti++) {
       var tb = lay.tables[ti], tw = tb.cols * CELL + 0.5;
       var tbody = S.world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(tb.cx, -0.15, 0));
@@ -162,6 +162,7 @@
         }
         y += hs[r];
       }
+      if (y > towerH) towerH = y;
     }
     S.layout = lay.kind;
     var per = 20 + L * 2, add = Math.max(6, ((cost + per - 1) / per) | 0) + (L === 1 ? 4 : 2);
@@ -175,7 +176,7 @@
       S.shield = { body: sb, y: sy, k: hash(S.seed, L, 10) & 1023, spd: L >= 8 ? 6 : 4, range: 2.6 };
     }
     if (L >= 5 && ob >= 2) {
-      var fb = S.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, FAN_Y, FAN_Z));
+      var fb = S.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, Math.max(2.2, towerH * 0.55), FAN_Z));
       for (var k = 0; k < 4; k++) {
         var a = k * 256, cx = FAN_LEN / 2 * icos(a) / 1e6, cy = FAN_LEN / 2 * isin(a) / 1e6;
         var rot = { x: 0, y: 0, z: isin(a >> 1) / 1e6, w: icos(a >> 1) / 1e6 };
