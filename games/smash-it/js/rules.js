@@ -159,21 +159,33 @@
     return b;
   }
 
-  // which table motion a level gets (single-table towers only): 0 none, 1 slide, 2 turntable
-  function motionFor(seed, L) {
-    if (L < 7) return 0;
-    var h = hash(seed, L, 20) % 10;
-    if (L < 11) return h < 4 ? 1 : 0;
-    return h < 3 ? 1 : h < 6 ? 2 : 0;
-  }
   function isBoss(L) { return L >= 10 && L % 5 === 0; }
+  // at most one obstacle type early, two from level 8, three on boss levels; picked from those unlocked
+  function obstaclePlan(seed, L, single) {
+    var c = [];
+    if (L >= 3) c.push('shield'); if (L >= 5) c.push('fan'); if (L >= 7 && single) c.push('slide');
+    if (L >= 9) c.push('pend');
+    var maxN = L < 3 ? 0 : L < 8 ? 1 : 2;
+    if (isBoss(L)) maxN = 3;
+    if (L < 5 && (hash(seed, L, 6) & 1)) maxN = 0;
+    for (var i = c.length - 1; i > 0; i--) { var r = hash(seed, L, 30 + i) % (i + 1), t = c[i]; c[i] = c[r]; c[r] = t; }
+    var out = [], hasMotion = false;
+    for (i = 0; i < c.length && out.length < maxN; i++) {
+      var mv = c[i] === 'slide' || c[i] === 'turn';
+      if (mv && hasMotion) continue;
+      if (mv) hasMotion = true;
+      out.push(c[i]);
+    }
+    return { shield: out.indexOf('shield') >= 0, fan: out.indexOf('fan') >= 0, pend: out.indexOf('pend') >= 0, motion: out.indexOf('slide') >= 0 ? 1 : out.indexOf('turn') >= 0 ? 2 : 0 };
+  }
 
   function buildTower(S) {
     var L = S.level, lay = layout(S.seed, L), cost = 0;
+    var plan = obstaclePlan(S.seed, L, lay.tables.length === 1);
     S.tables = []; var towerH = 0;
     for (var ti = 0; ti < lay.tables.length; ti++) {
       var tb = lay.tables[ti], tw = tb.cols * CELL + 0.5;
-      var tbody = S.world.createRigidBody((lay.tables.length === 1 && motionFor(S.seed, L) ? R.RigidBodyDesc.kinematicPositionBased() : R.RigidBodyDesc.fixed()).setTranslation(tb.cx, -0.15, 0));
+      var tbody = S.world.createRigidBody((plan.motion ? R.RigidBodyDesc.kinematicPositionBased() : R.RigidBodyDesc.fixed()).setTranslation(tb.cx, -0.15, 0));
       S.world.createCollider(R.ColliderDesc.cuboid(tw / 2, 0.15, 0.8).setFriction(0.8), tbody);
       S.tables.push({ cx: tb.cx, w: tw, body: tbody, round: !!lay.round });
       var hs = tb.rows.map(rowHeight), y = 0;
@@ -184,7 +196,8 @@
           if (cell.skip || cell.gap) continue;
           var span = cell.span, ch = cell.t === 'plank' ? PLANK_H : hs[r];
           if (cell.tall && r + 1 < hs.length) ch = hs[r] + hs[r + 1];
-          addBlock(S, cell.t, cell.col, x0 + (cell.x + span / 2) * CELL, y + ch / 2, span, ch);
+          var nb = addBlock(S, cell.t, cell.col, x0 + (cell.x + span / 2) * CELL, y + ch / 2, span, ch);
+          if (plan.motion) nb.body.wakeUp();
           cost += cell.t === 'jar' || cell.t === 'bomb' ? 10 : cell.t === 'brick' ? 12 : cell.t === 'ice' ? 16 : cell.t === 'crate' ? 22 : 30;
         }
         y += hs[r];
@@ -198,16 +211,13 @@
     S.balls = Math.min(S.balls, CARRY_CAP) + add;
     // obstacles stack up with depth: one shield (tower 3), the fan (tower 5), shield + fan
     // together (tower 8), two shields + fan (tower 12); every obstacle speeds up as towers rise
-    var ob = hash(S.seed, L, 6) % 4;
-    var nShield = L < 3 ? 0 : L < 5 ? ((ob & 1) === 0 ? 1 : 0) : L < 8 ? (ob === 1 || ob === 3 ? 1 : 0) : L < 12 ? 1 : 2;
-    var wantFan = L >= 8 || (L >= 5 && ob >= 2);
-    if (isBoss(L)) { nShield = Math.max(nShield, 1); wantFan = true; }
-    // table motion
-    var mo = lay.tables.length === 1 ? motionFor(S.seed, L) : 0;
-    S.motion = mo ? { kind: mo, k: hash(S.seed, L, 21) & 1023, spd: (mo === 1 ? 3 : 2) + (L >> 3), body: S.tables[0].body, cx: S.tables[0].cx } : null;
+    var nShield = plan.shield ? (L >= 12 ? 2 : 1) : 0;
+    var wantFan = plan.fan;
+    var mo = plan.motion;
+    S.motion = mo ? { kind: mo, k: 0, spd: 1, body: S.tables[0].body, cx: S.tables[0].cx } : null;
     // pendulum from level 9 (always on boss levels)
     S.pend = null;
-    if (L >= 9 && (isBoss(L) || hash(S.seed, L, 22) % 3 === 0)) {
+    if (plan.pend) {
       var py = Math.max(4.4, towerH + 0.9), pb = S.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, py, PEND_Z));
       S.world.createCollider(R.ColliderDesc.cuboid(0.06, PEND_LEN / 2, 0.06).setTranslation(0, -PEND_LEN / 2, 0), pb);
       S.world.createCollider(R.ColliderDesc.ball(PEND_R).setTranslation(0, -PEND_LEN, 0).setRestitution(0.6), pb);
@@ -312,7 +322,7 @@
     }
     if (S.motion) {
       var M = S.motion; M.k = (M.k + M.spd) & 1023;
-      if (M.kind === 1) M.body.setNextKinematicTranslation({ x: M.cx + 1.6 * isin(M.k) / 1e6, y: -0.15, z: 0 });
+      if (M.kind === 1) M.body.setNextKinematicTranslation({ x: M.cx + 1.0 * isin(M.k) / 1e6, y: -0.15, z: 0 });
       else M.body.setNextKinematicRotation({ x: 0, y: isin(M.k >> 1) / 1e6, z: 0, w: icos(M.k >> 1) / 1e6 });
     }
     if (S.pend) {
