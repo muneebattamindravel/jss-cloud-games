@@ -113,18 +113,18 @@ obstacle phase. Bit-exact (`Object.is` on every value).
 
 ## 6. Suites
 
-`npx jest --runInBand smashIt` runs 119 tests in four suites, all passing
+`npx jest --runInBand smashIt` runs 130 tests in four suites, all passing
 (about 4 minutes):
 
-- `smashItParity.test.js` (55): the block, the pins, flown parity, device
+- `smashItParity.test.js` (56): the block, the pins, flown parity, device
   independence, golden runs, the corpus, the time end and standing towers.
-- `smashItAdversarial.test.js` (42): forged score fields, no or bad start
+- `smashItAdversarial.test.js` (51): forged score fields, no or bad start
   markers, a second start, another seed, malformed shots (12 kinds), rewinds,
   wrong or duplicate indexes, shots inside the reload gap, the suspicious mark
   at exactly 10 refusals, the input cap, the shot cap (6,000th applies, 6,001st
   refused), the elapsed cap at exact step counts, the trace size at the cap,
   the machine gun, the humanness extractor's input count, and the debug record.
-- `smashItRender.test.js` (13): script order, PLAY disabled until the session,
+- `smashItRender.test.js` (14): script order, PLAY disabled until the session,
   no session timeout, no ad-blocker names, no third-party hosts, no dashes, the
   shipped file list, the vendored Rapier equals the npm build, the end plays
   out before the score goes (1.5 s) and goes once, a hidden tab still submits,
@@ -146,7 +146,26 @@ fixture (only on a deliberate rules change).
 bridge. Run from three scratch copies of the tree, never the working tree; an
 unknown flag exits 2, and so does a run inside a git tree.
 
-MUTATION_RESULT_PLACEHOLDER
+Stages run cheapest first (the pin table, render, adversarial, replay, then
+full parity); a suite past 10 minutes counts as caught.
+
+**Result: 96 live caught, 0 inert, 0 survivors.** The first pass left 5
+survivors, all holes in the tests or guards masking each other:
+
+- rewind and skipped index (validator): my tests were stopped by the 10 step
+  reload first. New tests get past the reload so each guard stands alone.
+- score from payload: only the final score was checked, not `newScore` per
+  event. Now checked.
+- replay takes real input and `?level` live in the platform: two guards each.
+  The tap handler's replay check and `game.js`'s own `?level` gate were removed;
+  the step loop and `Q` (empty inside the platform) are the single guards, and
+  the mutations target them.
+
+Earlier, before the battery ran, the validator's own x, y and n type checks
+were removed for the same reason (the rules and the index check refuse them,
+now pinned by a direct rules test); the step check stays, since a string step
+would otherwise advance the sim. After the fixes all 5 re-ran caught, and the
+four suites pass (130 tests). A `--nopin` pass was not run.
 
 ## 8. Ladder and `max_score_per_sec`
 
@@ -191,7 +210,12 @@ human model's.
 
 ## 10. Draw cost and folder size
 
-DRAW_COST_PLACEHOLDER
+Measured in headless Chromium with SOFTWARE WebGL (SwiftShader; no GPU here),
+DPR 2, 6x CPU throttle, during play with shots: 375x812 median 300 ms a frame
+(p95 717), 320x568 233 ms (p95 500), 1440x780 483 ms (p95 950). That is a CPU
+rasteriser at one sixth speed and says almost nothing about a phone GPU; the
+handbook's GPU-on measure could not be taken here. **A real phone was not
+measured**; the founder's own play on phones is the evidence so far.
 
 Folder size: 18 files, about 3.9 MB, over the 1 MB guideline. Rapier (with its
 WebAssembly inlined) is about 2 MB, three.js about 0.6 MB, the two backdrops
