@@ -1,0 +1,32 @@
+@font-face { font-family: 'PKTitan'; src: url('../fonts/titan-one-400-latin.woff2') format('woff2'); font-display: swap; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #f7c592; touch-action: none; -webkit-user-select: none; user-select: none; }
+body { font-family: 'PKTitan', system-ui, sans-serif; color: #fff; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.is-hidden { display: none !important; }
+
+.pk-hud { position: fixed; left: 0; right: 0; top: 0; pointer-events: none; display: flex; justify-content: center; padding-top: max(10px, env(safe-area-inset-top)); }
+#score { font-size: 44px; line-height: 1; color: #fff; -webkit-text-stroke: 2px #5b2340; paint-order: stroke fill; text-shadow: 0 3px 0 rgba(91,35,64,0.35); }
+#hearts { position: fixed; left: 14px; top: max(14px, env(safe-area-inset-top)); font-size: 24px; letter-spacing: 4px; color: #ffd23f; -webkit-text-stroke: 1.5px #5b2340; paint-order: stroke fill; pointer-events: none; }
+
+.pk-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
+.pk-screen > * { pointer-events: auto; }
+.pk-logo { margin: 0 0 8px; font-weight: 400; font-size: 64px; line-height: 0.92; color: #ffd23f; -webkit-text-stroke: 3px #5b2340; paint-order: stroke fill; text-shadow: 0 6px 0 #5b2340; transform: rotate(-4deg); }
+.pk-logo span { color: #ff4d6d; }
+.pk-tag { margin: 18px 0 0; font-size: 17px; color: #fff; -webkit-text-stroke: 1px #5b2340; paint-order: stroke fill; }
+.pk-menu { justify-content: flex-start; padding-top: 18vh; }
+.pk-menu .pk-actions { position: fixed; left: 0; right: 0; bottom: 14vh; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.pk-btn { font-family: inherit; font-size: 22px; color: #3a1a00; background: linear-gradient(#ffe066, #ffb703); border: 3px solid #5b2340; border-radius: 999px; padding: 14px 40px; min-width: 220px; box-shadow: 0 6px 0 #5b2340; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+.pk-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #5b2340; }
+.pk-btn[disabled] { font-size: 15px; opacity: 0.85; cursor: default; }
+.pk-spin { width: 16px; height: 16px; border-radius: 50%; border: 3px solid rgba(58,26,0,0.25); border-top-color: #3a1a00; animation: pkspin 0.8s linear infinite; display: none; }
+.pk-btn[disabled] .pk-spin { display: inline-block; }
+@keyframes pkspin { to { transform: rotate(360deg); } }
+.pk-link { font-family: inherit; font-size: 16px; color: #fff; background: none; border: 0; text-decoration: underline; -webkit-text-stroke: 1px #5b2340; paint-order: stroke fill; cursor: pointer; }
+
+.pk-skip { position: fixed; right: 14px; top: max(14px, env(safe-area-inset-top)); font-family: inherit; font-size: 15px; color: #fff; background: rgba(91,35,64,0.55); border: 2px solid #fff; border-radius: 999px; padding: 6px 16px; cursor: pointer; }
+.pk-pplay { position: fixed; left: 0; right: 0; bottom: 18vh; display: flex; justify-content: center; pointer-events: none; }
+.pk-pplay .pk-btn { pointer-events: auto; }
+
+.pk-over h2 { margin: 0; font-weight: 400; font-size: 48px; color: #ffd23f; -webkit-text-stroke: 2.5px #5b2340; paint-order: stroke fill; }
+.pk-over p { font-size: 22px; margin: 10px 0 26px; -webkit-text-stroke: 1px #5b2340; paint-order: stroke fill; }
+.kj-embed .pk-over { display: none !important; }
