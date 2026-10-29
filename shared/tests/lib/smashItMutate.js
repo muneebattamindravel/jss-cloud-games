@@ -116,9 +116,9 @@ const M = [
   // ── validator ────────────────────────────────────────────────────────────
   ['v: start version', 'validator', 'if (Number(payload.v) >= RULES_VERSION && state.mode', 'if (Number(payload.v) >= 0 && state.mode'],
   ['v: second start resets', 'validator', "&& state.mode !== 'sim') {", ') {'],
-  ['v: rewind allowed', 'validator', "if (sim.step !== step) return reject(state, step < sim.step ? 'frame_regressed' : 'beyond_cap');", "if (sim.step > step) return reject(state, 'frame_regressed');"],
+  ['v: rewind allowed', 'validator', "if (sim.step !== step) return reject(state, step < sim.step ? 'frame_regressed' : 'beyond_cap');", ''],
   ['v: n not checked', 'validator', "if (n !== sim.shots) return reject(state, 'out_of_order');", ''],
-  ['v: n type', 'validator', 'if (!isNat(n) || !isInt(x)', 'if (!isInt(x)'],
+  ['v: step type', 'validator', "  if (!isNat(step)) return reject(state, 'bad_shot');", ''],
   ['v: suspicious at 10', 'validator', 'state.rejectCount >= 10 ?', 'state.rejectCount >= 11 ?'],
   ['v: elapsed factor', 'validator', 'return Math.ceil((e * 1.2 + 10) * fps);', 'return Math.ceil((e * 1.25 + 10) * fps);'],
   ['v: elapsed cap off', 'validator', ' && sim.step < capSteps && ', ' && '],

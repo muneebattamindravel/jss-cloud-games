@@ -230,6 +230,29 @@ describe('Smash It: the device does not reach the rules', () => {
   });
 });
 
+describe('Smash It input: only accepted shots are emitted', () => {
+  test('a tap inside the reload gap fires nothing and emits nothing', async () => {
+    const g = await H.boot({ seed: H.seedHex(4) });
+    g.clickPlay();
+    const G = g.probe();
+    g.advance(500);
+    const sc = G.toScreen(0, 1);
+    g.tap(sc.x, sc.y);
+    g.advance(1000 / 60);
+    const shots = G.S.shots;
+    expect(shots).toBe(1);
+    g.tap(sc.x, sc.y);                       // the next step is inside the 10 step reload
+    g.advance(1000 / 60);
+    expect(G.S.shots).toBe(1);
+    expect(W.shotsOf(g.trace.filter((e) => e.type === 'input')).length).toBe(G.S.shots);
+    G.S.balls = 0;                           // no balls: a tap is refused by the rules
+    g.advance(500);
+    g.tap(sc.x, sc.y);
+    g.advance(100);
+    expect(W.shotsOf(g.trace.filter((e) => e.type === 'input')).length).toBe(G.S.shots);
+  });
+});
+
 describe('Smash It golden runs (rules v1)', () => {
   test.each(GOLDEN.runs.map((r, i) => [i, r]))('run %i', (_i, run) => {
     const worlds = W.serverWorlds(run.seed, run.shots, run.steps, run.level);

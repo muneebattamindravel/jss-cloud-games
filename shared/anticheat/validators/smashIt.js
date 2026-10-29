@@ -597,7 +597,7 @@ function processEvent(state, event) {
   state.inputCount++;
 
   const { n, x, y, step } = payload;
-  if (!isNat(n) || !isInt(x) || !isInt(y) || !isNat(step)) return reject(state, 'bad_shot');
+  if (!isNat(step)) return reject(state, 'bad_shot');   // x, y and n: the rules and the index check refuse them
 
   const sim = state.sim;
   advanceTo(state, step);

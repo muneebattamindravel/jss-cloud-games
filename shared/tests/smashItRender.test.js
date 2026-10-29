@@ -42,7 +42,7 @@ describe('smash-it page', () => {
     expect(/(class|id)="[^"]*\b(ad|banner|promo|sponsor|popup)\b/.test(HTML)).toBe(false);
     expect(/https?:\/\/(?!localhost)/.test(HTML.replace(/<!--[\s\S]*?-->/g, ''))).toBe(false);
     expect(/url\(\s*['"]?https?:/.test(HTML)).toBe(false);
-    expect(/[–—]/.test(all)).toBe(false);
+    expect(/[\u2013\u2014]/.test(all)).toBe(false);
     expect(/serviceWorker|manifest\.json/.test(HTML)).toBe(false);
   });
   test('the game folder ships only the game (no dev tools, no node_modules)', () => {
@@ -81,6 +81,14 @@ describe('smash-it session and submit', () => {
     expect(g.probe().mode).toBe('play');
     expect(g.trace[0].payload).toMatchObject({ kind: 'start', v: 1 });
     expect(g.probe().S.seed).toBe(X.seedToInt(H.seedHex(1)));
+  });
+  test('the bridge: a start asks for replay v1 only when the game says so, and a second submit is dropped', async () => {
+    const g = await H.boot({ seed: H.seedHex(1) });
+    expect(g.win.__kjGameStart(0, 0)).toBe(0);
+    expect(g.win.__kjGameStart(0, 1)).toBe(1);
+    g.win.__kjSubmit(10);
+    g.win.__kjSubmit(20);
+    expect(g.results).toEqual([10]);
   });
   test('the end plays out before the score goes, and it goes once', async () => {
     const g = await H.boot({ seed: H.seedHex(2) });

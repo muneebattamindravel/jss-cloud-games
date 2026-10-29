@@ -82,7 +82,7 @@ describe('Smash It validator: a refused input changes nothing and never zeroes',
   const first = () => H1.trace.find((e) => e.payload.kind === 'shot').payload;
   test.each([
     ['x not an integer', { x: 1.5 }], ['y not an integer', { y: '300' }], ['x off the field', { x: 701 }], ['x off the field left', { x: -701 }],
-    ['y too low', { y: -151 }], ['y too high', { y: 1301 }], ['step negative', { step: -1 }], ['step not a number', { step: 'a' }],
+    ['y too low', { y: -151 }], ['y too high', { y: 1301 }], ['step negative', { step: -1 }], ['step not a number', { step: 'a' }], ['step a numeric string far ahead', { step: '9999' }], ['step a fraction', { step: 30.5 }],
     ['n not a number', { n: null }], ['n negative', { n: -1 }], ['x NaN', { x: NaN }], ['y Infinity', { y: Infinity }],
   ])('%s', (_name, bad) => {
     const p = first();
@@ -189,6 +189,51 @@ describe('Smash It validator: work and time bounds', () => {
   test('the validator frees the physics world once the run is scored', () => {
     const { st } = run(H1.trace);
     expect(st.sim.world).toBe(null);
+  });
+});
+
+describe('Smash It rules: edges the suites pin by hand', () => {
+  test('the rules themselves refuse a fractional or out-of-field target (not only the validator)', () => {
+    const sim = X.initSim(5, 1);
+    for (const [x, y] of [[1.5, 300], [0, 300.5], [701, 300], [-701, 300], [0, 1301], [0, -151]]) expect([x, y, X.shoot(sim, x, y)]).toEqual([x, y, false]);
+    expect(X.shoot(sim, 700, 1300)).toBe(true);
+    sim.world.free();
+  });
+  test('a run with no shots ends at exactly step 1860: idle on step 1801, and the 60 step ending counts that step', () => {
+    const { fin } = run([start()]);
+    expect(fin.debug.steps).toBe(1860);
+    expect(fin.debug.end).toBe('idle');
+  });
+  test('at most 6 unused balls carry over to the next tower', () => {
+    const sim = X.initSim(9, 1);
+    sim.events = [];
+    const add1 = 0;
+    sim.balls = 20;
+    while (sim.blocks.length) { const b = sim.blocks[0]; sim.blocks = sim.blocks.slice(1); delete sim.byCollider[b.collider.handle]; sim.world.removeRigidBody(b.body); }
+    let tower = null;
+    for (let i = 0; i < 80 && !tower; i++) { X.stepSim(sim); for (const e of sim.events) if (e.e === 'tower') tower = e; sim.events = []; }
+    expect(tower).toBeTruthy();
+    expect(tower.level).toBe(2);
+    expect(sim.balls).toBe(6 + tower.add + add1);
+    expect(sim.step).toBe(41);                      // cleared on step 1 (the pause counts it), built on step 41
+    sim.world.free();
+  });
+  test('with no balls left and the tower still moving, the run ends 420 steps after the last shot, then 60 more', () => {
+    const sim = X.initSim(9, 1);
+    sim.events = [];
+    sim.balls = 1;
+    expect(X.shoot(sim, 600, 1200)).toBe(true);   // a miss, high and wide
+    const b = sim.blocks[0];
+    let endingAt = null;
+    while (sim.phase !== 'over' && sim.step < 3000) {
+      b.body.setLinvel({ x: 0, y: 0, z: 0.001 }, true);   // keep one block awake
+      X.stepSim(sim); sim.events = [];
+      if (sim.phase === 'ending' && endingAt === null) endingAt = sim.step;
+    }
+    expect(endingAt).toBe(421);
+    expect(sim.end).toBe('balls');
+    expect(sim.step).toBe(481);
+    sim.world.free();
   });
 });
 
