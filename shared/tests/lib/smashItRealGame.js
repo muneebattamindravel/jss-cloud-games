@@ -262,8 +262,10 @@ async function boot(opts = {}) {
 // ── pilots ─────────────────────────────────────────────────────────────────
 // Every pilot reads the GAME's own world (positions of blocks still standing)
 // and taps a screen point through the game's own camera. Styles:
-//   sharpshooter  no lag, aims at the lowest supporting jar/TNT at once; the
-//                 bot a seed-reader could build (the bot-gap reference)
+//   sharpshooter  no lag, aims at the lowest supporting jar/TNT at once
+//   patient       the same perfect aim, but waits until no ball is in flight and
+//                 the tower has settled (the strongest planner here; the
+//                 bot-gap and score-bound reference)
 //   good/average/novice  human models: reaction lag after the last shot,
 //                 aim noise in world units, a share of careless top shots
 //   spammer       taps random points as fast as the gap allows
@@ -271,6 +273,7 @@ async function boot(opts = {}) {
 //   idle          never taps
 const PILOTS = {
   sharpshooter: { lag: 0, noise: 0, careless: 0 },
+  patient: { lag: 0, noise: 0, careless: 0, settle: true },
   good: { lag: 24, noise: 0.18, careless: 0.1 },
   average: { lag: 45, noise: 0.35, careless: 0.25 },
   novice: { lag: 75, noise: 0.6, careless: 0.45 },
@@ -326,7 +329,8 @@ function fly(g, pilotName, opts = {}) {
       if (opts.onStep) opts.onStep(S);
       if (S.shots !== lastShots) { lastShots = S.shots; readyAt = S.step + Math.max(0, Math.round((p.lag || 0) * (1 + gauss(rnd) * 0.25))); }
       const canShoot = S.phase === 'play' && S.balls > 0 && S.step - S.lastShot >= 10 && !G.pendingShot;
-      if (!p.idle && canShoot && (p.spam || S.step >= readyAt)) {
+      const settled = !p.settle || (!S.ballsLive.length && S.blocks.every((b) => b.body.isSleeping())) || S.step - S.lastShot > 150;
+      if (!p.idle && canShoot && settled && (p.spam || S.step >= readyAt)) {
         let pt;
         if (p.spam) pt = { x: (rnd() - 0.5) * 9, y: rnd() * 8 };
         else { const t = pickTarget(S, rnd, p.careless); pt = t ? { x: t.x + gauss(rnd) * (p.noise || 0), y: t.y + gauss(rnd) * (p.noise || 0) } : null; }
