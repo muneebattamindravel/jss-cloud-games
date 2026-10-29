@@ -360,7 +360,7 @@
     if (S.phase === 'play') {
       if (!S.blocks.length) {
         var bonus = 100 + 50 * S.level;
-        S.score += bonus; S.phase = 'clear'; S.timer = 90;
+        S.score += bonus; S.phase = 'clear'; S.timer = 40;
         S.events.push({ e: 'clear', bonus: bonus, level: S.level });
       } else if (S.balls <= 0 && !S.ballsLive.length) {
         var moving = false;

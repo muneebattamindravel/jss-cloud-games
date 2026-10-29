@@ -513,18 +513,22 @@
   }
 
   // ---------------------------------------------------------------- balls
+  // the ball must read against sky, grass, sea and every jar colour: bright white with a hot
+  // magenta zigzag band, drawn unshaded (full brightness), with a dark cartoon outline around it
   var ballTex = (function () {
     var c = canvasEl(512, 256), g = c.getContext('2d');
-    g.fillStyle = '#e61e3c'; g.fillRect(0, 0, 512, 256);
-    g.fillStyle = '#ffd22e'; g.beginPath(); g.moveTo(0, 100);
-    for (var i = 0; i <= 16; i++) g.lineTo(i * 32, i % 2 ? 78 : 112);
-    for (i = 16; i >= 0; i--) g.lineTo(i * 32, i % 2 ? 140 : 174);
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 256);
+    g.fillStyle = '#ff1f8e'; g.beginPath(); g.moveTo(0, 92);
+    for (var i = 0; i <= 16; i++) g.lineTo(i * 32, i % 2 ? 70 : 104);
+    for (i = 16; i >= 0; i--) g.lineTo(i * 32, i % 2 ? 150 : 184);
     g.fill();
-    g.fillStyle = '#ffffff'; for (i = 0; i < 8; i++) { g.beginPath(); g.arc(32 + i * 64, 36, 10, 0, 7); g.fill(); g.beginPath(); g.arc(i * 64, 220, 10, 0, 7); g.fill(); }
+    g.fillStyle = '#ff1f8e'; for (i = 0; i < 8; i++) { g.beginPath(); g.arc(32 + i * 64, 30, 9, 0, 7); g.fill(); g.beginPath(); g.arc(i * 64, 226, 9, 0, 7); g.fill(); }
     return tex(c, true);
   })();
-  var ballGeo = new T.SphereGeometry(R.BALL_R * 1.1, 40, 28);   // drawn a little larger than its collider so it reads at distance
-  var ballMat = phys({ map: ballTex, roughness: 0.1, clearcoat: 1 });
+  var ballGeo = new T.SphereGeometry(R.BALL_R * 1.25, 40, 28);   // drawn a little larger than its collider so it reads at distance
+  var ballMat = new T.MeshMatcapMaterial({ map: ballTex, matcap: matcapTex('#ffffff', 1, 'neutral') });
+  var ballLine = new T.MeshBasicMaterial({ color: 0x2b0b4a, side: T.BackSide });
+  var ballLineGeo = new T.SphereGeometry(R.BALL_R * 1.25 + 0.055, 32, 20);
   var ballMeshes = {};
   function syncBalls(S) {
     var seen = {};
@@ -533,6 +537,7 @@
       if (!m) {
         m = ballMeshes[bl.n] = new T.Group();
         var core = new T.Mesh(ballGeo, ballMat); m.add(core); m.userData.core = core;
+        m.add(new T.Mesh(ballLineGeo, ballLine));
         m.userData.off = muzzleWorld().sub(new T.Vector3(R.CANNON.x, R.CANNON.y, R.CANNON.z)); scene.add(m);
       }
       seen[bl.n] = 1;
@@ -876,7 +881,7 @@
           break;
         }
         case 'ballGone': if (e.y > -2) spawnSoft(new T.Vector3(e.x, e.y, e.z), 0.8, 0xffffff, 0.7, 0.35, 2); break;
-        case 'clear': banner('LEVEL CLEAR!', '+' + e.bonus + ' points'); A.play('clear'); confetti(); break;
+        case 'clear': floatText({ x: 0, y: 2.5, z: 0.5 }, 'CLEAR! +' + e.bonus, 'gold big'); A.play('clear'); confetti(); break;
         case 'over': A.play('over'); break;
       }
     }
