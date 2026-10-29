@@ -10,7 +10,7 @@
   var DT = 1 / 60, GRAVITY = -20;
   var CELL = 1, ROW = 1.3, DEPTH = 0.98, FRONT = 0.5;
   var PLANK_H = 0.8;
-  var BALL_R = 0.3, BALL_DENSITY = 15, BALL_SPEED = 33, FLIGHT_STEPS = 24;
+  var BALL_R = 0.3, BALL_DENSITY = 10, BALL_SPEED = 44, FLIGHT_STEPS = 18;
   var CANNON = { x: 0, y: -1.2, z: 13 };
   var FALL_Y = -2.6;
   var JAR_BREAK_F = 800, CRUSH_F = 1e9;
@@ -165,7 +165,7 @@
       if (y > towerH) towerH = y;
     }
     S.layout = lay.kind;
-    var per = 20 + L * 2, add = Math.max(6, ((cost + per - 1) / per) | 0) + (L === 1 ? 4 : 2);
+    var per = 23 + L * 2, add = Math.max(5, ((cost + per - 1) / per) | 0) + (L === 1 ? 4 : 2);
     S.balls += add;
     // obstacles: a sliding shield from tower 3, the spinning fan from tower 5
     var ob = hash(S.seed, L, 6) % 4;
@@ -290,8 +290,10 @@
         return;
       }
       if (blk.t === 'jar' || blk.t === 'bomb') {
-        toBreak.push([blk, 'ball']);
-        if (ball.pierced < PIERCE && sp2 > 16) { ball.pierced += 1; restore.push([ball, 0.88]); }
+        if (sp2 > 4) {
+          toBreak.push([blk, 'ball']);
+          if (ball.pierced < PIERCE && sp2 > 16) { ball.pierced += 1; restore.push([ball, 0.88]); }
+        }
       } else if (blk.t === 'crate' || blk.t === 'plank' || blk.t === 'ice') {
         if (sp2 > 25) {
           blk.hp -= 1;
@@ -316,7 +318,9 @@
     }
     for (i = 0; i < restore.length; i++) {
       var bl = restore[i][0], k2 = restore[i][1];
-      bl.body.setLinvel({ x: bl.pv.x * k2, y: bl.pv.y * k2, z: bl.pv.z * k2 }, true);
+      // the ball stays on the front of the tower: its push into the tower is spent on the break,
+      // it keeps some sideways and vertical motion and drops down the face, like the reference
+      bl.body.setLinvel({ x: bl.pv.x * k2 * 0.5, y: Math.min(bl.pv.y * k2 * 0.4, 3), z: 1.2 }, true);
     }
     // landing thuds: a block that was moving and suddenly stops (once, not while it rests)
     for (i = 0; i < S.blocks.length; i++) {

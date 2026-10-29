@@ -519,7 +519,7 @@
     g.fillStyle = '#ffffff'; for (i = 0; i < 8; i++) { g.beginPath(); g.arc(32 + i * 64, 36, 10, 0, 7); g.fill(); g.beginPath(); g.arc(i * 64, 220, 10, 0, 7); g.fill(); }
     return tex(c, true);
   })();
-  var ballGeo = new T.SphereGeometry(R.BALL_R * 1.55, 40, 28);   // drawn a little larger than its collider so it reads at distance
+  var ballGeo = new T.SphereGeometry(R.BALL_R * 1.1, 40, 28);   // drawn a little larger than its collider so it reads at distance
   var ballMat = phys({ map: ballTex, roughness: 0.1, clearcoat: 1 });
   var ballMeshes = {};
   function syncBalls(S) {
@@ -529,23 +529,13 @@
       if (!m) {
         m = ballMeshes[bl.n] = new T.Group();
         var core = new T.Mesh(ballGeo, ballMat); m.add(core); m.userData.core = core;
-        var halo = new T.Sprite(new T.SpriteMaterial({ map: softTex, color: 0xfff1a0, transparent: true, opacity: 0.85, depthWrite: false, blending: T.AdditiveBlending }));
-        halo.scale.setScalar(1.9); m.add(halo); m.userData.halo = halo;
-        m.userData.off = muzzleWorld().sub(new T.Vector3(R.CANNON.x, R.CANNON.y, R.CANNON.z)); m.userData.last = null; scene.add(m);
+        m.userData.off = muzzleWorld().sub(new T.Vector3(R.CANNON.x, R.CANNON.y, R.CANNON.z)); scene.add(m);
       }
       seen[bl.n] = 1;
       var p = bl.body.translation(), q = bl.body.rotation();
-      var k = Math.max(0, 1 - bl.age / 14);          // blend from the drawn muzzle into the physics path
+      var k = Math.max(0, 1 - bl.age / 10);          // blend from the drawn muzzle into the physics path
       m.position.set(p.x, p.y, p.z).addScaledVector(m.userData.off, k * k);
       m.userData.core.quaternion.set(q.x, q.y, q.z, q.w);
-      var inFlight = !bl.free;
-      m.userData.halo.material.opacity = inFlight ? 0.85 : Math.max(0, m.userData.halo.material.opacity - 0.05);
-      // comet trail: a chain of glowing puffs filling the gap since last frame
-      if (inFlight && m.userData.last) {
-        var from = m.userData.last, d = m.position.distanceTo(from), n = Math.min(6, Math.ceil(d / 0.25));
-        for (var t = 1; t <= n; t++) { var tp = from.clone().lerp(m.position, t / n); spawnSoft(tp, 0.75, 0xffe7a0, 0.55, 0.22, -1.5, true); }
-      }
-      m.userData.last = m.position.clone();
     }
     for (var n in ballMeshes) if (!seen[n]) { scene.remove(ballMeshes[n]); delete ballMeshes[n]; }
   }
@@ -570,6 +560,9 @@
     g.setAttribute('position', new T.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); return g;
   })();
   var shards = makePool(shardGeo, mat({ color: 0xffffff, roughness: 0.05, clearcoat: 1, side: T.DoubleSide, kind: 'jar' }), 1200, true);
+  var petalGeo = new T.SphereGeometry(0.5, 10, 6);
+  var petals = makePool(petalGeo, mat({ color: 0xffffff, roughness: 0.05, clearcoat: 1, kind: 'jar' }), 900, false);
+  var plates = makePool(shardGeo, new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, side: T.DoubleSide, depthWrite: false }), 200, false);
   var needles = makePool(new T.BoxGeometry(1, 0.07, 0.07), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false }), 900, false);
   var chipMat = mat({ map: tex(woodCanvas[1], true), roughness: 0.65 });
   var chips = makePool(roundedBox(1, 1, 1, 0.12, 2), chipMat, 600, true);
@@ -592,27 +585,22 @@
     return GROUND_Y;
   }
   var ICE = '#bfe9ff';
+  // the reference's jar break: a dense spray of small glossy drops in the jar colour
+  // (rice-grain shaped, flying along their path) plus a few clear glass plates
   function glassBreak(p, q, col, power) {
     var gcol = col < 0 ? ICE : GLASS[col];
-    var c = L(gcol), lite = c.clone().lerp(new T.Color(1, 1, 1), 0.45), white = new T.Color(1, 1, 1), i;
-    var rot = new T.Quaternion(q.x, q.y, q.z, q.w);
-    // big glossy pieces of the jar wall, blown outward and toward the camera
-    for (i = 0; i < Math.round(34 * power); i++) {
-      var local = new T.Vector3(rnd(-0.42, 0.42), rnd(-0.55, 0.55), rnd(-0.42, 0.42)).applyQuaternion(rot);
-      var dir = local.clone().setZ(local.z + 0.45).normalize();
-      addItem(shards, { p: new T.Vector3(p.x, p.y, p.z).add(local), v: dir.multiplyScalar(rnd(2.5, 5.5) * power).add(new T.Vector3(rnd(-1.2, 1.2), rnd(4, 8), rnd(0.8, 2.6))),
-        r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)), w: new T.Vector3(rnd(-7, 7), rnd(-7, 7), rnd(-7, 7)), s: rnd(0.55, 1.05), life: rnd(1.8, 2.6), col: Math.random() < 0.3 ? lite : c, rest: 0 });
+    var c = L(gcol), lite = c.clone().lerp(new T.Color(1, 1, 1), 0.35), i;
+    for (i = 0; i < Math.round(80 * power); i++) {
+      var a = Math.random() * Math.PI * 2, sp = rnd(3, 11) * power;
+      addItem(petals, { p: new T.Vector3(p.x + rnd(-0.3, 0.3), p.y + rnd(-0.45, 0.45), p.z + 0.45),
+        v: new T.Vector3(Math.cos(a) * sp, Math.sin(a) * sp * 0.9 + rnd(1, 4), rnd(0.5, 3)),
+        len: rnd(0.14, 0.3), th: rnd(0.05, 0.09), life: rnd(0.6, 1.1), col: Math.random() < 0.25 ? lite : c });
     }
-    // the lid pops off in a few white and coloured bits
-    for (i = 0; i < 6; i++) addItem(shards, { p: new T.Vector3(p.x, p.y + 0.5, p.z), v: new T.Vector3(rnd(-3, 3), rnd(4, 8), rnd(0.5, 3)), r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)),
-      w: new T.Vector3(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12)), s: rnd(0.22, 0.36), life: rnd(1.4, 2), col: i % 2 ? white : c, rest: 0 });
-    // juice: glossy drops of the jar colour
-    for (i = 0; i < Math.round(30 * power); i++) addItem(drops, { p: new T.Vector3(p.x + rnd(-0.2, 0.2), p.y + rnd(-0.2, 0.2), p.z + 0.4), v: new T.Vector3(rnd(-6, 6), rnd(2, 10), rnd(1, 3.5)),
-      r: new T.Euler(), w: new T.Vector3(), s: rnd(0.14, 0.32), life: rnd(0.7, 1.1), col: Math.random() < 0.3 ? lite : c, rest: 0 });
-    // one clean flash and a handful of sparkles
-    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.9), 3.4, 0xffffff, 1, 0.16, 6, true);
-    spawnSoft(new T.Vector3(p.x, p.y, p.z + 0.8), 3.6, gcol, 0.9, 0.3, 3, true);
-    for (i = 0; i < 7; i++) { var st = spawnSoft(new T.Vector3(p.x + rnd(-0.7, 0.7), p.y + rnd(-0.7, 0.7), p.z + 1), rnd(0.7, 1.2), 0xffffff, 1, rnd(0.35, 0.6), -0.6, true, starTex); if (st) st.v.set(rnd(-2, 2), rnd(0.5, 2.5), 0); }
+    for (i = 0; i < 9; i++) {
+      var dir = new T.Vector3(rnd(-1, 1), rnd(-0.3, 1), rnd(0.2, 1)).normalize();
+      addItem(plates, { p: new T.Vector3(p.x + rnd(-0.3, 0.3), p.y + rnd(-0.4, 0.4), p.z + 0.4), v: dir.multiplyScalar(rnd(2, 5)).add(new T.Vector3(0, 2, 0)),
+        r: new T.Euler(rnd(0, 6), rnd(0, 6), rnd(0, 6)), w: new T.Vector3(rnd(-8, 8), rnd(-8, 8), rnd(-8, 8)), s: rnd(0.16, 0.3), life: rnd(0.8, 1.3), col: new T.Color(1, 1, 1), rest: 0 });
+    }
   }
   var plankCols = ['#e08a3c', '#c86f28', '#f0a458', '#b8601f'].map(L);
   function woodBreak(p, q, w, h, span) {
@@ -668,6 +656,7 @@
       it = pool.items[i]; it.life -= dt;
       if (it.life <= 0) continue;
       if (kind === 'needle') { it.p.addScaledVector(it.v, dt); it.v.multiplyScalar(0.9); out.push(it); continue; }
+      if (kind === 'petal') { it.v.y += G * 0.8 * dt; it.v.multiplyScalar(0.985); it.p.addScaledVector(it.v, dt); if (it.p.y < floorAt(it.p)) continue; out.push(it); continue; }
       if (it.conf) { it.v.y += G * 0.22 * dt; it.v.multiplyScalar(0.985); if (it.v.y < -2.6) it.v.y = -2.6; it.p.addScaledVector(it.v, dt); it.r.x += it.w.x * dt; it.r.y += it.w.y * dt; it.r.z += it.w.z * dt; out.push(it); continue; }
       if (it.rest < 3) {
         it.v.y += G * dt; it.p.addScaledVector(it.v, dt);
@@ -689,7 +678,8 @@
     for (i = 0; i < out.length; i++) {
       it = out[i];
       var fade = Math.min(1, it.life / 0.45);
-      if (kind === 'needle') { tmpS.set(it.len * Math.min(1, it.life * 4), (it.th || 0.07) / 0.07, (it.th || 0.07) / 0.07); tmpQ.setFromUnitVectors(XAX, tmpD.copy(it.v).normalize()); }
+      if (kind === 'petal') { var pf = Math.min(1, it.life / 0.25); tmpS.set(it.len * pf, it.th * pf, it.th * pf); tmpQ.setFromUnitVectors(XAX, tmpD.copy(it.v).normalize()); }
+      else if (kind === 'needle') { tmpS.set(it.len * Math.min(1, it.life * 4), (it.th || 0.07) / 0.07, (it.th || 0.07) / 0.07); tmpQ.setFromUnitVectors(XAX, tmpD.copy(it.v).normalize()); }
       else { if (it.sv) tmpS.copy(it.sv).multiplyScalar(fade); else tmpS.setScalar((it.s || 1) * fade); tmpQ.setFromEuler(it.r); }
       tmpM.compose(it.p, tmpQ, tmpS); im.setMatrixAt(i, tmpM); im.setColorAt(i, it.col);
     }
@@ -821,8 +811,8 @@
         case 'fire': {
           A.play('cannon'); kick = 1; shake = Math.max(shake, 0.1);
           aimTarget.set(e.x, e.y, e.z); aimNow.copy(aimTarget); aimCannon();
-          var mz = muzzleWorld(); muzzleFlash.position.copy(mz); muzzleFlash.scale.setScalar(2.6); muzzleFlash.material.opacity = 1;
-          for (q = 0; q < 8; q++) { var sm = spawnSoft(mz.clone(), rnd(0.8, 1.5), 0xf7efe2, 0.8, rnd(0.5, 1), 1.3); if (sm) sm.v.set(rnd(-1.5, 1.5), rnd(0.5, 2.5), rnd(-1, 1)); }
+          var mz = muzzleWorld(); 
+          for (q = 0; q < 4; q++) { var sm = spawnSoft(mz.clone(), rnd(0.5, 0.9), 0xf7efe2, 0.5, rnd(0.35, 0.6), 1.2); if (sm) sm.v.set(rnd(-1.5, 1.5), rnd(0.5, 2.5), rnd(-1, 1)); }
           break;
         }
         case 'break': {
@@ -950,7 +940,7 @@
     if (S && S.shield) { var sp = S.shield.body.translation(); shield.position.set(sp.x, sp.y, sp.z); }
     for (var bid in blockMeshes) { var sk = blockMeshes[bid].g.userData.spark; if (sk) { sk.scale.setScalar(0.35 + Math.random() * 0.25); sk.material.rotation = Math.random() * 6; } }
     if (S && S.fan) { var fp = S.fan.body.translation(), fq = S.fan.body.rotation(); fan.position.set(fp.x, fp.y, fp.z); fan.quaternion.set(fq.x, fq.y, fq.z, fq.w); }
-    stepPool(shards, dt, 'glass'); stepPool(chips, dt, 'wood'); stepPool(drops, dt, 'drop'); stepPool(confs, dt, 'conf');
+    stepPool(shards, dt, 'glass'); stepPool(petals, dt, 'petal'); stepPool(plates, dt, 'glass'); stepPool(chips, dt, 'wood'); stepPool(drops, dt, 'drop'); stepPool(confs, dt, 'conf');
     stepSofts(dt); stepFallers(dt);
     if (tinkle > 0 && Math.random() < 0.35) { A.play('tinkle'); tinkle -= 1; }
     crushCool -= dt; kick *= 0.85; aimCannon();
