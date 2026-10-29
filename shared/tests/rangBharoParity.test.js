@@ -66,7 +66,7 @@ describe('Rang Bharo rules: one block, pinned', () => {
 
   (SKIP_PIN ? test.skip : test)('the rules block hash is pinned (a change is a version bump)', () => {
     const h = crypto.createHash('sha256').update(block(game)).digest('hex');
-    expect(h).toBe('df1076a7eb87d04d05d96ee4cf7384f608b4f4fb29efd8e12d969100bf3a722d');
+    expect(h).toBe('eb3f695c25e5950a8702d1a067f9750c9027c63ca5646da66832729cbb20a735');
   });
 
   (SKIP_PIN ? test.skip : test)('every rules constant is pinned by value', () => {
@@ -77,17 +77,18 @@ describe('Rang Bharo rules: one block, pinned', () => {
       MAX_INPUTS: S.MAX_INPUTS, MAX_SIM_STEPS: S.MAX_SIM_STEPS,
     }).toEqual({
       RULES_VERSION: 1, STEP_HZ: 60, TIME_STEPS: 10800, STEPS_PER_TILE: 4, CLEAR_PAUSE: 54, MAZE_BASE: 10,
-      PERFECT_BASE: 25, PERFECT_PER: 5, MAX_W: 11, MAX_H: 13, GEN_ATTEMPTS: 60, SOLVE_CAP: 60000,
+      PERFECT_BASE: 25, PERFECT_PER: 5, MAX_W: 11, MAX_H: 13, GEN_ATTEMPTS: 120, SOLVE_CAP: 60000,
       DX: [0, 1, 0, -1], DY: [-1, 0, 1, 0], MAX_INPUTS: 10900, MAX_SIM_STEPS: 216000,
     });
   });
 
   (SKIP_PIN ? test.skip : test)('the difficulty curve is pinned by value', () => {
-    const row = (n) => [S.mazeDims(n).w, S.mazeDims(n).h, S.floorPercent(n), S.moveBudget(n), S.greed(n), S.minPar(n)];
-    expect([1, 2, 3, 4, 5, 8, 10, 11, 12, 13, 14, 20, 40].map(row)).toEqual([
-      [6, 6, 46, 7, 2, 4], [6, 7, 48, 9, 2, 5], [7, 7, 50, 10, 2, 5], [7, 8, 52, 12, 1, 6], [8, 8, 54, 13, 1, 6],
-      [9, 10, 60, 18, 1, 8], [10, 11, 60, 21, 1, 9], [11, 11, 60, 22, 1, 9], [11, 12, 60, 22, 1, 10],
-      [11, 12, 60, 22, 1, 10], [11, 13, 60, 22, 1, 10], [11, 13, 60, 22, 1, 10], [11, 13, 60, 22, 1, 10],
+    const row = (n) => [S.mazeDims(n).w, S.mazeDims(n).h, S.floorPercent(n), S.moveBudget(n), S.greed(n), S.twist(n), S.minPar(n)];
+    expect([1, 2, 3, 4, 5, 8, 10, 15, 16, 17, 18, 20, 24, 28, 40].map(row)).toEqual([
+      [4, 4, 49, 4, 2, 0, 2], [4, 5, 50, 6, 2, 0, 2], [5, 5, 51, 7, 2, 0, 2], [5, 6, 52, 9, 1, 0, 5], [6, 6, 53, 10, 1, 0, 5],
+      [7, 8, 56, 15, 1, 0, 8], [8, 9, 58, 18, 1, 0, 9], [11, 11, 62, 25, 1, 0, 12], [11, 12, 62, 27, 0, 0, 14],
+      [11, 12, 62, 28, 0, 0, 14], [11, 13, 62, 30, 0, 0, 15], [11, 13, 62, 33, 0, 1, 17], [11, 13, 62, 39, 0, 2, 20],
+      [11, 13, 62, 40, 0, 2, 20], [11, 13, 62, 40, 0, 2, 20],
     ]);
   });
 
@@ -386,7 +387,7 @@ describe('Rang Bharo: every maze is solvable by construction, and nobody parks',
         expect(m.floors).toBeGreaterThanOrEqual(2);
         expect(sim.left).toBe(m.floors - 1);
         expect(m.par).toBeLessThanOrEqual(m.designed);
-        expect(m.par).toBeGreaterThanOrEqual(3);
+        expect(m.par).toBeGreaterThanOrEqual(2);
         for (const d of m.path) {
           while (sim.dir >= 0) S.stepSim(sim);
           if (sim.n !== n || sim.pause > 0) break;

@@ -14,7 +14,7 @@
   const PERFECT_PER = 5;
   const MAX_W = 11;
   const MAX_H = 13;
-  const GEN_ATTEMPTS = 60;
+  const GEN_ATTEMPTS = 120;
   const SOLVE_CAP = 60000;           // BFS state cap; past it par is the designed length
   const DX = [0, 1, 0, -1];
   const DY = [-1, 0, 1, 0];
@@ -36,14 +36,17 @@
   }
 
   function mazeDims(n) {
-    return { w: Math.min(MAX_W, 6 + ((n - 1) >> 1)), h: Math.min(MAX_H, 6 + (n >> 1)) };
+    return { w: Math.min(MAX_W, 4 + ((n - 1) >> 1)), h: Math.min(MAX_H, 4 + (n >> 1)) };
   }
 
-  // Floors wanted, in percent of the grid, and how hard the slides bend.
-  function floorPercent(n) { return Math.min(60, 44 + n * 2); }
-  function moveBudget(n) { return Math.min(22, 6 + n + (n >> 1)); }
-  function greed(n) { return n < 4 ? 2 : 1; }
-  function minPar(n) { return Math.min(10, 4 + (n >> 1)); }
+  // The curve: tiny boards first (4x4, cleared in seconds), one row or column
+  // more each maze up to 11x13 at maze 17, and past that the routes keep
+  // getting longer and more bent (more moves, shorter slides, a higher par).
+  function floorPercent(n) { return Math.min(62, 48 + n); }
+  function moveBudget(n) { return Math.min(40, 3 + n + (n >> 1)); }
+  function greed(n) { return n < 4 ? 2 : (n < 16 ? 1 : 0); }
+  function twist(n) { return n < 20 ? 0 : Math.min(2, (n - 16) >> 2); }
+  function minPar(n) { return n < 4 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2)); }
 
   // The slide the ball makes from cell c in direction d: the cell it stops on.
   function slideEnd(cells, w, h, c, d) {
@@ -136,7 +139,7 @@
   function genMazeRaw(sd, n) {
     const dm = mazeDims(n), w = dm.w, h = dm.h, N = w * h;
     const want = Math.floor(N * floorPercent(n) / 100);
-    const greedy = greed(n), budget = moveBudget(n);
+    const greedy = greed(n), bend = twist(n), budget = moveBudget(n);
     for (let attempt = 0; attempt < GEN_ATTEMPTS; attempt++) {
       let rs = hash3(sd, n, attempt) | 0;
       const rnd = function (k) {
@@ -174,6 +177,7 @@
         if (!pool.length) break;
         let idx = rnd(pool.length);
         for (let b = 0; b < greedy; b++) { const j = rnd(pool.length); if (pool[j].fresh > pool[idx].fresh) idx = j; }
+        for (let b = 0; b < bend; b++) { const j = rnd(pool.length); if (pool[j].L < pool[idx].L) idx = j; }
         const mv = pool[idx];
         let cx = x, cy = y;
         for (let k = 1; k <= mv.L; k++) {

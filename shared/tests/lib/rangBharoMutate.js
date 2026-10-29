@@ -44,8 +44,8 @@ const M = [
   ['PERFECT_PER', 'both', 'const PERFECT_PER = 5;', 'const PERFECT_PER = 6;'],
   ['MAX_W', 'both', 'const MAX_W = 11;', 'const MAX_W = 10;'],
   ['MAX_H', 'both', 'const MAX_H = 13;', 'const MAX_H = 12;'],
-  ['GEN_ATTEMPTS', 'both', 'const GEN_ATTEMPTS = 60;', 'const GEN_ATTEMPTS = 59;'],
-  ['GEN_ATTEMPTS small', 'both', 'const GEN_ATTEMPTS = 60;', 'const GEN_ATTEMPTS = 1;'],
+  ['GEN_ATTEMPTS', 'both', 'const GEN_ATTEMPTS = 120;', 'const GEN_ATTEMPTS = 119;'],
+  ['GEN_ATTEMPTS small', 'both', 'const GEN_ATTEMPTS = 120;', 'const GEN_ATTEMPTS = 1;'],
   ['SOLVE_CAP', 'both', 'const SOLVE_CAP = 60000; ', 'const SOLVE_CAP = 59999; '],
   ['SOLVE_CAP small', 'both', 'const SOLVE_CAP = 60000; ', 'const SOLVE_CAP = 3000; '],
   ['DX', 'both', 'const DX = [0, 1, 0, -1];', 'const DX = [0, -1, 0, 1];'],
@@ -57,15 +57,21 @@ const M = [
   ['hash attempt ignored', 'both', 'Math.imul((c | 0) + 0x1B873593, 0xC2B2AE3D)', 'Math.imul(0x1B873593, 0xC2B2AE3D)'],
   ['rng step', 'both', 'rs = (rs + 0x6D2B79F5) | 0;', 'rs = (rs + 0x6D2B79F3) | 0;'],
   // ── difficulty curve ─────────────────────────────────────────────────────
-  ['dims w', 'both', 'w: Math.min(MAX_W, 6 + ((n - 1) >> 1))', 'w: Math.min(MAX_W, 6 + (n >> 1))'],
-  ['dims h', 'both', 'h: Math.min(MAX_H, 6 + (n >> 1))', 'h: Math.min(MAX_H, 6 + ((n + 1) >> 1))'],
-  ['floor% cap', 'both', 'return Math.min(60, 44 + n * 2);', 'return Math.min(61, 44 + n * 2);'],
-  ['floor% base', 'both', 'return Math.min(60, 44 + n * 2);', 'return Math.min(60, 43 + n * 2);'],
-  ['budget cap', 'both', 'return Math.min(22, 6 + n + (n >> 1));', 'return Math.min(21, 6 + n + (n >> 1));'],
-  ['budget base', 'both', 'return Math.min(22, 6 + n + (n >> 1));', 'return Math.min(22, 5 + n + (n >> 1));'],
-  ['greed', 'both', 'return n < 4 ? 2 : 1;', 'return n < 3 ? 2 : 1;'],
-  ['minPar base', 'both', 'return Math.min(10, 4 + (n >> 1));', 'return Math.min(10, 3 + (n >> 1));'],
-  ['minPar cap', 'both', 'return Math.min(10, 4 + (n >> 1));', 'return Math.min(9, 4 + (n >> 1));'],
+  ['dims w', 'both', 'w: Math.min(MAX_W, 4 + ((n - 1) >> 1))', 'w: Math.min(MAX_W, 4 + (n >> 1))'],
+  ['dims h', 'both', 'h: Math.min(MAX_H, 4 + (n >> 1))', 'h: Math.min(MAX_H, 4 + ((n + 1) >> 1))'],
+  ['dims start 5', 'both', 'w: Math.min(MAX_W, 4 + ((n - 1) >> 1))', 'w: Math.min(MAX_W, 5 + ((n - 1) >> 1))'],
+  ['floor% cap', 'both', 'return Math.min(62, 48 + n);', 'return Math.min(63, 48 + n);'],
+  ['floor% base', 'both', 'return Math.min(62, 48 + n);', 'return Math.min(62, 47 + n);'],
+  ['budget cap', 'both', 'return Math.min(40, 3 + n + (n >> 1));', 'return Math.min(39, 3 + n + (n >> 1));'],
+  ['budget base', 'both', 'return Math.min(40, 3 + n + (n >> 1));', 'return Math.min(40, 2 + n + (n >> 1));'],
+  ['greed early', 'both', 'return n < 4 ? 2 : (n < 16 ? 1 : 0);', 'return n < 3 ? 2 : (n < 16 ? 1 : 0);'],
+  ['greed late', 'both', 'return n < 4 ? 2 : (n < 16 ? 1 : 0);', 'return n < 4 ? 2 : (n < 15 ? 1 : 0);'],
+  ['twist start', 'both', 'return n < 20 ? 0 : Math.min(2, (n - 16) >> 2);', 'return n < 19 ? 0 : Math.min(2, (n - 16) >> 2);'],
+  ['twist cap', 'both', 'return n < 20 ? 0 : Math.min(2, (n - 16) >> 2);', 'return n < 20 ? 0 : Math.min(1, (n - 16) >> 2);'],
+  ['twist picks longer', 'both', 'if (pool[j].L < pool[idx].L) idx = j;', 'if (pool[j].L > pool[idx].L) idx = j;'],
+  ['minPar early', 'both', 'return n < 4 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2));', 'return n < 3 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2));'],
+  ['minPar base', 'both', 'return n < 4 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2));', 'return n < 4 ? 2 : Math.min(20, 1 + (n >> 1) + (n >> 2));'],
+  ['minPar cap', 'both', 'return n < 4 ? 2 : Math.min(20, 2 + (n >> 1) + (n >> 2));', 'return n < 4 ? 2 : Math.min(19, 2 + (n >> 1) + (n >> 2));'],
   // ── the generator ────────────────────────────────────────────────────────
   ['slide stops one short', 'both', "if (nx < 0 || ny < 0 || nx >= w || ny >= h || cells[ny * w + nx] === 0) break;\n      x = nx; y = ny;", "if (nx < 0 || ny < 0 || nx >= w || ny >= h || cells[ny * w + nx] === 0 || cells[(ny + DY[d]) * w + nx + DX[d]] === 0) break;\n      x = nx; y = ny;"],
   ['slideEnd edge', 'both', "if (nx < 0 || ny < 0 || nx >= w || ny >= h || cells[ny * w + nx] === 0) break;", "if (nx < 0 || ny < 0 || nx > w || ny >= h || cells[ny * w + nx] === 0) break;"],
@@ -170,9 +176,7 @@ const M = [
 ];
 
 const INERT = {
-  // GEN_ATTEMPTS: measured on 4800 mazes (300 seeds x 16), the most attempts
-  // any maze needed before passing every gate is far below 59; 'GEN_ATTEMPTS small' must be caught.
-  'GEN_ATTEMPTS': 'no maze in 4800 measured needs the 60th attempt; the large variant (1) is caught',
+  'GEN_ATTEMPTS': 'INERT_GEN',
   // The per-frame cap only spreads owed steps over frames (nothing is ever
   // dropped), so 3 or 6 give the same steps on the same wall clock; measured:
   // every suite passes with 6. 'c: catch-up 1' (cannot keep up at 30 Hz) is caught.

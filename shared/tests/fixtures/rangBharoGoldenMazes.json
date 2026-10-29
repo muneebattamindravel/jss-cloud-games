@@ -5,56 +5,56 @@
   {
    "seed": "g80",
    "n": 15,
-   "par": 18,
-   "digest": "4ed4cbf0f84d771e"
+   "par": 16,
+   "digest": "a3441e87ed3330b2"
   },
   {
    "seed": "g116",
    "n": 11,
-   "par": 22,
-   "digest": "a444e593150f5fba"
+   "par": 12,
+   "digest": "02671b5fd1c6dc87"
   },
   {
    "seed": "g152",
    "n": 5,
-   "par": 11,
-   "digest": "c2a3263ff0f026b7"
+   "par": 5,
+   "digest": "e9b310075d251b67"
   },
   {
    "seed": "g203",
    "n": 5,
-   "par": 11,
-   "digest": "b94dd9738978ece2"
+   "par": 9,
+   "digest": "2e3e4ec666dc12de"
   },
   {
    "seed": "g210",
    "n": 14,
-   "par": 17,
-   "digest": "78f92b614720e8d4"
+   "par": 18,
+   "digest": "fb977c7256b55791"
   },
   {
    "seed": "g261",
    "n": 7,
-   "par": 14,
-   "digest": "9588a8432db51cdf"
+   "par": 9,
+   "digest": "19a0cb57114b73f3"
   },
   {
    "seed": "g267",
    "n": 9,
    "par": 15,
-   "digest": "9b2f8499bcb86768"
+   "digest": "869c415942fe7a59"
   },
   {
    "seed": "g278",
    "n": 13,
-   "par": 20,
-   "digest": "062d02e89410003f"
+   "par": 19,
+   "digest": "33e85441b6364e63"
   },
   {
    "seed": "g232",
    "n": 16,
-   "par": 22,
-   "digest": "786a4f2b22924c7f"
+   "par": 26,
+   "digest": "f19b16cc27623158"
   }
  ]
 }
