@@ -132,10 +132,10 @@ const M = [
   // ── client ───────────────────────────────────────────────────────────────
   ['c: emit before shoot', 'game', '    if (R.shoot(S, x, y) !== true) return false;\n', '    var ok = R.shoot(S, x, y);\n'],
   ['c: shot after step', 'game', "        else if (pendingShot) { fireShot(pendingShot.x, pendingShot.y, true); pendingShot = null; }\n        R.stepSim(S); handleEvents(S);", "        R.stepSim(S); handleEvents(S);\n        if (pendingShot) { fireShot(pendingShot.x, pendingShot.y, true); pendingShot = null; }"],
-  ['c: replay takes real input', 'game', "if (mode !== 'play' || RP) return;\n    A.init();", "if (mode !== 'play') return;\n    A.init();"],
+  ['c: replay takes real input', 'game', "        else if (pendingShot) { fireShot(", "        if (pendingShot) { fireShot("],
   ['c: replay fires early', 'game', 'var due = replayCur.due(S.step);', 'var due = replayCur.due(S.step + 1);'],
   ['c: seed not the session', 'game', 'var seedInt = (EMBED || RP) ? R.seedToInt(window.__kjSeed) : newSeed();', 'var seedInt = newSeed();'],
-  ['c: level switch live', 'game', "(EMBED || RP) ? 1 : (parseInt(params.get('level'), 10) || 1)", "(parseInt(params.get('level'), 10) || 1)"],
+  ['c: QA switches live', 'game', "var Q = EMBED ? '' : location.search;", "var Q = location.search;"],
   ['c: submit at once', 'game', 'setTimeout(submitNow, 1500);', 'submitNow();'],
   ['c: two runs a session', 'game', "addEventListener('click', function () { if (EMBED) return; mode = 'menu';", "addEventListener('click', function () { mode = 'menu';"],
   ['c: pause embedded', 'game', "if (mode === 'play' && !EMBED && !RP) { pausedFrom", "if (mode === 'play' && !RP) { pausedFrom"],

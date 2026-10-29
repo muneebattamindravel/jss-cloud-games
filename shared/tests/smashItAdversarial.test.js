@@ -98,6 +98,25 @@ describe('Smash It validator: a refused input changes nothing and never zeroes',
     const { fin } = run(ev);
     expect(fin.score).toBe(H1.score);
   });
+  test('a rewind after a refused event that moved the clock is refused (the step guard alone stops it)', () => {
+    const { fin } = run([start(), shot(0, 0, 300, 100), shot(5, 0, 300, 300), shot(1, 0, 300, 200)]);
+    expect(fin.debug.shots).toBe(1);
+    expect(fin.debug.rejects).toBe(2);
+  });
+  test('a shot with a skipped index is refused even when the reload allows it', () => {
+    const { fin } = run([start(), shot(0, 0, 300, 100), shot(7, 0, 300, 200), shot(1, 0, 300, 300)]);
+    expect(fin.debug.shots).toBe(2);
+    expect(fin.debug.rejects).toBe(1);
+  });
+  test('processEvent reports the replayed score, never a score in the payload', () => {
+    const st = V.init({ seed: SEED, elapsedSecs: 2400 });
+    for (const e of H1.trace) {
+      const r = V.processEvent(st, { type: e.type, payload: Object.assign({}, e.payload, { score: 99999 }) });
+      expect(r.newScore).toBe(st.sim.score);
+      expect(r.newScore).toBeLessThan(99999);
+    }
+    V.finalize(st);
+  });
   test('a shot out of order (wrong index) is refused, and so is a duplicated one', () => {
     const ev = H1.trace.slice();
     const i = 6, dup = ev[i];

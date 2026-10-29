@@ -978,7 +978,7 @@
     if (RP) { traceVersion = RP.capVersion(traceVersion); replayCur = RP.cursor(['shot'], function (p) { return Number(p.step); }); RP.started(traceVersion); }
     clearScene();
     var seedInt = (EMBED || RP) ? R.seedToInt(window.__kjSeed) : newSeed();
-    S = R.initSim(seedInt, (EMBED || RP) ? 1 : (parseInt(params.get('level'), 10) || 1));
+    S = R.initSim(seedInt, parseInt(params.get('level'), 10) || 1);   // params are empty inside the platform (Q)
     shownScore = 0; pendingShot = null; handleEvents(S);
     return true;
   }
