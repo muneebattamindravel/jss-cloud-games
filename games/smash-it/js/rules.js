@@ -124,6 +124,15 @@
         }
         rows.push(out);
       }
+      // a block needs something under it: drop any cell whose column is empty in the row below
+      for (var rr2 = 1; rr2 < rows.length; rr2++) {
+        rows[rr2].forEach(function (cell) {
+          if (cell.gap || cell.skip) return;
+          var x0 = cell.x, x1 = cell.x + (cell.span || 1) - 1, ok = false;
+          rows[rr2 - 1].forEach(function (u) { if (!u.gap && u.x <= x1 && u.x + (u.span || 1) - 1 >= x0) ok = true; });
+          if (!ok) { cell.gap = 1; delete cell.t; }
+        });
+      }
       tables.push({ cols: cols, rows: rows });
     });
     if (tables.length === 2) { var gap = 1.2, w0 = tables[0].cols, w1 = tables[1].cols; tables[0].cx = -(w1 + gap) / 2 - 0.3 + (w1 - w0) / 4; tables[1].cx = (w0 + gap) / 2 + 0.3 - (w1 - w0) / 4; tables[0].cx = -(w0 / 2 + gap / 2 + 0.25); tables[1].cx = w1 / 2 + gap / 2 + 0.25; }
@@ -163,7 +172,7 @@
   // at most one obstacle type early, two from level 8, three on boss levels; picked from those unlocked
   function obstaclePlan(seed, L, single) {
     var c = [];
-    if (L >= 3) c.push('shield'); if (L >= 5) c.push('fan'); if (L >= 7 && single) c.push('slide');
+    if (L >= 3) c.push('shield'); if (L >= 5) c.push('fan'); 
     if (L >= 9) c.push('pend');
     var maxN = L < 3 ? 0 : L < 8 ? 1 : 2;
     if (isBoss(L)) maxN = 3;
@@ -285,11 +294,8 @@
     S.blocks = S.blocks.filter(function (o) { return o !== b; });
     delete S.byCollider[b.collider.handle];
     S.world.removeRigidBody(b.body);
-    // wake whatever was touching it so stacks settle on the gap
-    for (var i = 0; i < S.blocks.length; i++) {
-      var q = S.blocks[i].body.translation(), dx = q.x - p.x, dy = q.y - p.y;
-      if (dx * dx + dy * dy < 9) S.blocks[i].body.wakeUp();
-    }
+    // wake the whole tower so nothing is left resting on the gap (a block may leave from far away)
+    for (var i = 0; i < S.blocks.length; i++) S.blocks[i].body.wakeUp();
     return p;
   }
   function breakBlock(S, b, how) {
@@ -389,6 +395,15 @@
       // the ball stays on the front of the tower: its push into the tower is spent on the break,
       // it keeps some sideways and vertical motion and drops down the face, like the reference
       bl.body.setLinvel({ x: bl.pv.x * k2 * 0.5, y: Math.min(bl.pv.y * k2 * 0.4, 3), z: 1.2 }, true);
+    }
+    if (S.step % 10 === 0) {
+      var movers = [];
+      for (i = 0; i < S.blocks.length; i++) if (!S.blocks[i].body.isSleeping()) movers.push(S.blocks[i].body.translation());
+      if (movers.length) for (i = 0; i < S.blocks.length; i++) {
+        var bb2 = S.blocks[i]; if (!bb2.body.isSleeping()) continue;
+        var q2 = bb2.body.translation();
+        for (var mi = 0; mi < movers.length; mi++) if (Math.abs(movers[mi].x - q2.x) < 1.6 && movers[mi].y < q2.y + 0.2) { bb2.body.wakeUp(); break; }
+      }
     }
     // landing thuds: a block that was moving and suddenly stops (once, not while it rests)
     for (i = 0; i < S.blocks.length; i++) {
