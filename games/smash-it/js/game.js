@@ -468,6 +468,19 @@
     m.position.y = 15; m.castShadow = true; return m;
   })();
 
+  // pendulum: a striped wrecking ball on a gold rod, hanging from a purple pivot
+  var pend = new T.Group(); scene.add(pend); pend.visible = false;
+  (function () {
+    var rod = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, R.PEND_LEN, 12), goldMat); rod.position.y = -R.PEND_LEN / 2; pend.add(rod);
+    var c = canvasEl(256, 128), g = c.getContext('2d'); g.fillStyle = '#8b3ff2'; g.fillRect(0, 0, 256, 128);
+    g.fillStyle = '#ffd23a'; for (var i = 0; i < 8; i++) g.fillRect(i * 32, 0, 14, 128);
+    var ball = new T.Mesh(new T.SphereGeometry(R.PEND_R, 32, 20), new T.MeshMatcapMaterial({ map: tex(c, true), matcap: matcapTex('#ffffff', 1, 'neutral') }));
+    ball.position.y = -R.PEND_LEN; pend.add(ball);
+    var ol = new T.Mesh(new T.SphereGeometry(R.PEND_R + 0.06, 24, 16), outlineMat); ol.position.y = -R.PEND_LEN; pend.add(ol);
+    var piv = new T.Mesh(new T.SphereGeometry(0.22, 20, 12), purpleMat); pend.add(piv);
+    var pol = new T.Mesh(new T.SphereGeometry(0.27, 16, 10), outlineMat); pend.add(pol);
+  })();
+
   // ---------------------------------------------------------------- cannon
   var cannon = new T.Group(); scene.add(cannon);
   var blueMat = phys({ color: L('#2a63e8'), roughness: 0.25, clearcoat: 0.5, clearcoatRoughness: 0.08 });
@@ -782,7 +795,7 @@
       elBalls.textContent = S.balls; elBalls.parentNode.classList.toggle('low', S.balls <= 3);
       elBalls.parentNode.classList.remove('bump'); void elBalls.offsetWidth; elBalls.parentNode.classList.add('bump'); shownBalls = S.balls;
     }
-    var label = 'LEVEL ' + S.level;
+    var label = (S.boss ? 'BOSS ' : 'LEVEL ') + S.level;
     if (elTower.textContent !== label) elTower.textContent = label;
     var pct = Math.round((1 - S.blocks.length / towerTotal) * 100);
     if (elFill.dataset.p !== String(pct)) { elFill.dataset.p = pct; elFill.style.width = 'calc(' + pct + '% - ' + (pct ? 6 * pct / 100 : 0) + 'px)'; }
@@ -800,6 +813,7 @@
     S.tables.forEach(function (t) { minX = Math.min(minX, t.cx - t.w / 2); maxX = Math.max(maxX, t.cx + t.w / 2); });
     S.blocks.forEach(function (b) { var p = b.body.translation(); top = Math.max(top, p.y + b.h / 2); });
     if (S.fan) top = Math.max(top, S.fan.body.translation().y + 1);
+    if (S.pend) top = Math.max(top, S.pend.y + 0.4);
     // table top sits a little below the middle of the screen, tower top stays under the HUD
     var halfW = Math.max(Math.abs(minX), Math.abs(maxX)) + 0.4;
     var d = Math.max(halfW / (TANH * ASPECT * 0.96), top / (0.74 * TANH), 15);
@@ -832,6 +846,7 @@
           frameTower(S, e.level === 1);
           for (var id in blockMeshes) { scene.remove(blockMeshes[id].g); delete blockMeshes[id]; }
           S.blocks.forEach(function (b, k) { var bm = blockMeshes[b.id] = makeBlockMesh(b); bm.drop = 10 + b.body.translation().y * 1.2 + k * 0.05; });
+          if (e.boss) { floatText({ x: 0, y: 8.2, z: 0 }, 'BOSS LEVEL!', 'gold big'); }
           if (e.level > 1) { floatText({ x: 0, y: 7, z: 0 }, '+' + e.add + ' BALLS', 'green big'); A.play('reload'); }
           break;
         case 'fire': {
@@ -966,6 +981,9 @@
     syncBlocks(dt);
     if (S) syncBalls(S);
     fan.visible = !!(S && S.fan);
+    pend.visible = !!(S && S.pend);
+    if (S && S.pend) { var pp = S.pend.body.translation(), pq = S.pend.body.rotation(); pend.position.set(pp.x, pp.y, pp.z); pend.quaternion.set(pq.x, pq.y, pq.z, pq.w); }
+    if (S && S.motion && tableMeshes[0]) { var mt = S.motion.body.translation(), mq = S.motion.body.rotation(); tableMeshes[0].position.x = mt.x; tableMeshes[0].quaternion.set(mq.x, mq.y, mq.z, mq.w); }
     if (S && S.shield) { var sp = S.shield.body.translation(); shield.position.set(sp.x, sp.y, sp.z); }
     if (S && shield2 && S.shields.length > 1) { var sp2 = S.shields[1].body.translation(); shield2.position.set(sp2.x, sp2.y, sp2.z); }
     for (var bid in blockMeshes) { var sk = blockMeshes[bid].g.userData.spark; if (sk) { sk.scale.setScalar(0.35 + Math.random() * 0.25); sk.material.rotation = Math.random() * 6; } }

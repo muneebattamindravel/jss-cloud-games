@@ -14,8 +14,9 @@
   var CANNON = { x: 0, y: -1.2, z: 13 };
   var FALL_Y = -2.6;
   var JAR_BREAK_F = 800, CRUSH_F = 1e9;
-  var SHOT_GAP = 10, PIERCE = 5;
+  var SHOT_GAP = 10, PIERCE = 5, CARRY_CAP = 6;
   var BOMB_R = 2.6, BOMB_PUSH = 9;
+  var PEND_LEN = 3.4, PEND_R = 0.55, PEND_Z = FRONT + 1.6;
   var SHIELD_W = 2.6, SHIELD_H = 0.5, SHIELD_Z = FRONT + 0.7;
   var FAN_LEN = 3.1, FAN_HALF = 0.16, FAN_Y = 5.2, FAN_Z = FRONT + 0.95;
   var PTS = { jar: 10, brick: 15, crate: 25, plank: 40, bomb: 30, ice: 20 };
@@ -69,7 +70,22 @@
     { min: 7, rows: ['iii.iii', 'iAi.iAi', 'iii.iii', '=======', 'P0P0P0P', '|A|B|A|'] },
     { min: 8, rows: ['SSSSSSSS', 'S0T00T0S', 'SAAAAAAS', 'SBBBBBBS', 'SAAAAAAS', 'S0iiii0S', 'SSSSSSSS'] },
     { min: 8, rows: ['AB0 0BA', 'BA0 0AB', 'AB0 0BA', 'BA0 0AB', 'AB0 0BA', '=== ==='], twin: true },
-    { min: 9, rows: ['=========', 'P1i1i1i1P', '|AAAAAAA|', 'P2i2i2i2P', '|BBBBBBB|', '========='] }
+    { min: 9, rows: ['=========', 'P1i1i1i1P', '|AAAAAAA|', 'P2i2i2i2P', '|BBBBBBB|', '========='] },
+    { min: 3, rows: ['A.A.A.A', 'AAAAAAA', 'BBBBBBB', 'CCCCCCC'] },
+    { min: 4, rows: ['..000..', '.01110.', '0122210', '0123210', '0122210'] },
+    { min: 5, rows: ['AAA AAA', 'BTB BTB', 'AAA AAA', 'ccc ccc'], twin: true },
+    { min: 6, rows: ['ABCDEDCBA', 'ABCDEDCBA', 'ABCDEDCBA', '========='] },
+    { min: 7, rows: ['i.i.i.i', 'AiAiAiA', 'iAiAiAi', 'AiAiAiA', 'iiiiiii'] },
+    { min: 8, rows: ['S..S..S', 'SAASAAS', 'SAASAAS', 'SBBSBBS', 'SSSSSSS'] },
+    { min: 9, rows: ['...T...', '..AAA..', '.BBBBB.', 'CCCTCCC', 'ccccccc'] },
+    { min: 10, rows: ['00 11', 'AA BB', '00 11', 'AA BB', '00 11', 'AA BB'], twin: true },
+    { min: 11, rows: ['=======', 'PiPiPiP', '|A|A|A|', 'PcPcPcP', '|B|B|B|', '======='] },
+    { min: 12, rows: ['SSSSSSSSS', 'S0A0A0A0S', 'SA1B1B1AS', 'S0A0T0A0S', 'SA1B1B1AS', 'SSSSSSSSS'] },
+    { min: 13, rows: ['iiiiiiii', 'iAAiiBBi', 'iAAiiBBi', 'iiiTTiii', 'iCCiiDDi', 'iiiiiiii'] },
+    { min: 14, rows: ['T.......T', 'AAAA.BBBB', '0000.1111', 'cccc.cccc', 'AAAAABBBB', '========='] },
+    { min: 16, rows: ['P0P0P0P0P', '|A|B|C|D|', 'P1P1P1P1P', '|A|B|C|D|', 'SSSSSSSSS'] },
+    { min: 18, rows: ['SiSiS SiSiS', 'iAAAi iBBBi', 'SATAS SBTBS', 'iAAAi iBBBi', 'SiSiS SiSiS'], twin: true },
+    { min: 20, rows: ['==========', 'SiiiiiiiiS', 'S0AAAAAA0S', 'SiT0000TiS', 'S0BBBBBB0S', 'SiiiiiiiiS', '=========='] }
   ];
   var BRICK_COLS = 7, JAR_COLS = 5;
 
@@ -143,12 +159,21 @@
     return b;
   }
 
+  // which table motion a level gets (single-table towers only): 0 none, 1 slide, 2 turntable
+  function motionFor(seed, L) {
+    if (L < 7) return 0;
+    var h = hash(seed, L, 20) % 10;
+    if (L < 11) return h < 4 ? 1 : 0;
+    return h < 3 ? 1 : h < 6 ? 2 : 0;
+  }
+  function isBoss(L) { return L >= 10 && L % 5 === 0; }
+
   function buildTower(S) {
     var L = S.level, lay = layout(S.seed, L), cost = 0;
     S.tables = []; var towerH = 0;
     for (var ti = 0; ti < lay.tables.length; ti++) {
       var tb = lay.tables[ti], tw = tb.cols * CELL + 0.5;
-      var tbody = S.world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(tb.cx, -0.15, 0));
+      var tbody = S.world.createRigidBody((lay.tables.length === 1 && motionFor(S.seed, L) ? R.RigidBodyDesc.kinematicPositionBased() : R.RigidBodyDesc.fixed()).setTranslation(tb.cx, -0.15, 0));
       S.world.createCollider(R.ColliderDesc.cuboid(tw / 2, 0.15, 0.8).setFriction(0.8), tbody);
       S.tables.push({ cx: tb.cx, w: tw, body: tbody, round: !!lay.round });
       var hs = tb.rows.map(rowHeight), y = 0;
@@ -167,13 +192,28 @@
       if (y > towerH) towerH = y;
     }
     S.layout = lay.kind;
-    var per = 23 + L * 2, add = Math.max(5, ((cost + per - 1) / per) | 0) + (L === 1 ? 4 : 2);
-    S.balls += add;
+    // balls: a fresh budget sized to the tower, plus a small carry-over (capped) so good play
+    // earns a cushion but nobody banks 80 balls
+    var per = 26 + L * 3, add = Math.max(4, ((cost + per - 1) / per) | 0) + (L === 1 ? 5 : 1) + (isBoss(L) ? 3 : 0);
+    S.balls = Math.min(S.balls, CARRY_CAP) + add;
     // obstacles stack up with depth: one shield (tower 3), the fan (tower 5), shield + fan
     // together (tower 8), two shields + fan (tower 12); every obstacle speeds up as towers rise
     var ob = hash(S.seed, L, 6) % 4;
     var nShield = L < 3 ? 0 : L < 5 ? ((ob & 1) === 0 ? 1 : 0) : L < 8 ? (ob === 1 || ob === 3 ? 1 : 0) : L < 12 ? 1 : 2;
     var wantFan = L >= 8 || (L >= 5 && ob >= 2);
+    if (isBoss(L)) { nShield = Math.max(nShield, 1); wantFan = true; }
+    // table motion
+    var mo = lay.tables.length === 1 ? motionFor(S.seed, L) : 0;
+    S.motion = mo ? { kind: mo, k: hash(S.seed, L, 21) & 1023, spd: (mo === 1 ? 3 : 2) + (L >> 3), body: S.tables[0].body, cx: S.tables[0].cx } : null;
+    // pendulum from level 9 (always on boss levels)
+    S.pend = null;
+    if (L >= 9 && (isBoss(L) || hash(S.seed, L, 22) % 3 === 0)) {
+      var py = Math.max(4.4, towerH + 0.9), pb = S.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, py, PEND_Z));
+      S.world.createCollider(R.ColliderDesc.cuboid(0.06, PEND_LEN / 2, 0.06).setTranslation(0, -PEND_LEN / 2, 0), pb);
+      S.world.createCollider(R.ColliderDesc.ball(PEND_R).setTranslation(0, -PEND_LEN, 0).setRestitution(0.6), pb);
+      S.pend = { body: pb, k: hash(S.seed, L, 23) & 1023, spd: Math.min(9, 4 + (L >> 3)), amp: 150, y: py };
+    }
+    S.boss = isBoss(L);
     S.shields = [];
     for (var si = 0; si < nShield; si++) {
       var sy = (nShield === 2 ? (si === 0 ? 1 : 3.4) : (2 + (hash(S.seed, L, 9) % 3)) * ROW * 0.7) + (si ? 0.4 : 0);
@@ -192,7 +232,7 @@
       S.world.createCollider(R.ColliderDesc.cylinder(0.2, 0.42).setRotation({ x: isin(128) / 1e6, y: 0, z: 0, w: icos(128) / 1e6 }), fb);
       S.fan = { body: fb, k: hash(S.seed, L, 7) & 1023, spd: Math.min(6, 2 + ((L - 5) >> 2)) * ((hash(S.seed, L, 8) & 1) ? 1 : -1) };
     }
-    S.events.push({ e: 'tower', add: add, level: L, kind: lay.kind, tables: S.tables.map(function (t) { return { cx: t.cx, w: t.w, round: t.round }; }) });
+    S.events.push({ e: 'tower', add: add, level: L, kind: lay.kind, tables: S.tables.map(function (t) { return { cx: t.cx, w: t.w, round: t.round }; }), boss: isBoss(L) });
   }
 
   function clearWorld(S) {
@@ -200,7 +240,7 @@
     S.world = new R.World({ x: 0, y: GRAVITY, z: 0 });
     S.world.timestep = DT;
     S.queue = new R.EventQueue(true);
-    S.blocks = []; S.byCollider = {}; S.ballsLive = []; S.fan = null; S.shield = null; S.shields = []; S.tables = [];
+    S.blocks = []; S.byCollider = {}; S.ballsLive = []; S.fan = null; S.shield = null; S.shields = []; S.motion = null; S.pend = null; S.tables = [];
   }
 
   function initSim(seed, startLevel) {          // startLevel: QA only, never used by a scored run
@@ -270,6 +310,16 @@
       S.fan.k = (S.fan.k + S.fan.spd) & 1023;
       S.fan.body.setNextKinematicRotation({ x: 0, y: 0, z: isin(S.fan.k) / 1e6, w: icos(S.fan.k) / 1e6 });
     }
+    if (S.motion) {
+      var M = S.motion; M.k = (M.k + M.spd) & 1023;
+      if (M.kind === 1) M.body.setNextKinematicTranslation({ x: M.cx + 1.6 * isin(M.k) / 1e6, y: -0.15, z: 0 });
+      else M.body.setNextKinematicRotation({ x: 0, y: isin(M.k >> 1) / 1e6, z: 0, w: icos(M.k >> 1) / 1e6 });
+    }
+    if (S.pend) {
+      var P = S.pend; P.k = (P.k + P.spd) & 1023;
+      var ang = (P.amp * isin(P.k) / 1e6) | 0;          // swing angle in table units (1024 = full turn)
+      P.body.setNextKinematicRotation({ x: 0, y: 0, z: isin(ang >> 1) / 1e6, w: icos(ang >> 1) / 1e6 });
+    }
     for (var sh = 0; sh < S.shields.length; sh++) {
       var SH = S.shields[sh]; SH.k = (SH.k + SH.spd) & 1023;
       SH.body.setNextKinematicTranslation({ x: SH.range * isin(SH.k) / 1e6, y: SH.y, z: SHIELD_Z });
@@ -292,7 +342,7 @@
       if (!blk) {
         if (sp2 > 16) {
           var oc = S.world.getCollider(other), par = oc && oc.parent();
-          var what = par && S.fan && par.handle === S.fan.body.handle ? 'fan' : par && S.shields.some(function (q) { return q.body.handle === par.handle; }) ? 'shield' : 'table';
+          var what = par && S.fan && par.handle === S.fan.body.handle ? 'fan' : par && (S.shields.some(function (q) { return q.body.handle === par.handle; }) || (S.pend && S.pend.body.handle === par.handle)) ? 'shield' : 'table';
           S.events.push({ e: 'bonk', n: ball.n, v: Math.sqrt(sp2), what: what });
         }
         return;
@@ -388,5 +438,5 @@
 
   root.KTRules = { RULES_VERSION: RULES_VERSION, ready: ready, initSim: initSim, stepSim: stepSim, shoot: shoot, hash: hash,
     DT: DT, GRAVITY: GRAVITY, CELL: CELL, ROW: ROW, DEPTH: DEPTH, FRONT: FRONT, PLANK_H: PLANK_H, BALL_R: BALL_R, CANNON: CANNON,
-    FLIGHT_STEPS: FLIGHT_STEPS, FAN_LEN: FAN_LEN, FAN_HALF: FAN_HALF, FAN_Y: FAN_Y, FAN_Z: FAN_Z, SHIELD_W: SHIELD_W, SHIELD_H: SHIELD_H, SHIELD_Z: SHIELD_Z, layout: layout };
+    FLIGHT_STEPS: FLIGHT_STEPS, FAN_LEN: FAN_LEN, FAN_HALF: FAN_HALF, FAN_Y: FAN_Y, FAN_Z: FAN_Z, SHIELD_W: SHIELD_W, SHIELD_H: SHIELD_H, SHIELD_Z: SHIELD_Z, PEND_LEN: PEND_LEN, PEND_R: PEND_R, layout: layout };
 })(typeof window !== 'undefined' ? window : globalThis);
