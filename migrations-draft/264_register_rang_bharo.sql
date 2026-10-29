@@ -4,9 +4,11 @@
 -- A ball sits in a maze. A swipe sends it sliding until a wall stops it,
 -- painting every tile it rolls over; paint every tile and the next maze comes
 -- at once. A 3 minute clock. A newly painted tile is 1 point, a cleared maze
--- pays 10 x its number, and clearing within par (the shortest solution, found
--- by BFS) adds a PERFECT bonus of 25 + 5 x its number. Mazes grow from 6x6 to
--- 11x13 and are a pure function of (seed, maze number). The generator carves
+-- pays 10 x its number less 3 for each move over par (never below 0), and
+-- clearing within par (the shortest solution, found by BFS) adds a PERFECT
+-- bonus of 40 + 8 x its number. Mazes start at 4x4, grow to 11x13 by maze 18
+-- and keep getting longer and more bent after that. Every maze is a pure
+-- function of (seed, maze number). The generator carves
 -- the ball's own route, so every maze is solvable, and refuses any maze where
 -- a move could strand the ball.
 --
@@ -15,10 +17,10 @@
 -- word the one in games/rang-bharo/js/game.js. Integer rules, no trig, no
 -- dmath. Trace v1: { kind: 'move', n, dir, step }.
 --
--- max_score_per_sec = 212: 3x the best 60 s window (4233 points, 70.55/sec) of
+-- max_score_per_sec = 340: 3x the best 60 s window (6786 points, 113.1/sec) of
 -- a flawless pilot (plans every maze at par, zero thinking time), 24 seeds. A
 -- backstop: replay already computes the score from the inputs. Whole-run rates
--- (24 seeds, medians): flawless 45/sec, good 28, average 12, novice 4.
+-- (24 seeds, medians): flawless 73/sec, good 36, average 15, novice 5.
 --
 -- Registered INACTIVE with require_claimed_match OFF and bot detection in RECORD
 -- mode, for play test. Going live is the founder's call.
@@ -27,13 +29,13 @@ INSERT INTO games (id, name, description, thumbnail_url, game_url, daily_prize_p
 VALUES (
   'rang-bharo',
   'Rang Bharo',
-  'Swipe the ball through the maze. It rolls until it hits a wall and paints every tile it crosses. Paint the whole maze in the fewest moves for a PERFECT bonus. Three minutes, as many mazes as you can.',
+  'Swipe the ball through the maze. It rolls until it hits a wall and paints every tile it crosses. Clear a maze in par moves for a PERFECT bonus; extra moves cost points. Three minutes, as many mazes as you can.',
   '/games/rang-bharo.png',
   '/games/rang-bharo/index.html',
   1500000,   -- Rs. 15,000
   false,
   62,
-  212,
+  340,
   1,
   3600
 )

@@ -6,9 +6,13 @@ it sliding until a wall stops it, and every tile it rolls over floods with
 colour. Paint every floor tile and the maze is cleared: the tiles ripple, burst
 into confetti, a big "+N" rises, and the next maze slides in 0.9 s later. The
 run is a 3 minute clock (00:00, red and ticking in the last 10 s). A newly
-painted tile is 1 point, a cleared maze pays 10 x its number, and clearing
-within par (the shortest solution, found by BFS) adds a PERFECT bonus of
-25 + 5 x its number. Mazes grow from 6x6 to 11x13. One move at a time: a swipe
+painted tile is 1 point, a cleared maze pays 10 x its number less 3 for each
+move over par (never below 0, taken at the clear so the score never drops
+mid-maze), and clearing within par (the shortest solution, found by BFS) adds
+a PERFECT bonus of 40 + 8 x its number. Mazes start at 4x4 (cleared in
+seconds), grow a row or a column each maze to 11x13 at maze 18, and past that
+keep getting longer and more bent (par about 3 at maze 1, 27 at 18, 38 from
+24, the most an 11x13 phone board carries). One move at a time: a swipe
 during a slide is buffered (only the latest). Code-drawn art (raised plateau,
 carved corridors, truck-art lights and diamonds, five truck-art palettes),
 Web Audio only. Mechanic of a well known sliding-paint maze game; no name, art
@@ -23,6 +27,13 @@ maze the player solves with real swipes before the first run (an arrow of
 chevrons and a flicking finger show each swipe, a wrong one bumps and says
 TRY RIGHT, SKIP any time), outside the run, never traced or scored, gated by
 KJTut once per rotation; HOW TO PLAY on the menu replays it.
+
+After that verdict, two founder asks changed the rules (v1 edited in place:
+nothing has shipped): "the starting maze should be much smaller grid so that
+initial few mazes, user can just boost through the levels really quickly and
+they keep on increasing in size and difficulty", and, on the ladder that
+followed, "do all 3. better players should get more rewards" (keep the tiny
+start, raise PERFECT from 25 + 5n to 40 + 8n, charge 3 a move over par).
 
 ## 2. Trace and versions
 - Trace v1: `{kind:'start', v:1, tHint}` then one `{kind:'move', n, dir, step, tHint}`
@@ -42,9 +53,9 @@ KJTut once per rotation; HOW TO PLAY on the menu replays it.
 (`node scripts/rb-sync-validator.js` copies it after a deliberate change). The
 parity suite pins the block's sha256, every constant by value (RULES_VERSION,
 STEP_HZ, TIME_STEPS, STEPS_PER_TILE, CLEAR_PAUSE, MAZE_BASE, PERFECT_BASE,
-PERFECT_PER, MAX_W, MAX_H, GEN_ATTEMPTS, SOLVE_CAP, DX, DY, MAX_INPUTS,
-MAX_SIM_STEPS) and the whole difficulty curve (grid size, floor share, move
-budget, greed, minimum par) at 13 maze numbers. `RB_SKIP_PIN=1` turns the pins
+PERFECT_PER, OVER_COST, MAX_W, MAX_H, GEN_ATTEMPTS, SOLVE_CAP, DX, DY,
+MAX_INPUTS, MAX_SIM_STEPS) and the whole difficulty curve (grid size, floor
+share, move budget, greed, twist, minimum par) at 15 maze numbers. `RB_SKIP_PIN=1` turns the pins
 off for the battery's behaviour-only pass. Integer rules only: no trig, no
 clock, no screen, no randomness (asserted on the block text).
 
@@ -66,8 +77,13 @@ clock, no screen, no randomness (asserted on the block text).
   the suite: 300 seeds x 14 mazes driven through the rules by their designed
   route; BFS par agrees with an independent BFS on 360 small mazes.
 - Par is exact BFS up to 60000 states; past that it is the designed route's
-  length, an upper bound (about 3% of mazes from maze 8, 12 to 18% at maze 12).
-  On those few mazes PERFECT is a move or two easier than the true optimum.
+  length, an upper bound: none before maze 14, about 1 in 6 at maze 16, and
+  most mazes from maze 20 on, where routes are long. On those mazes PERFECT is
+  par as designed rather than the true optimum, so it may be a move or two
+  easier than perfect play, and the over-par cost is counted from that par.
+- Curve measured on 100 seeds x 36 mazes: no maze falls back to the ring,
+  generation averages under 0.13 s a maze (worst 0.22 s) and runs during the
+  clear celebration.
 - Parked: a run with no input ends exactly at TIME_STEPS (10800), in the game
   and on the server. A hidden tab does not stop the clock (timer pump).
 
@@ -141,30 +157,32 @@ from scratch copies only, 4 shards.
 | pilot | median | p10 | p90 | mazes | perfects |
 |---|---|---|---|---|---|
 | idle | 0 | 0 | 0 | 0 | 0 |
-| cycler (up, right, down, left forever) | 10 | 3 | 61 | 0 | 0 |
-| spammer (random swipe every 4 steps) | 528 | 410 | 705 | 7 | 0 |
-| novice | 706 | 649 | 921 | 8 | 1 |
-| lazy human (most-paint way, human pace, no plan) | 1464 | 865 | 1938 | 12 | 4 |
-| average | 2138 | 1901 | 2369 | 14 | 7 |
-| greedy bot (the same, zero thinking time) | 2438 | 1243 | 3337 | 16 | 5 |
-| good | 5095 | 4551 | 5259 | 21 | 19 |
-| multi-finger (good plus resting fingers) | 5095 | 4551 | 5259 | 21 | 19 |
-| bot (plans, a 10-step metronome) | 5291 | 5252 | 5662 | 21 | 21 |
-| flawless (plans, zero think, buffers ahead) | 8162 | 8087 | 8630 | 27 | 27 |
+| cycler (up, right, down, left forever) | 3 | 2 | 70 | 0 | 0 |
+| spammer (random swipe every 4 steps) | 386 | 231 | 591 | 10 | 0 |
+| novice | 957 | 735 | 1151 | 11 | 2 |
+| lazy human (most-paint way, human pace, no plan) | 1887 | 1376 | 2476 | 14 | 7 |
+| greedy bot (the same, zero thinking time) | 2109 | 1532 | 2924 | 17 | 7 |
+| average | 2653 | 2451 | 3201 | 16 | 8 |
+| good | 6512 | 5817 | 6712 | 23 | 20 |
+| multi-finger (good plus resting fingers) | 6512 | 5817 | 6712 | 23 | 20 |
+| bot (plans, a 10-step metronome) | 6989 | 6543 | 7021 | 23 | 23 |
+| flawless (plans, zero think, buffers ahead) | 13121 | 12457 | 13792 | 33 | 33 |
 
-good / average 2.38 (target 1.5 to 3.5). The lazy strategy (swipe whichever
-way paints the most, never plan) at human pace scores 0.69 x average and
-0.29 x good: it beats a novice but not a planner. Planning is what separates
-the board's top from the middle.
+good / average 2.45 (target 1.5 to 3.5). The lazy strategy (swipe whichever
+way paints the most, never plan) at human pace scores 0.71 x average and
+0.29 x good. The tiny start had raised it to 0.80 x average; the bigger
+PERFECT and the over-par cost brought it back down and widened good / average
+from 2.25 to 2.45. Random mashing earns less than a novice (the over-par cost
+halved it). Planning is what separates the board's top from the middle.
 
-`max_score_per_sec = 212`: the flawless pilot's best 60 s window over 24
-seeds is 4233 points (70.55/sec, late in the run when clears pay most); x3.
+`max_score_per_sec = 340`: the flawless pilot's best 60 s window over 24
+seeds is 6786 points (113.1/sec, late in the run when clears pay most); x3.
 
 ## 9. Bot gap
 The course is a pure function of the seed, so a program that reads it plays
-every maze at par with no thinking time: flawless 8162 vs good 5095, **1.60 x a
-good human**, and a planner with a fixed 10-step rhythm already matches a good
-human (5291). Replay cannot see this. `finalize().debug` records, never
+every maze at par with no thinking time: flawless 13121 vs good 6512, **2.0 x a
+good human** (the tiny early mazes let a program race further), and a planner
+with a fixed 10-step rhythm already beats a good human (6989). Replay cannot see this. `finalize().debug` records, never
 gates: `waitMean/waitSd/waitCv/waitMin` (steps from the ball at rest to the
 next swipe), `readMean/readCv` (first look at each maze), `bufferedShare`
 (swipes sent while rolling), `overParMean`, `perfectShare`, `gapCv`, `gapMin`.
@@ -193,7 +211,7 @@ Titan One subset). **A real phone was not measured.**
 
 ## 11. Registration and integration
 - Draft: `migrations-draft/264_register_rang_bharo.sql` (re-check the number):
-  id `rang-bharo`, name Rang Bharo, sort_order 62, `max_score_per_sec` 212,
+  id `rang-bharo`, name Rang Bharo, sort_order 62, `max_score_per_sec` 340,
   durations 1 to 3600, inactive, `anticheat.rang-bharo.require_claimed_match`
   false, `humanness.rang-bharo.mode` record.
 - Icon: `web/public/games/rang-bharo.png`, the founder's artwork at 512 px,
@@ -203,16 +221,16 @@ Titan One subset). **A real phone was not measured.**
   2. `shared/anticheat/humanness/features.js` `GAME_INPUTS`: `'rang-bharo': { kinds: ['move'], time: 'step' },`
   3. `services/game-service/src/routes/adminReplay.js` `PLAYBACK_GAMES`: `'rang-bharo'`
   4. `shared/tests/sessionLifetime.test.js`: add the validator.
-  5. `shared/db/seeds/index.js`: a seed entry with `max_score_per_sec: 212`.
+  5. `shared/db/seeds/index.js`: a seed entry with `max_score_per_sec: 340`.
 
 ## 12. Open items for the founder
-1. The scoring numbers (tile 1, clear 10 x n, PERFECT 25 + 5 x n, 3 minutes)
-   were proposed, not tuned with you.
-2. The lazy no-plan strategy reaches 0.69 x average. If you want planning to
-   matter more, options: a bigger PERFECT bonus, a small cost per move over
-   par, or fewer floor tiles worth points (more of the score in clears).
-3. The bot gap (1.6 x good) is the humanness layer's job; record mode first.
-4. Big-maze par is an upper bound on a few percent of mazes (section 4).
+1. Scoring is the founder's chosen shape (tile 1, clear 10 x n less 3 a move
+   over par, PERFECT 40 + 8 x n, 3 minutes); the exact numbers can still be
+   tuned after real play.
+2. The lazy no-plan strategy reaches 0.71 x average and 0.29 x good.
+3. The bot gap (2.0 x good) is the humanness layer's job; record mode first.
+4. From maze 20 on, par is the designed route on most mazes, an upper bound
+   (section 4).
 
 ## Platform snapshot notes
 - `docs/HANDBOOK.md` and the session brief reference `games/pearls-connect`,

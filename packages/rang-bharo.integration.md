@@ -35,7 +35,7 @@ The founder has played it and said: "okay i think this game is perfect."
    3. `services/game-service/src/routes/adminReplay.js`, `PLAYBACK_GAMES`: `'rang-bharo'`
    4. `shared/tests/sessionLifetime.test.js`: add the validator to the list
    5. `shared/db/seeds/index.js`: a seed entry matching the migration
-      (`max_score_per_sec: 212`, sort_order 62, durations 1 to 3600, inactive)
+      (`max_score_per_sec: 340`, sort_order 62, durations 1 to 3600, inactive)
    Also add Rang Bharo to the Game line-up table in CLAUDE.md.
 4. Run `npx jest --runInBand shared/tests/rangBharo shared/tests/sessionLifetime`.
    In the workshop: 144 tests pass in about 150 s. Do not rerun the mutation
@@ -60,7 +60,7 @@ The founder has played it and said: "okay i think this game is perfect."
 7. It registers INACTIVE, `anticheat.rang-bharo.require_claimed_match` false,
    `humanness.rang-bharo.mode` record. Going live is the founder's call:
    `is_active`, feature it, then flip `require_claimed_match` once real devices
-   show parity. The bot gap is 1.6 x a good human (report section 9): keep it
+   show parity. The bot gap is 2.0 x a good human (report section 9): keep it
    out of paid rotation until humanness has real data.
 8. Record it: a Rang Bharo section in kj-platform's CLAUDE.md modelled on
    Chakkar Chaku's, and say plainly what was not done (no real-phone draw cost).
