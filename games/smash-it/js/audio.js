@@ -14,6 +14,7 @@
     noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
     var d = noiseBuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    loadGlass();
   }
   function throttle(k, ms) {
     if (!AC) return false;
@@ -43,9 +44,28 @@
     o.connect(g); g.connect(master);
     o.start(t0); o.stop(t0 + dur + 0.05);
   }
+  // recorded glass breaks (founder supplied); one is picked at random per break, slightly re-pitched
+  var GLASS_FILES = ['b1', 'c07', 'c13', 'm1', 'm2'], glassBufs = [], lastGlass = -1;
+  function loadGlass() {
+    GLASS_FILES.forEach(function (n) {
+      fetch('audio/glass-' + n + '.mp3').then(function (r) { return r.arrayBuffer(); })
+        .then(function (ab) { return new Promise(function (ok, no) { AC.decodeAudioData(ab, ok, no); }); })
+        .then(function (buf) { glassBufs.push(buf); }).catch(function () { /* falls back to the synth smash */ });
+    });
+  }
+  function playBuf(buf, vol, rate) {
+    var s = AC.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
+    var g = AC.createGain(); g.gain.value = vol; s.connect(g); g.connect(master); s.start();
+  }
+
   var SFX = {
     glass: function (big) {
       if (!throttle('glass', 35)) return;
+      if (glassBufs.length) {
+        var k = Math.floor(Math.random() * glassBufs.length);
+        if (k === lastGlass && glassBufs.length > 1) k = (k + 1) % glassBufs.length;
+        lastGlass = k; playBuf(glassBufs[k], big ? 0.95 : 0.75, 0.94 + Math.random() * 0.12); return;
+      }
       var t = AC.currentTime;
       noise(t, 0.09, 'highpass', 2500, 0.7, 0.9);                 // the crack
       noise(t + 0.01, 0.35 + Math.random() * 0.2, 'bandpass', 5200, 1.2, 0.35);  // spray

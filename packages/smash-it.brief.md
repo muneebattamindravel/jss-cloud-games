@@ -21,3 +21,4 @@
 - Renamed from Kaanch Tod to Smash It at the founder's request.
 - Real 3D with rigid-body physics (Rapier deterministic build); towers are designed pictures from a library of 21 designs.
 - Backdrops: the founder supplied enhanced versions of the code-painted scenes (generated with ChatGPT from our originals) and asked for them to be used. Founder's say-so recorded here for rule 6.
+- Glass break audio: recorded clips supplied by the founder (three files uploaded in the session, two of them from commercial libraries, IDs SDSGARN_34872 and ODY-1143-14). Cut, level-matched and mixed into `audio/glass-*.mp3`. Founder's say-so recorded here for rule 6; the library licences should be confirmed before launch.
