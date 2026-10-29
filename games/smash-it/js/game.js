@@ -809,6 +809,7 @@
           if (e.level > 1) { floatText({ x: 0, y: 7, z: 0 }, '+' + e.add + ' BALLS', 'green big'); A.play('reload'); }
           break;
         case 'fire': {
+          document.getElementById('hint').classList.add('hide');
           A.play('cannon'); kick = 1; shake = Math.max(shake, 0.1);
           aimTarget.set(e.x, e.y, e.z); aimNow.copy(aimTarget); aimCannon();
           var mz = muzzleWorld(); 
@@ -906,7 +907,7 @@
     fallers.forEach(function (f) { scene.remove(f.m.g); }); fallers = [];
     S = R.initSim(newSeed(), parseInt(params.get('level'), 10) || 1); shownScore = 0; handleEvents(S);
   }
-  elPlay.addEventListener('click', function () { if (mode !== 'menu') return; A.init(); mode = 'play'; elMenu.classList.add('hide'); hud.classList.remove('inmenu'); });
+  elPlay.addEventListener('click', function () { if (mode !== 'menu') return; A.init(); mode = 'play'; elMenu.classList.add('hide'); hud.classList.remove('inmenu'); if (S && S.shots === 0) document.getElementById('hint').classList.remove('hide'); });
   document.getElementById('againBtn').addEventListener('click', function () { A.init(); startRun(); mode = 'play'; elOver.classList.add('hide'); });
   var muted = false;
   var pausedFrom = null;
@@ -942,7 +943,6 @@
     if (S && S.fan) { var fp = S.fan.body.translation(), fq = S.fan.body.rotation(); fan.position.set(fp.x, fp.y, fp.z); fan.quaternion.set(fq.x, fq.y, fq.z, fq.w); }
     stepPool(shards, dt, 'glass'); stepPool(petals, dt, 'petal'); stepPool(plates, dt, 'glass'); stepPool(chips, dt, 'wood'); stepPool(drops, dt, 'drop'); stepPool(confs, dt, 'conf');
     stepSofts(dt); stepFallers(dt);
-    if (tinkle > 0 && Math.random() < 0.35) { A.play('tinkle'); tinkle -= 1; }
     crushCool -= dt; kick *= 0.85; aimCannon();
     muzzleFlash.material.opacity *= 0.75;
     shake *= 0.86;

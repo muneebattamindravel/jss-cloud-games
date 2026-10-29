@@ -94,22 +94,29 @@
     .screen.hide { opacity: 0; pointer-events: none; }
     .dim { background: radial-gradient(ellipse at 50% 42%, rgba(43,11,74,.25), rgba(43,11,74,.78)); }
 
-    #menu { justify-content: flex-start; padding-top: 56px; gap: 0; background: radial-gradient(ellipse at 50% 38%, rgba(43,11,74,.15), rgba(43,11,74,.72) 75%); }
-    .logo { position: relative; width: 360px; height: 250px; margin-bottom: 6px; animation: logoIn .7s cubic-bezier(.3,1.6,.5,1) both; }
-    @keyframes logoIn { 0% { transform: scale(.3) rotate(-10deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
-    .logo svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 10px 14px rgba(30,6,60,.35)); }
-    .logo .star { transform-origin: 180px 122px; animation: starSpin 3s ease-in-out infinite; }
-    @keyframes starSpin { 50% { transform: scale(1.04) rotate(3deg); } }
-    .logo .fly { animation: flyBob 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-    .logo .f2 { animation-delay: .5s; } .logo .f3 { animation-delay: 1s; } .logo .f4 { animation-delay: 1.5s; }
-    @keyframes flyBob { 50% { transform: translateY(-7px) rotate(18deg); } }
-    .bestChip { margin-top: 18px; padding: 5px 16px 7px; border-radius: 14px; border: 3px solid var(--ink); font-size: 18px; color: var(--ink2);
-      background: linear-gradient(#fff, var(--paper2)); box-shadow: 0 4px 0 var(--ink); }
-    .bestChip b { font-weight: 400; color: var(--red2); }
-    .how { display: flex; gap: 10px; margin: 26px 0 30px; }
-    .how div { width: 104px; padding: 10px 6px 10px; border-radius: 18px; border: 3px solid var(--ink); text-align: center; font-size: 14px; line-height: 1.15; color: var(--ink2);
-      background: linear-gradient(#fff, var(--paper) 60%, var(--paper2)); box-shadow: 0 4px 0 var(--ink); }
-    .how svg { width: 52px; height: 52px; display: block; margin: 0 auto 4px; }
+    #menu { justify-content: space-between; padding: 64px 0 150px; background: linear-gradient(rgba(43,11,74,.42), rgba(43,11,74,0) 40%, rgba(43,11,74,0) 62%, rgba(43,11,74,.5)); }
+    .logo { position: relative; width: 380px; height: 270px; animation: logoIn .8s cubic-bezier(.3,1.5,.5,1) both; }
+    @keyframes logoIn { 0% { transform: translateY(-40px) scale(.5); opacity: 0; } 100% { transform: none; opacity: 1; } }
+    .logo svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 12px 16px rgba(20,4,40,.35)); }
+    .logo .ball { animation: ballIn .9s .35s cubic-bezier(.2,1.4,.4,1) both, ballBob 2.4s 1.3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes ballIn { 0% { transform: translate(140px, 40px) scale(.4); opacity: 0; } 100% { transform: none; opacity: 1; } }
+    @keyframes ballBob { 50% { transform: translate(-3px, -5px) rotate(-8deg); } }
+    .logo .chip { animation: chipBob 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .logo .c2 { animation-delay: .7s; } .logo .c3 { animation-delay: 1.4s; } .logo .c4 { animation-delay: 2.1s; }
+    @keyframes chipBob { 50% { transform: translateY(-6px) rotate(20deg); } }
+    .menuFoot { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+    .bestPlate { display: flex; align-items: center; gap: 8px; padding: 6px 18px 6px 10px; border-radius: 18px; border: 3px solid var(--ink); color: #fff; font-size: 17px; letter-spacing: 1px;
+      background: linear-gradient(#5a1fa0, #3a1170); box-shadow: inset 0 2px 0 rgba(255,255,255,.25), 0 4px 0 var(--ink); }
+    .bestPlate svg { width: 28px; height: 28px; }
+    .bestPlate b { font-weight: 400; font-size: 24px; color: var(--gold2); -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; letter-spacing: 0; }
+    .btn.play { font-size: 44px; padding: 14px 84px 20px; border-radius: 32px; }
+    #hint { position: absolute; left: 50%; top: 380px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; transition: opacity .3s; pointer-events: none; }
+    #hint.hide { opacity: 0; }
+    #hint svg { width: 64px; height: 64px; filter: drop-shadow(0 3px 0 var(--ink)); animation: tapHand 1.1s ease-in-out infinite; }
+    #hint .ripple { animation: ripple 1.1s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+    #hint span { font-size: 22px; -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; }
+    @keyframes tapHand { 0%, 100% { transform: translate(6px, 8px); } 40% { transform: translate(0, 0) scale(.92); } }
+    @keyframes ripple { 0%, 30% { opacity: 0; transform: scale(.4); } 45% { opacity: 1; } 100% { opacity: 0; transform: scale(1.8); } }
 
     .btn { position: relative; font-size: 34px; color: #fff; border: 4px solid var(--ink); border-radius: 26px; padding: 12px 64px 16px; cursor: pointer;
       background: linear-gradient(var(--green1), var(--green2) 45%, var(--green3)); box-shadow: inset 0 4px 0 rgba(255,255,255,.45), inset 0 -5px 0 rgba(0,0,0,.15), 0 7px 0 var(--ink), 0 14px 22px rgba(0,0,0,.3);
@@ -144,7 +151,7 @@
     .toggle { position: relative; width: 78px; height: 40px; border-radius: 22px; border: 3px solid var(--ink); cursor: pointer; background: var(--green2); box-shadow: inset 0 3px 4px rgba(0,0,0,.25); }
     .toggle::after { content: ''; position: absolute; top: 2px; left: 38px; width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--ink); background: #fff; transition: left .2s; }
     .toggle.off { background: #b9a9c6; } .toggle.off::after { left: 2px; }
-    @media (prefers-reduced-motion: reduce) { #playBtn, #banner .rays, .logo, .logo .star, .logo .fly { animation: none !important; } }
+    @media (prefers-reduced-motion: reduce) { #playBtn, #banner .rays, .logo, .logo .ball, .logo .chip, #hint svg { animation: none !important; } }
   </style>
   <script src="js/vendor/three.min.js"></script>
   <script src="js/vendor/rapier.js"></script>
@@ -159,59 +166,51 @@
     </div>
     <button id="gear" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" stroke="#2b0b4a" stroke-width="1.6" stroke-linejoin="round" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.3 7.3 0 0 0-1.7-1L14.5 2.4a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9.1 5.1a7.3 7.3 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></button>
     <div id="floats"></div>
+    <div id="hint" class="hide"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="ripple" cx="22" cy="14" r="10" fill="none" stroke="#fff" stroke-width="4"/><path d="M18 14v26l-6-5c-3-2-7 1-5 4l11 15c2 3 5 5 9 5h12c6 0 10-5 10-11V30c0-3-4-4-6-2v-2c0-3-4-4-6-2v-2c0-3-4-4-6-2V14c0-5-8-5-8 0z" fill="#fff" stroke="#2b0b4a" stroke-width="3.5" stroke-linejoin="round"/></svg><span>Tap the tower!</span></div>
     <div id="banner"><div class="rays"></div><div class="stars"><i></i><i></i><i></i></div><div class="ribbon out">LEVEL CLEAR!</div><div class="bonus">+0</div></div>
 
     <div id="menu" class="screen">
       <div class="logo">
-        <svg viewBox="0 0 360 250" aria-label="Smash It">
+        <svg viewBox="0 0 380 270" aria-label="Smash It">
           <defs>
-            <linearGradient id="gFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe0"/><stop offset=".38" stop-color="#ffd84a"/><stop offset=".72" stop-color="#ffab17"/><stop offset="1" stop-color="#f07c00"/></linearGradient>
-            <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb1bb"/><stop offset=".4" stop-color="#ff4058"/><stop offset="1" stop-color="#c3102f"/></linearGradient>
-            <linearGradient id="gShine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".45" stop-color="#fff" stop-opacity=".15"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
-            <linearGradient id="gGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#9fe2ff"/></linearGradient>
-            <radialGradient id="gGlow"><stop offset="0" stop-color="#fff6c8" stop-opacity=".95"/><stop offset=".55" stop-color="#ffe680" stop-opacity=".35"/><stop offset="1" stop-color="#ffe680" stop-opacity="0"/></radialGradient>
+            <linearGradient id="gGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7c2"/><stop offset=".42" stop-color="#ffd23a"/><stop offset="1" stop-color="#ff8f00"/></linearGradient>
+            <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8b9a"/><stop offset=".5" stop-color="#f02a45"/><stop offset="1" stop-color="#b10f2c"/></linearGradient>
+            <linearGradient id="gHi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+            <path id="arc" d="M 22 150 Q 190 40 358 150"/>
+            <pattern id="zig" width="24" height="60" patternUnits="userSpaceOnUse"><rect width="24" height="60" fill="#f02a45"/><path d="M0 22 L12 12 L24 22 L24 38 L12 28 L0 38 Z" fill="#ffd23a"/></pattern>
           </defs>
-          <circle cx="180" cy="120" r="150" fill="url(#gGlow)"/>
-          <!-- a shattered-glass star behind the words -->
-          <g class="star">
-            <polygon points="180,0 200,25 229,9 232,47 278,25 270,59 301,64 280,91 334,99 295,122 315,141 284,153 316,186 265,180 268,208 237,203 233,243 198,208 180,237 159,217 127,240 127,196 86,213 88,185 51,182 82,151 32,143 60,122 39,101 80,92 45,58 90,60 90,34 125,44 126,0 160,30" fill="url(#gGlass)" stroke="#2b0b4a" stroke-width="6" stroke-linejoin="round"/>
-            <path d="M180 122 L213 34 M180 122 L274 72 M180 122 L291 133 M180 122 L256 189 M180 122 L185 213 M180 122 L112 195 M180 122 L70 142 M180 122 L80 79 M180 122 L136 37" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity=".8"/>
-            <path d="M180 122 L213 34 M180 122 L274 72 M180 122 L291 133 M180 122 L256 189 M180 122 L185 213 M180 122 L112 195 M180 122 L70 142 M180 122 L80 79 M180 122 L136 37" stroke="#6cc4f0" stroke-width="2" stroke-linecap="round"/>
+          <!-- arched SMASH: deep shadow, ink outline, gold face, gloss -->
+          <g font-family="Lilita One, Arial Rounded MT Bold, sans-serif" font-size="98" text-anchor="middle" letter-spacing="2">
+            <text fill="#1c0636" stroke="#1c0636" stroke-width="22" stroke-linejoin="round" transform="translate(0 10)"><textPath href="#arc" startOffset="50%">SMASH</textPath></text>
+            <text fill="#4a1680" stroke="#2b0b4a" stroke-width="22" stroke-linejoin="round" transform="translate(0 4)"><textPath href="#arc" startOffset="50%">SMASH</textPath></text>
+            <text fill="url(#gGold)" stroke="#2b0b4a" stroke-width="9" stroke-linejoin="round" paint-order="stroke fill"><textPath href="#arc" startOffset="50%">SMASH</textPath></text>
+            <text fill="url(#gHi)"><textPath href="#arc" startOffset="50%">SMASH</textPath></text>
           </g>
-          <g transform="rotate(-6 180 120)">
-            <g font-family="Lilita One, Arial Rounded MT Bold, sans-serif" text-anchor="middle">
-              <!-- SMASH: extruded depth, outline, face, shine -->
-              <g font-size="96">
-                <text x="180" y="122" fill="#2b0b4a" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 9)">SMASH</text>
-                <text x="180" y="122" fill="#5a1a9a" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 4)">SMASH</text>
-                <text x="180" y="122" fill="url(#gFace)" stroke="#2b0b4a" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill">SMASH</text>
-                <text x="180" y="122" fill="url(#gShine)">SMASH</text>
-              </g>
-              <!-- IT!: red, bigger, kicked to the right -->
-              <g font-size="104" transform="rotate(7 200 210)">
-                <text x="196" y="218" fill="#2b0b4a" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 9)">IT!</text>
-                <text x="196" y="218" fill="#7a0a20" stroke="#2b0b4a" stroke-width="18" stroke-linejoin="round" transform="translate(0 4)">IT!</text>
-                <text x="196" y="218" fill="url(#gRed)" stroke="#2b0b4a" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill">IT!</text>
-                <text x="196" y="218" fill="url(#gShine)">IT!</text>
-              </g>
-            </g>
+          <!-- IT! badge -->
+          <g transform="rotate(-6 190 205)">
+            <rect x="112" y="160" width="156" height="92" rx="30" fill="#1c0636" transform="translate(0 8)"/>
+            <rect x="112" y="160" width="156" height="92" rx="30" fill="url(#gRed)" stroke="#2b0b4a" stroke-width="7"/>
+            <rect x="126" y="170" width="128" height="20" rx="10" fill="#fff" opacity=".35"/>
+            <text x="190" y="236" font-family="Lilita One, Arial Rounded MT Bold, sans-serif" font-size="82" text-anchor="middle" fill="#fff" stroke="#2b0b4a" stroke-width="9" stroke-linejoin="round" paint-order="stroke fill">IT!</text>
           </g>
-          <!-- flying shards -->
-          <g stroke="#2b0b4a" stroke-width="3" stroke-linejoin="round" fill="url(#gGlass)">
-            <polygon class="fly f1" points="24,40 44,30 38,56"/>
-            <polygon class="fly f2" points="322,30 346,44 324,56"/>
-            <polygon class="fly f3" points="334,188 352,206 330,212"/>
-            <polygon class="fly f4" points="14,170 34,160 30,186"/>
+          <!-- the cannonball crashing in, with motion lines and glass flying off -->
+          <g class="ball">
+            <path d="M262 236 L318 212 M268 254 L330 236 M262 218 L304 190" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".9"/>
+            <circle cx="296" cy="214" r="30" fill="url(#zig)" stroke="#2b0b4a" stroke-width="6"/>
+            <ellipse cx="286" cy="203" rx="10" ry="6" fill="#fff" opacity=".7"/>
+          </g>
+          <g stroke="#2b0b4a" stroke-width="3.5" stroke-linejoin="round">
+            <polygon class="chip c1" points="70,186 92,176 86,202" fill="#7fd3ff"/>
+            <polygon class="chip c2" points="40,120 60,128 44,144" fill="#ffd23a"/>
+            <polygon class="chip c3" points="340,96 360,108 342,122" fill="#9b47ff"/>
+            <polygon class="chip c4" points="96,232 114,244 94,252" fill="#22cc5e"/>
           </g>
         </svg>
       </div>
-      <div class="bestChip">Best <b id="menuBest">0</b></div>
-      <div class="how">
-        <div><svg viewBox="0 0 52 52"><circle cx="26" cy="20" r="11" fill="#ffcb2f" stroke="#2b0b4a" stroke-width="3"/><path d="M22 30 L22 46 L30 41 L35 48 L39 45 L34 38 L42 36 Z" fill="#fff" stroke="#2b0b4a" stroke-width="3" stroke-linejoin="round"/></svg>Tap to fire</div>
-        <div><svg viewBox="0 0 52 52"><rect x="15" y="8" width="22" height="34" rx="6" fill="#2f9df5" stroke="#2b0b4a" stroke-width="3"/><path d="M8 20 L3 16 M44 20 L50 15 M10 34 L3 38 M43 33 L50 37 M26 46 L26 51" stroke="#2b0b4a" stroke-width="3" stroke-linecap="round"/><path d="M19 15 L26 24 L22 30 L30 38" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>Smash the jars</div>
-        <div><svg viewBox="0 0 52 52"><rect x="6" y="34" width="40" height="7" rx="3" fill="#8b3ff2" stroke="#2b0b4a" stroke-width="3"/><rect x="30" y="12" width="14" height="14" rx="3" fill="#ee2b47" stroke="#2b0b4a" stroke-width="3" transform="rotate(24 37 19)"/><path d="M10 26 q8 -14 16 -6" stroke="#2b0b4a" stroke-width="3" fill="none" stroke-linecap="round"/></svg>Clear the table</div>
+      <div class="menuFoot">
+        <div class="bestPlate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v3h3v2a5 5 0 0 1-5 5h-.3A6 6 0 0 1 13 15.7V18h3v3H8v-3h3v-2.3A6 6 0 0 1 8.3 13H8a5 5 0 0 1-5-5V6h3zm0 5V8H5a3 3 0 0 0 1 2.2zm12 0v2.2A3 3 0 0 0 19 8z" fill="#ffd23a" stroke="#2b0b4a" stroke-width="1.4" stroke-linejoin="round"/></svg><span>BEST</span><b id="menuBest">0</b></div>
+        <button class="btn play" id="playBtn" type="button" disabled>LOADING</button>
       </div>
-      <button class="btn" id="playBtn" type="button" disabled>LOADING</button>
     </div>
 
     <div id="over" class="screen dim hide">
