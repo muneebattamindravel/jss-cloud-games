@@ -75,7 +75,9 @@
 
   function layout(seed, L) {
     var pool = [];
-    for (var k = 0; k < DESIGNS.length; k++) if (DESIGNS[k].min <= L && DESIGNS[k].min >= Math.max(1, L - 6)) pool.push(k);
+    // the most recently unlocked designs (up to 10), so late levels never run out of towers
+    for (var k = 0; k < DESIGNS.length; k++) if (DESIGNS[k].min <= L) pool.push(k);
+    if (pool.length > 10) pool = pool.slice(pool.length - 10);
     var di = pool[hash(seed, L, 1) % pool.length], D = DESIGNS[di];
     // seeded colour slots
     function perm(n, salt) { var a = []; for (var q = 0; q < n; q++) a.push(q); for (q = n - 1; q > 0; q--) { var r = hash(seed, L, salt + q) % (q + 1), t = a[q]; a[q] = a[r]; a[r] = t; } return a; }
