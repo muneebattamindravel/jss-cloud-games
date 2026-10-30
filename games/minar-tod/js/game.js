@@ -15,7 +15,7 @@
   var GROUND_Y = -1.7;
   var CAP_S = 0.6;
   var LAUNCH_Z = R + 6.2;
-  var PAL = [null, '#f0364d', '#ffb200', '#1fbf6e', '#3a6dff', '#a54cf2'];
+  var PAL = [null, '#e8463a', '#f5b232', '#26b38f', '#4a74e0', '#a45ad0'];
   var NOTE_PAL = ['#ffffff', '#ff8a96', '#ffe08a', '#8af0bb', '#9cb8ff', '#d7a4ff'];
   var TAU = Math.PI * 2;
 
@@ -130,8 +130,9 @@
         var big = Math.min(1, n / 14);
         marimba(note(Math.min(i, 16) + 2), t, 0.24 + 0.08 * big, 0.28);
         if (throttle('crack', 28)) {
-          noise(t, 0.045, 'bandpass', rand(1800, 3400), 0, 1.1, 0.32);
-          noise(t, 0.09, 'lowpass', 900, 200, 0.7, 0.22);
+          noise(t, 0.07, 'bandpass', rand(900, 1600), 600, 0.7, 0.3);
+          noise(t, 0.05, 'highpass', 3500, 0, 0.6, 0.08);
+          noise(t, 0.12, 'lowpass', 700, 180, 0.7, 0.2);
         }
       },
       // The moment a ball lands on a chunk: weight scaled by its size.
@@ -139,6 +140,7 @@
         if (!ok()) return; var t = ctx.currentTime, big = Math.min(1, n / 16);
         tone('sine', 150, 52, t, 0.002, 0.55 + 0.35 * big, 0.2 + 0.3 * big, 0.15);
         noise(t, 0.16 + 0.3 * big, 'lowpass', 2600, 220, 0.6, 0.35 + 0.2 * big, 0.002, 0.25);
+        noise(t + 0.08, 0.5 + 0.7 * big, 'bandpass', 2600, 1200, 0.5, 0.05 + 0.08 * big, 0.12, 0.2);   // sand pouring
         if (n >= 10) {
           noise(t + 0.04, 0.6, 'highpass', 5000, 9000, 0.5, 0.05 + 0.05 * big, 0.08, 0.5);
           for (var k = 0; k < 4; k++) tone('sine', rand(2200, 3800), 0, t + 0.08 + k * 0.05, 0.002, 0.04, 0.3, 0.6);
@@ -246,15 +248,20 @@
     for (var i = 0; i < n * 2; i++) { var a = rot + i * Math.PI / n, r = i % 2 ? r2 : r1; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
     g.closePath();
   }
-  // Colour blocks: a white glazed tile with a pressed eight-point star, multiplied by the instance colour.
+  // Colour blocks: a pale sandstone brick (grain, chipped edge, a carved star), multiplied by the instance colour.
   var faceTex = canvasTex(256, 256, function (g, w) {
-    g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, w, w);
-    var gr = g.createLinearGradient(0, 0, 0, w); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#eaeaea');
-    g.fillStyle = gr; rr(g, 16, 16, w - 32, w - 32, 34); g.fill();
-    g.fillStyle = 'rgba(0,0,0,0.075)'; star(g, w / 2, w / 2, 8, 70, 46, Math.PI / 8); g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.95)'; star(g, w / 2, w / 2, 8, 50, 33, Math.PI / 8); g.fill();
-    g.fillStyle = 'rgba(0,0,0,0.06)'; g.beginPath(); g.arc(w / 2, w / 2, 15, 0, TAU); g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.7)'; rr(g, 34, 26, w - 68, 16, 8); g.fill();
+    g.fillStyle = '#cfcfcf'; g.fillRect(0, 0, w, w);
+    var gr = g.createLinearGradient(0, 0, 0, w); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#e4e4e4');
+    g.fillStyle = gr; rr(g, 12, 12, w - 24, w - 24, 26); g.fill();
+    for (var i = 0; i < 2600; i++) {
+      var v = Math.random() < 0.5 ? 'rgba(0,0,0,' + rand(0.03, 0.09) + ')' : 'rgba(255,255,255,' + rand(0.05, 0.2) + ')';
+      g.fillStyle = v; g.fillRect(rand(0, w), rand(0, w), rand(1, 3), rand(1, 3));
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.05)'; g.lineWidth = 2;
+    for (var k = 0; k < 6; k++) { var y = 40 + k * 36 + rand(-6, 6); g.beginPath(); g.moveTo(20, y); g.bezierCurveTo(90, y + rand(-8, 8), 170, y + rand(-8, 8), w - 20, y); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,0.1)'; star(g, w / 2, w / 2, 8, 62, 40, Math.PI / 8); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.75)'; star(g, w / 2, w / 2 - 3, 8, 54, 34, Math.PI / 8); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.08)'; g.beginPath(); g.arc(w / 2, w / 2, 12, 0, TAU); g.fill();
   });
   var steelTex = canvasTex(256, 256, function (g, w) {
     var gr = g.createLinearGradient(0, 0, w, w); gr.addColorStop(0, '#eef2f6'); gr.addColorStop(0.5, '#9aa6b4'); gr.addColorStop(1, '#d6dde5');
@@ -375,21 +382,21 @@
   var groundTex = canvasTex(1024, 1024, function (g, w) {
     var c = w / 2;
     var gr = g.createRadialGradient(c, c, 0, c, c, c);
-    gr.addColorStop(0, '#e9b47c'); gr.addColorStop(0.5, '#dfa66d'); gr.addColorStop(1, '#e8b887');
+    gr.addColorStop(0, '#f0c48c'); gr.addColorStop(0.5, '#e8b67c'); gr.addColorStop(1, '#efc490');
     g.fillStyle = gr; g.fillRect(0, 0, w, w);
-    var R0 = 70, R1 = 150, R2 = 170;
-    g.fillStyle = '#c96b4a'; g.beginPath(); g.arc(c, c, R2, 0, TAU); g.fill();
-    g.fillStyle = '#f7ead2'; g.beginPath(); g.arc(c, c, R1 + 6, 0, TAU); g.fill();
-    g.fillStyle = '#2f8f8a'; g.beginPath(); g.arc(c, c, R1, 0, TAU); g.fill();
-    g.fillStyle = '#f7ead2'; g.beginPath(); g.arc(c, c, R1 - 6, 0, TAU); g.fill();
-    for (var i = 0; i < 16; i++) {
-      var a = i * TAU / 16, x = c + Math.cos(a) * (R0 + R1) / 2, y = c + Math.sin(a) * (R0 + R1) / 2;
-      g.fillStyle = i % 2 ? '#c96b4a' : '#2f8f8a'; star(g, x, y, 8, 26, 16, a); g.fill();
-      g.fillStyle = '#ffcf5a'; g.beginPath(); g.arc(x, y, 6, 0, TAU); g.fill();
+    for (var i = 0; i < 9000; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(120,70,30,0.07)' : 'rgba(255,240,210,0.12)'; g.fillRect(rand(0, w), rand(0, w), 2, 2); }
+    // wind ripples
+    for (var k = 0; k < 70; k++) {
+      var y0 = k * 15 + rand(-4, 4);
+      g.strokeStyle = 'rgba(150,90,40,0.13)'; g.lineWidth = 3;
+      g.beginPath(); for (var x = 0; x <= w; x += 16) g.lineTo(x, y0 + Math.sin(x * 0.012 + k) * 7); g.stroke();
+      g.strokeStyle = 'rgba(255,235,200,0.18)'; g.lineWidth = 2;
+      g.beginPath(); for (var x2 = 0; x2 <= w; x2 += 16) g.lineTo(x2, y0 + 3 + Math.sin(x2 * 0.012 + k) * 7); g.stroke();
     }
-    g.strokeStyle = 'rgba(150,80,40,0.25)'; g.lineWidth = 3;
-    for (var k = 0; k < 64; k++) { var b = k * TAU / 64; g.beginPath(); g.moveTo(c + Math.cos(b) * R2, c + Math.sin(b) * R2); g.lineTo(c + Math.cos(b) * (R2 + 60), c + Math.sin(b) * (R2 + 60)); g.stroke(); }
-    [R2 + 60, R2 + 120].forEach(function (r) { g.beginPath(); g.arc(c, c, r, 0, TAU); g.stroke(); });
+    // a swept circle where the tower stands
+    var sw = g.createRadialGradient(c, c, 60, c, c, 170); sw.addColorStop(0, 'rgba(246,212,165,1)'); sw.addColorStop(0.75, 'rgba(246,212,165,0.85)'); sw.addColorStop(1, 'rgba(246,212,165,0)');
+    g.fillStyle = sw; g.beginPath(); g.arc(c, c, 170, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(160,95,45,0.25)'; g.lineWidth = 4; g.beginPath(); g.arc(c, c, 150, 0, TAU); g.stroke();
   });
   groundTex.anisotropy = 8;
   var ground = new THREE.Mesh(new THREE.CircleGeometry(160, 64), new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.92, metalness: 0 }));
@@ -406,6 +413,14 @@
 
   // Distant skyline in the haze, clouds and kites.
   (function skyline() {
+    var duneMat = new THREE.MeshLambertMaterial({ color: '#f2c690' });
+    for (var dn = 0; dn < 9; dn++) {
+      var da = Math.PI * (0.45 + dn * 0.14) + rand(-0.05, 0.05), dr = rand(38, 60);
+      var dune = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 10, 0, TAU, 0, Math.PI / 2), duneMat);
+      dune.scale.set(rand(10, 18), rand(2.2, 4.5), rand(6, 10));
+      dune.position.set(Math.sin(da) * dr, GROUND_Y - 0.2, Math.cos(da) * dr); dune.rotation.y = da + rand(-0.4, 0.4);
+      scene.add(dune);
+    }
     var mat = new THREE.MeshLambertMaterial({ color: '#e7b996' }), mat2 = new THREE.MeshLambertMaterial({ color: '#f0c9a8' });
     for (var i = 0; i < 14; i++) {
       var t = i / 13; if (Math.abs(t - 0.5) < 0.09) continue;
@@ -471,7 +486,7 @@
     }
   });
   bandTex.wrapS = THREE.RepeatWrapping;
-  var cream = new THREE.MeshStandardMaterial({ color: '#f6e7cc', roughness: 0.75 });
+  var cream = new THREE.MeshStandardMaterial({ color: '#f2d3a4', map: faceTex, roughness: 0.9 });
   var gold = new THREE.MeshStandardMaterial({ color: '#f5b93a', metalness: 1, roughness: 0.28 });
   var pedestal = new THREE.Group();
   var plinth = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.85, 0.45, 8), cream); plinth.position.y = GROUND_Y + 0.225; pedestal.add(plinth);
@@ -484,14 +499,14 @@
   // The minaret cap that rides on top of the tower.
   var cap = new THREE.Group();
   (function buildCap() {
-    var teal = new THREE.MeshStandardMaterial({ color: '#10a69a', roughness: 0.22, metalness: 0.15 });
+    var teal = new THREE.MeshStandardMaterial({ color: '#f0c993', map: faceTex, roughness: 0.9 });
     var balc = new THREE.Mesh(new THREE.CylinderGeometry(1.95, 1.7, 0.24, 8), gold); balc.position.y = 0.12; cap.add(balc);
     var drumTex = canvasTex(512, 128, function (g, w, h) {
-      g.fillStyle = '#fff6e6'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#f3d3a2'; g.fillRect(0, 0, w, h);
       for (var i = 0; i < 8; i++) {
         var x = i * 64 + 14;
-        g.fillStyle = '#10a69a'; g.beginPath(); g.moveTo(x, h - 12); g.lineTo(x, 50); g.quadraticCurveTo(x + 18, 14, x + 36, 50); g.lineTo(x + 36, h - 12); g.closePath(); g.fill();
-        g.fillStyle = '#0a5a60'; g.beginPath(); g.moveTo(x + 7, h - 16); g.lineTo(x + 7, 56); g.quadraticCurveTo(x + 18, 32, x + 29, 56); g.lineTo(x + 29, h - 16); g.closePath(); g.fill();
+        g.fillStyle = '#c98a4e'; g.beginPath(); g.moveTo(x, h - 12); g.lineTo(x, 50); g.quadraticCurveTo(x + 18, 14, x + 36, 50); g.lineTo(x + 36, h - 12); g.closePath(); g.fill();
+        g.fillStyle = '#6a3b1c'; g.beginPath(); g.moveTo(x + 7, h - 16); g.lineTo(x + 7, 56); g.quadraticCurveTo(x + 18, 32, x + 29, 56); g.lineTo(x + 29, h - 16); g.closePath(); g.fill();
       }
       g.fillStyle = '#f2b233'; g.fillRect(0, 0, w, 8); g.fillRect(0, h - 8, w, 8);
     });
@@ -502,7 +517,14 @@
     for (var i = 0; i < pts.length; i++) prof.push(new THREE.Vector2(pts[i][0], pts[i][1]));
     var dome = new THREE.Mesh(new THREE.LatheGeometry(prof, 24), teal); dome.position.y = 1.3; cap.add(dome);
     var fin1 = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), gold); fin1.position.y = 3.5; cap.add(fin1);
-    var fin2 = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.7, 10), gold); fin2.position.y = 3.95; cap.add(fin2);
+    var fin2 = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.6, 6), new THREE.MeshStandardMaterial({ color: '#7a4a24', roughness: 0.8 })); fin2.position.y = 4.3; cap.add(fin2);
+    // A plain red-and-gold triangle pennant, not any real flag.
+    var flagTex = canvasTex(128, 64, function (g, w, h) {
+      g.fillStyle = '#f5b232'; g.beginPath(); g.moveTo(0, 0); g.lineTo(w, h / 2); g.lineTo(0, h); g.closePath(); g.fill();
+      g.fillStyle = '#d8342c'; g.beginPath(); g.moveTo(0, 7); g.lineTo(w - 16, h / 2); g.lineTo(0, h - 7); g.closePath(); g.fill();
+    });
+    var flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.6, 8, 1), new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide, roughness: 0.8, transparent: true, alphaTest: 0.5 }));
+    flag.position.set(0.58, 4.8, 0); cap.add(flag); cap.userData.flag = flag;
     var fin3 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), gold); fin3.position.y = 3.25; cap.add(fin3);
     cap.scale.setScalar(CAP_S);
   })();
@@ -540,7 +562,7 @@
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     m.frustumCulled = false; m.count = 0; scene.add(m); return m;
   }
-  var mColour = blockMesh(new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.32, metalness: 0, envMapIntensity: 0.55 }));
+  var mColour = blockMesh(new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.82, metalness: 0, envMapIntensity: 0.45 }));
   mColour.setColorAt(0, new THREE.Color('#ffffff')); mColour.instanceColor.setUsage(THREE.DynamicDrawUsage);
   var mSteel = blockMesh(new THREE.MeshStandardMaterial({ map: steelTex, roughness: 0.28, metalness: 0.85 }));
   var bombMat = new THREE.MeshStandardMaterial({ map: bombTex, roughness: 0.4, emissive: '#ff3000', emissiveIntensity: 0 });
@@ -548,14 +570,14 @@
 
   // Debris: glazed shards with spin and gravity.
   var DEB = 520;
-  var mDeb = new THREE.InstancedMesh(roundedBox(0.34, 0.28, 0.32, 0.07), new THREE.MeshStandardMaterial({ roughness: 0.3 }), DEB);
+  var mDeb = new THREE.InstancedMesh(roundedBox(0.3, 0.24, 0.28, 0.08), new THREE.MeshStandardMaterial({ roughness: 0.9 }), DEB);
   mDeb.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mDeb.frustumCulled = false; mDeb.count = 0;
   mDeb.setColorAt(0, new THREE.Color('#fff')); scene.add(mDeb);
   var debris = [];
   // Dust puffs.
   var DUST = 120;
   var mDust = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.5, 1),
-    new THREE.MeshLambertMaterial({ color: '#fff1dc', transparent: true, opacity: 0.38, depthWrite: false }), DUST);
+    new THREE.MeshLambertMaterial({ color: '#f3d3a2', transparent: true, opacity: 0.42, depthWrite: false }), DUST);
   mDust.frustumCulled = false; mDust.count = 0; scene.add(mDust);
   var dust = [];
   // Sparks: additive points.
@@ -568,6 +590,16 @@
     blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
   sparksPts.frustumCulled = false; scene.add(sparksPts);
   var sparks = [];
+  // Sand grains: a broken brick pours out as coloured sand that lands, rests and fades.
+  var GRN = 1600;
+  var grnGeo = new THREE.BufferGeometry();
+  var grnPos = new Float32Array(GRN * 3), grnCol = new Float32Array(GRN * 3);
+  grnGeo.setAttribute('position', new THREE.BufferAttribute(grnPos, 3).setUsage(THREE.DynamicDrawUsage));
+  grnGeo.setAttribute('color', new THREE.BufferAttribute(grnCol, 3).setUsage(THREE.DynamicDrawUsage));
+  var grainTex = canvasTex(32, 32, function (g, w) { g.fillStyle = '#fff'; g.beginPath(); g.arc(w / 2, w / 2, w / 2 - 2, 0, TAU); g.fill(); });
+  var grainPts = new THREE.Points(grnGeo, new THREE.PointsMaterial({ size: 0.13, map: grainTex, vertexColors: true, transparent: true, alphaTest: 0.4, sizeAttenuation: true }));
+  grainPts.frustumCulled = false; scene.add(grainPts);
+  var grains = [];
   // Glow flashes, shockwave rings and the smash rays.
   var glows = [];
   function glowSprite() {
@@ -740,6 +772,16 @@
         c: col.clone().lerp(wh, rand(0.2, 0.7)), life: 0, max: rand(0.35, 0.8) });
     }
   }
+  function spawnGrains(x, y, z, colour, n, power) {
+    var col = new THREE.Color(colour);
+    for (var i = 0; i < n; i++) {
+      if (grains.length >= GRN) grains.shift();
+      var out = new THREE.Vector3(x, 0, z).normalize(), sp = rand(0.5, 4.5) * power;
+      grains.push({ p: new THREE.Vector3(x + rand(-0.42, 0.42), y + rand(-0.35, 0.35), z + rand(-0.4, 0.4)),
+        v: new THREE.Vector3(out.x * sp + rand(-1.2, 1.2), rand(-0.5, 4) * power, out.z * sp + rand(-1.2, 1.2)),
+        c: col.clone().offsetHSL(0, rand(-0.08, 0), rand(-0.1, 0.1)), life: 0, max: rand(2.2, 3.6), rest: false });
+    }
+  }
   function spawnDust(x, y, z, n, size) {
     for (var i = 0; i < n; i++) {
       if (dust.length >= DUST) dust.shift();
@@ -782,9 +824,10 @@
   function burstBlock(c, b) {
     blockPos(c, b.y, V.angle, vA);
     var colour = colourOf(b.t), power = b.bomb ? 1.6 : 0.85 + Math.min(0.7, (b.n || 1) / 20);
-    spawnDebris(vA.x, vA.y, vA.z, colour, (b.n || 1) > 14 ? 3 : 4, power);
-    spawnSparks(vA.x, vA.y, vA.z, colour, (b.n || 1) > 14 ? 4 : 7, 1);
-    if (V.popN < 8 || Math.random() < 0.3) spawnDust(vA.x, vA.y, vA.z, 1, 0.8);
+    spawnDebris(vA.x, vA.y, vA.z, colour, (b.n || 1) > 14 ? 1 : 2, power);
+    spawnGrains(vA.x, vA.y, vA.z, colour, (b.n || 1) > 20 ? 22 : 34, power);
+    spawnSparks(vA.x, vA.y, vA.z, colour, 3, 0.8);
+    if (V.popN < 10 || Math.random() < 0.4) spawnDust(vA.x, vA.y, vA.z, 1, 1);
     if (V.popN % 2 === 0) glowAt(vA.x * 1.15, vA.y, vA.z * 1.15, NOTE_PAL[b.t] || '#ffffff', 1.6, 0.25);
     Snd.pop(V.popN++, b.n || 1);
   }
@@ -793,7 +836,8 @@
       var col = V.cols[c];
       for (var r = 0; r < col.length; r++) {
         blockPos(c, col[r].y, V.angle, vA);
-        spawnDebris(vA.x, vA.y, vA.z, colourOf(col[r].t), 3, power);
+        spawnDebris(vA.x, vA.y, vA.z, colourOf(col[r].t), 1, power);
+        spawnGrains(vA.x, vA.y, vA.z, colourOf(col[r].t), 16, power);
         if (r % 2 === 0) spawnSparks(vA.x, vA.y, vA.z, colourOf(col[r].t), 3, 1);
         if (r % 3 === 0) spawnDust(vA.x, vA.y, vA.z, 1, 1.3);
       }
@@ -935,7 +979,8 @@
       ringAt(face.x, face.y, face.z, PAL[hit.colour] || '#ffcc00', 1.5 + Math.min(4, n * 0.3), 0.45);
       var word = bomb ? 'BOOM!' : n >= 16 ? 'MEGA!' : n >= 10 ? 'HUGE!' : n >= 6 ? 'NICE!' : null;
       var mult = hit.mult > 1 ? ' x' + hit.mult : '';
-      popup('+' + fmt(hit.pts), sp.x, sp.y - 10 * UI, bomb ? '#ffcc00' : PAL[hit.colour], 22 + Math.min(8, n * 0.5),
+      if (!hit.pts) popup('+0', sp.x, sp.y - 10 * UI, '#e9e2d6', 20, 'too small', 0);
+      else popup('+' + fmt(hit.pts), sp.x, sp.y - 10 * UI, bomb ? '#ffcc00' : PAL[hit.colour], 22 + Math.min(8, n * 0.5),
         word ? word + mult : (mult ? 'COMBO' + mult : null), hit.fly ? hit.pts : 0);
       if (hit.mult >= 2 && hit.mult > V.lastMult) Snd.combo(hit.mult);
       V.lastMult = hit.mult || 1;
@@ -1100,7 +1145,7 @@
     lsSet('minar-tod-tut', String(tutSeen() + 1));
     V.prevAngle = V.angle = prac.angle;
     buildVis(g, true);
-    debris.length = 0; dust.length = 0; sparks.length = 0; V.ball = null; V.afterBall = null; V.timers = []; V.preview = null;
+    debris.length = 0; dust.length = 0; sparks.length = 0; grains.length = 0; V.ball = null; V.afterBall = null; V.timers = []; V.preview = null;
     mode = 'prac';
     hide(menu); hide(over); hud.classList.add('is-hidden');
     pSkip.hidden = false;
@@ -1327,7 +1372,7 @@
         else if (b.t === BOMB) { pmB[nB] = cell; mBomb.setMatrixAt(nB++, dummy.matrix); }
         else {
           tmpC.copy(colObj(PAL[b.t]));
-          if (lit) tmpC.lerp(white, 0.16 + 0.2 * pulse);
+          if (lit) tmpC.offsetHSL(0, 0.05, 0.08 + 0.1 * pulse);
           if (b.die) tmpC.lerp(white, 0.55);
           if (b.flash) tmpC.lerp(white, b.flash * 0.8);
           mColour.setColorAt(nC, tmpC);
@@ -1357,6 +1402,9 @@
       if (V.capY <= capTarget) { if (V.capVY < -5) V.capVY = -V.capVY * 0.25; else V.capVY = 0; V.capY = capTarget; }
     }
     cap.position.y = V.capY;
+    var fpos = cap.userData.flag.geometry.attributes.position;
+    for (var fi = 0; fi < fpos.count; fi++) { var fx0 = fpos.getX(fi) + 0.55; fpos.setZ(fi, Math.sin(timeAcc * 7 - fx0 * 5) * 0.08 * fx0); }
+    fpos.needsUpdate = true;
     cap.rotation.y = V.angle / ANG * TAU;
 
     // Cannon: aims at the lit chunk (or the ball's target), recoils on fire.
@@ -1439,6 +1487,25 @@
       } else { spkPos[sj * 3 + 1] = -999; }
     }
     spkGeo.attributes.position.needsUpdate = true; spkGeo.attributes.color.needsUpdate = true;
+    for (var gi2 = grains.length - 1; gi2 >= 0; gi2--) {
+      var gr2 = grains[gi2]; gr2.life += dt;
+      if (gr2.life > gr2.max) { grains.splice(gi2, 1); continue; }
+      if (gr2.rest) continue;
+      gr2.v.y -= 20 * dt; gr2.v.x *= Math.pow(0.5, dt); gr2.v.z *= Math.pow(0.5, dt);
+      gr2.p.addScaledVector(gr2.v, dt);
+      var fl = (gr2.p.x * gr2.p.x + gr2.p.z * gr2.p.z < 2.25 * 2.25) ? 0.02 : GROUND_Y + 0.04;
+      if (gr2.p.y < fl) { gr2.p.y = fl; gr2.rest = true; }
+    }
+    for (var gj = 0; gj < GRN; gj++) {
+      var gq = grains[gj];
+      if (gq) {
+        var gf = gq.life > gq.max - 0.6 ? (gq.max - gq.life) / 0.6 : 1;
+        grnPos[gj * 3] = gq.p.x; grnPos[gj * 3 + 1] = gq.rest ? gq.p.y - (1 - gf) * 0.05 : gq.p.y; grnPos[gj * 3 + 2] = gq.p.z;
+        grnCol[gj * 3] = gq.c.r; grnCol[gj * 3 + 1] = gq.c.g; grnCol[gj * 3 + 2] = gq.c.b;
+        if (gf < 1) { grnPos[gj * 3 + 1] -= (1 - gf) * 0.2; }
+      } else grnPos[gj * 3 + 1] = -999;
+    }
+    grnGeo.attributes.position.needsUpdate = true; grnGeo.attributes.color.needsUpdate = true;
     var nu = 0;
     for (var di = dust.length - 1; di >= 0; di--) {
       var dd = dust[di]; dd.life += dt;
@@ -1530,7 +1597,7 @@
     window.__mtSeed = sim.seed;
     V.prevAngle = V.angle = sim.angle;
     buildVis(sim.grid, true);
-    debris.length = 0; dust.length = 0; sparks.length = 0; V.ball = null; V.afterBall = null; V.timers = []; V.preview = null; V.lastMult = 1;
+    debris.length = 0; dust.length = 0; sparks.length = 0; grains.length = 0; V.ball = null; V.afterBall = null; V.timers = []; V.preview = null; V.lastMult = 1;
     shownScore = 0; pendShown = -1; lastSec = -1; lastBalls = -1; lastCombo = 0;
     hCombo.classList.remove('on', 'x3', 'x4'); hPend.classList.remove('lost');
     hud.classList.remove('is-hidden');

@@ -11,8 +11,8 @@
   same-colour group break (flood fill, wrapping around) as a ripple from the hit, and blocks above fall.
   Skill: reading the tower for the biggest chunk, setting up merges, keeping a combo. (Round 1 used a timed
   aim frame; round 2 tap-the-block; round 3 added swipe to turn and the combo, both chosen by the founder.)
-  New groups formed by the fall do not break by themselves. Points for a group of n are `n (n + 1) / 2`
-  (1 block 1, 10 blocks 55, 20 blocks 210), times the combo: chunks of 5 or more in a row raise it x2, x3, x4;
+  New groups formed by the fall do not break by themselves. Points for a group of n are `n * n * (n + 1) / 20`, about the size cubed
+  (1 block 0, 5 blocks 7, 10 blocks 55, 20 blocks 420, 30 blocks 1,395; round 5, so planning a big merge pays most), times the combo: chunks of 5 or more in a row raise it x2, x3, x4;
   a smaller chunk or a steel hit resets it. Points go INTO THE TOWER. Clearing every breakable
   block SMASHES the tower: its points are banked, plus 100 + 50 per tower index + 20 per spare ball.
   Out of balls with blocks left ENDS THE RUN and the tower's unbanked points are lost (founder, round 4).

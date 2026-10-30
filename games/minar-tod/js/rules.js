@@ -144,7 +144,9 @@ function removeAndSettle(g, cells) {
 }
 
 // Block points go into the tower and are banked only when it is smashed.
-function groupPoints(n) { return (n * (n + 1)) >> 1; }   // 1 block 1, 10 blocks 55, 20 blocks 210
+// About the chunk's size cubed: 1 block 0, 5 blocks 7, 10 blocks 55, 20 blocks 420, 30 blocks 1,395.
+// One planned 20-block merge beats ten 4-block hits many times over.
+function groupPoints(n) { return ((n * n * (n + 1)) / 20) | 0; }
 
 // Greedy: always take the biggest chunk. Every cell can be hit, so this many
 // balls always clears the tower; the budget adds slack for humans.
