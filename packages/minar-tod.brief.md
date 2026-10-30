@@ -11,12 +11,12 @@
   same-colour group break (flood fill, wrapping around) as a ripple from the hit, and blocks above fall.
   Skill: reading the tower for the biggest chunk, setting up merges, keeping a combo. (Round 1 used a timed
   aim frame; round 2 tap-the-block; round 3 added swipe to turn and the combo, both chosen by the founder.)
-  New groups formed by the fall do not break by themselves. Points for a group of n are `5 n (n + 1)`
-  (1 block 10, 10 blocks 550, 20 blocks 2,100), times the combo: chunks of 5 or more in a row raise it x2, x3, x4;
+  New groups formed by the fall do not break by themselves. Points for a group of n are `n (n + 1) / 2`
+  (1 block 1, 10 blocks 55, 20 blocks 210), times the combo: chunks of 5 or more in a row raise it x2, x3, x4;
   a smaller chunk or a steel hit resets it. Points go INTO THE TOWER. Clearing every breakable
-  block SMASHES the tower: its points are banked, plus 1,000 + 500 per tower index + 200 per spare ball.
-  Out of balls with blocks left: the tower stands, its points are lost, and the next tower comes after 4 s.
-  Nobody dies; the clock ends the run, and the tower in play is banked when time runs out.
+  block SMASHES the tower: its points are banked, plus 100 + 50 per tower index + 20 per spare ball.
+  Out of balls with blocks left ENDS THE RUN and the tower's unbanked points are lost (founder, round 4).
+  Otherwise the 3 minute clock ends it, and the tower in play is banked when time runs out.
 - **Recovery:** Every tower is a fresh start with a fresh ball budget; a bad tower costs only that tower.
 - **Run length / end condition:** 3 minutes (10,800 steps at 60 Hz). A parked run ends with the clock.
   Idle costs only time.

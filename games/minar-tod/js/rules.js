@@ -12,7 +12,6 @@ var FLIGHT = 12;                    // steps a ball flies before it lands
 var TRANS_STEPS = 120;              // steps between towers (no input)
 var MAX_LEVELS = 20;
 var COPY_DOWN = 70, COPY_SIDE = 130;   // out of 256: how often a cell copies a neighbour
-var STAND_STEPS = 240;
 var MAX_TURN = 4096;                // most a drag can turn the tower in one step
 var MAX_FLICK = 1600;               // fastest flick, angle units per step
 var COMBO_MIN = 5;                  // a chunk this big keeps the combo going
@@ -145,7 +144,7 @@ function removeAndSettle(g, cells) {
 }
 
 // Block points go into the tower and are banked only when it is smashed.
-function groupPoints(n) { return 5 * n * (n + 1); }   // 1 block 10, 10 blocks 550
+function groupPoints(n) { return (n * (n + 1)) >> 1; }   // 1 block 1, 10 blocks 55, 20 blocks 210
 
 // Greedy: always take the biggest chunk. Every cell can be hit, so this many
 // balls always clears the tower; the budget adds slack for humans.
@@ -166,7 +165,7 @@ function greedyShots(g) {
   return shots;
 }
 
-function ballBudget(shots) { return shots + 2 + ((shots / 7) | 0); }
+function ballBudget(shots) { return shots + 4 + ((shots / 3) | 0); }
 
 function startTower(s, k) {
   var spec = towerSpec(s.seed, k);
@@ -278,7 +277,7 @@ function land(s) {
     }
   }
   if (breakablesLeft(s.grid) === 0) {
-    ev.bonus = 1000 + 500 * s.tower + 200 * s.balls;
+    ev.bonus = 100 + 50 * s.tower + 20 * s.balls;
     ev.banked = s.pending; s.pending = 0;
     s.score += ev.banked;
     ev.cleared = true;
@@ -288,7 +287,7 @@ function land(s) {
   } else if (s.balls <= 0) {
     ev.stands = true;
     ev.lost = s.pending; s.pending = 0;   // a tower left standing banks nothing
-    s.phase = 'trans'; s.trans = STAND_STEPS;
+    s.phase = 'over'; s.ball = null;    // out of balls ends the run
   }
   return ev;
 }

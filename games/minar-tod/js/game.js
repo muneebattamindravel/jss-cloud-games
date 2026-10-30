@@ -36,6 +36,7 @@
     var muted = lsGet('minar-tod-muted') === '1';
     var last = {};
     var PENT = [0, 2, 4, 7, 9];
+    var VOL = 0.5;   // master level: the founder found 0.9 a tad loud
     function note(i) { var o = Math.floor(i / 5), p = PENT[((i % 5) + 5) % 5]; return 293.66 * Math.pow(2, (o * 12 + p) / 12); }
 
     function init() {
@@ -45,7 +46,7 @@
       ctx = new AC();
       var comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -12; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.002; comp.release.value = 0.18;
-      master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9;
+      master = ctx.createGain(); master.gain.value = muted ? 0 : VOL;
       master.connect(comp); comp.connect(ctx.destination);
       dry = ctx.createGain(); dry.connect(master);
       var conv = ctx.createConvolver(); conv.buffer = impulse(2.6, 3.2);
@@ -113,7 +114,7 @@
       isMuted: function () { return muted; },
       setMuted: function (m) {
         muted = m; lsSet('minar-tod-muted', m ? '1' : '0');
-        if (master) master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.02);
+        if (master) master.gain.setTargetAtTime(m ? 0 : VOL, ctx.currentTime, 0.02);
       },
       cannon: function () {
         if (!ok()) return; var t = ctx.currentTime;
@@ -978,17 +979,9 @@
       burstConfetti(140, VW / 2, VH * 0.3, 1);
     });
   }
+  // Out of balls ends the run: the tower's unbanked points are lost.
   function stands(ev) {
-    later(0.45, function () {
-      Snd.lose();
-      if (ev.lost) { hPend.classList.add('lost'); hPend.classList.remove('is-empty'); hPend.textContent = '-' + fmt(ev.lost) + ' LOST'; }
-      banner('OUT OF BALLS', 'grey', 'the tower stands', 'red', 1600);
-    });
-    laterTower(2.2, function () {
-      Snd.rumble(); crumbleAll(0.55);
-      hPend.classList.remove('lost');
-      V.capFly = { vy: 2, vx: 0, spin: 0.5, rot: 0, sink: true };
-    });
+    if (ev.lost) { hPend.classList.add('lost'); hPend.classList.remove('is-empty'); hPend.textContent = '-' + fmt(ev.lost) + ' LOST'; }
   }
 
   // ================================================================== input: swipe to turn, tap to fire
@@ -1550,6 +1543,14 @@
   function endRun() {
     mode = 'timeup';
     hClock.classList.remove('hot');
+    if (sim.step < RUN_STEPS) {
+      // The cannon is empty: let the last hit land, then the tower crumbles.
+      later(0.6, function () { Snd.lose(); banner('OUT OF BALLS', 'grey', 'game over', 'red', 1500); });
+      later(1.5, function () { Snd.rumble(); crumbleAll(0.55); V.capFly = { vy: 2, vx: 0, spin: 0.5, rot: 0, sink: true }; });
+      later(2.4, function () { Snd.gong(); });
+      later(3.2, showOver);
+      return;
+    }
     V.ball = null;
     Snd.gong();
     banner('TIME!', 'big', '', '', 1300);
