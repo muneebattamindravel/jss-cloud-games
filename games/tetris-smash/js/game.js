@@ -259,7 +259,7 @@
     for (var i = 0; i < n + 1; i++) bell(noteHz(k + i), 0.6, 0.075, i * 0.055, (i % 2 ? 0.25 : -0.25));
     noise(0.5, 9000, 6000, 0.025, 0.05, 'highpass', 0.6, 1);
   }
-  function sChaar() {
+  function sSmash() {
     tone(90, 0.8, 'sine', 0.42, 0, 32); noise(0.7, 700, 90, 0.2, 0, 'lowpass', 0.6, 1);
     [0, 4, 7, 12, 16, 19].forEach(function (n, i) { bell(523 * Math.pow(2, n / 12), 1.1, 0.07, 0.06 + i * 0.05, (i % 2 ? 0.35 : -0.35)); });
     noise(0.9, 10000, 5000, 0.04, 0.1, 'highpass', 0.5, 1);
@@ -407,7 +407,7 @@
       var cy = cellY(e.rows[0]) + CELL * e.rows.length / 2;
       floats.push({ x: WX + WW / 2, y: cy, txt: '+' + e.gained.toLocaleString('en-US'), t: now, size: e.rows.length === 4 ? 38 : 28, col: e.rows.length === 4 ? C_EMBER : C_INK });
       sClear(e.rows.length, e.combo);
-      if (e.rows.length === 4) { sChaar(); shake = 11; flashA = 0.6; flashCol = '#ffb35c'; burst(WX + WW / 2, cy, 60, 520); banner = { t: now, txt: 'CHAAR!', col: C_EMBER, size: 78, dur: 1300 }; }
+      if (e.rows.length === 4) { sSmash(); shake = 11; flashA = 0.6; flashCol = '#ffb35c'; burst(WX + WW / 2, cy, 60, 520); banner = { t: now, txt: 'SMASH!', col: C_EMBER, size: 78, dur: 1300 }; }
       else if (e.rows.length === 3) { shake = Math.max(shake, 5); burst(WX + WW / 2, cy, 20, 320); }
       else if (e.rows.length === 2) shake = Math.max(shake, 2.5);
       if (e.combo >= 1) holder.comboPop = now;
@@ -746,16 +746,13 @@
     label('SCORE', L, B.y + 19, null, 'left');
     ctx.save(); ctx.translate(L, B.y + 49); var bs = 1 + 0.12 * (st && sim === st.sim ? st.bump : 0); ctx.scale(bs, bs);
     txt(Math.round(st && sim === st.sim ? st.scoreShown : sc).toLocaleString('en-US'), 0, 0, 25, C_INK, 'left'); ctx.restore();
-    // the clock: big, with a dial icon; amber at 1 minute, red at 30 seconds, pulsing at 10
+    // the clock: big; amber at 1 minute, red at 30 seconds, pulsing at 10
     var rem = sim ? Math.max(0, G.RUN_STEPS - sim.frame) : G.RUN_STEPS, secs = Math.ceil(rem / 60);
     var tcol = secs <= 30 ? C_HOT : secs <= 60 ? C_EMBER : C_INK;
     var pulse = (mode === 'play' && secs <= 10) ? 1.08 + 0.08 * Math.abs(Math.sin(now / 160)) : 1;
     label('TIME', Rt, B.y + 19, null, 'right');
     ctx.save(); ctx.translate(Rt, B.y + 49); ctx.scale(pulse, pulse);
     txt(Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2), 0, 0, 25, tcol, 'right');
-    ctx.font = '25px ' + FONT; var tw = ctx.measureText('0:00').width;
-    ctx.lineWidth = 2; ctx.strokeStyle = tcol; ctx.beginPath(); ctx.arc(-tw - 12, -9, 7, 0, 6.2832); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-tw - 12, -9); ctx.lineTo(-tw - 12, -13.5); ctx.moveTo(-tw - 12, -9); ctx.lineTo(-tw - 8.5, -7.5); ctx.stroke();
     ctx.restore();
     var lvl = sim ? sim.level : 1, lines = sim ? sim.lines : 0, prog = (lines % 10) / 10, pw = B.w - 28 - 44;
     rr(ctx, L, B.y + 60, pw, 5, 2.5); ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill();
@@ -935,6 +932,6 @@
   if (typeof window.__kjOnSessionReady === 'function') window.__kjOnSessionReady(onSessionReady); else onSessionReady();
   if (RP) menu.classList.add('is-hidden');
   if (!EMBED) window.__ts = { get st() { return st; }, get tut() { return tut; }, get mode() { return mode; }, act: act, G: G,
-    sfx: { move: sMove, turn: sTurn, blocked: sBlocked, lock: function () { sLock(false); }, hardDrop: function () { sHard(); sLock(true); }, clear1: function () { sClear(1, 0); }, clear2: function () { sClear(2, 0); }, clear3: function () { sClear(3, 0); }, combo3: function () { sClear(1, 3); }, chaar: function () { sClear(4, 0); sChaar(); }, levelUp: sLevel, tick: function () { sTick(false); }, lastTicks: function () { sTick(true); }, warn: sWarn, start: sStart, end: sEnd, ready: sReady } };
+    sfx: { move: sMove, turn: sTurn, blocked: sBlocked, lock: function () { sLock(false); }, hardDrop: function () { sHard(); sLock(true); }, clear1: function () { sClear(1, 0); }, clear2: function () { sClear(2, 0); }, clear3: function () { sClear(3, 0); }, combo3: function () { sClear(1, 3); }, smash: function () { sClear(4, 0); sSmash(); }, levelUp: sLevel, tick: function () { sTick(false); }, lastTicks: function () { sTick(true); }, warn: sWarn, start: sStart, end: sEnd, ready: sReady } };
   resize(); requestAnimationFrame(frame);
 })();

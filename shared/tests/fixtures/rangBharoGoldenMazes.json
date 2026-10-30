@@ -1,0 +1,78 @@
+{
+ "version": 1,
+ "note": "Mazes that sit on rare generator branches (the 38% floor gate, the minimum-par cap, the first mazes where slides start to shorten), found by measurement. A change here is a rules version bump.",
+ "mazes": [
+  {
+   "seed": "g80",
+   "n": 15,
+   "par": 16,
+   "digest": "a3441e87ed3330b2"
+  },
+  {
+   "seed": "g116",
+   "n": 11,
+   "par": 12,
+   "digest": "02671b5fd1c6dc87"
+  },
+  {
+   "seed": "g152",
+   "n": 5,
+   "par": 5,
+   "digest": "e9b310075d251b67"
+  },
+  {
+   "seed": "g203",
+   "n": 5,
+   "par": 9,
+   "digest": "2e3e4ec666dc12de"
+  },
+  {
+   "seed": "g210",
+   "n": 14,
+   "par": 18,
+   "digest": "fb977c7256b55791"
+  },
+  {
+   "seed": "g261",
+   "n": 7,
+   "par": 9,
+   "digest": "19a0cb57114b73f3"
+  },
+  {
+   "seed": "g267",
+   "n": 9,
+   "par": 15,
+   "digest": "869c415942fe7a59"
+  },
+  {
+   "seed": "g278",
+   "n": 13,
+   "par": 19,
+   "digest": "33e85441b6364e63"
+  },
+  {
+   "seed": "g232",
+   "n": 16,
+   "par": 26,
+   "digest": "f19b16cc27623158"
+  },
+  {
+   "seed": "p0",
+   "n": 19,
+   "par": 23,
+   "digest": "058cdb69cfb895d2"
+  },
+  {
+   "seed": "p0",
+   "n": 23,
+   "par": 37,
+   "digest": "fab116baa3839d3e"
+  },
+  {
+   "seed": "p1",
+   "n": 19,
+   "par": 31,
+   "digest": "b179ecffd234937d"
+  }
+ ]
+}

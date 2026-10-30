@@ -36,7 +36,7 @@ INSERT INTO games (id, name, description, thumbnail_url, game_url, daily_prize_p
 VALUES (
   'tetris-smash',
   'Tetris Smash',
-  'Drag the falling blocks into place and fill rows to smash them. Clear four at once for CHAAR!, chain clears for combos, and climb the levels before the 5 minute clock runs out.',
+  'Drag the falling blocks into place and fill rows to smash them. Clear four at once for a SMASH!, chain clears for combos, and climb the levels before the 5 minute clock runs out.',
   '/games/tetris-smash.png',
   '/games/tetris-smash/index.html',
   1500000,   -- Rs. 15,000 (copied from Dart Champ; the founder sets the real pool)

@@ -208,7 +208,7 @@ Game folder: 5 files, about 90 KB (112 KB on disk).
   left for integration: 254 is taken and kj-platform was at 264 on 28 Oct
   2026). INACTIVE, `require_claimed_match` off, `humanness.tetris-smash.mode`
   record, `max_score_per_sec` 44622, durations 1 to 3600 s.
-- Icon: `web/public/games/tetris-smash.png`, 512 x 512, original art, no text.
+- Icon: `web/public/games/tetris-smash.png`, 512 x 512, 256-colour PNG, supplied by the founder (28 Oct 2026), with the "TETRIS SMASH" title on it.
 - Game folder: 5 files, about 90 KB (font 11 KB).
 - Red-team lab: `redteam/lab-tetris-smash.mjs`. **Unrun** (no platform here);
   its two platform calls are adapters to copy from a sibling lab script. The
