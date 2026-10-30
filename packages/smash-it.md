@@ -33,9 +33,9 @@ branch must not be merged before they do.
   **Confirm those licences before launch.**
 - Removed at the founder's request: moving and turning tables, the level clear
   banner, tinkle sounds, the fire effect on the ball.
-- **Run end rules (founder to confirm):** 30 s with no shot ends the run (a
-  parked run must end so the server's run-out is bounded); a 40 minute cap
-  keeps every run inside the 60 minute session.
+- **Run end rules:** 30 s with no shot ends the run (confirmed by the founder,
+  30 Oct 2026); a 40 minute cap keeps every run inside the 60 minute session.
+- **Merged to main** at the founder's request (30 Oct 2026).
 
 ## 2. Trace format and versions
 
@@ -227,9 +227,9 @@ and six audio clips the rest. A real phone was not measured.
   for integration). INACTIVE, `require_claimed_match` off,
   `humanness.smash-it.mode` record, `max_score_per_sec` 203, durations 1 to
   3600 s.
-- Icon: `web/public/games/smash-it.png`, 512 x 512, a crop of our own
-  screenshot. **A placeholder**: the founder is having the real icon made from
-  `packages/smash-it-screenshots/` (five 1075 x 2330 screenshots).
+- Icon: `web/public/games/smash-it.png`, 512 x 512, the founder's commissioned
+  icon (made from our screenshots in `packages/smash-it-screenshots/`), supplied
+  30 Oct 2026.
 - Red-team lab script: not written (no platform here).
 
 **Two platform changes this game needs that no earlier game did:**
@@ -283,8 +283,8 @@ painter, cross-engine probe).
 - **The founder has not played this build** with the bridge and one run per
   session. Do not merge to main before they do.
 - Licences of the two library glass clips and the cannon clip.
-- The 30 s idle end and the 40 minute cap are my choices; the founder should
-  confirm them.
+- The 30 s idle end was confirmed by the founder (30 Oct 2026). The 40 minute
+  cap is unconfirmed.
 - Folder size (3.9 MB) is far over the 1 MB guideline, mostly the physics
   engine. First load on a slow connection was not measured.
 - Draw cost on a real phone was not measured.
