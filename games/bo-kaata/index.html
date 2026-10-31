@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="../_shared/mute.js"></script>
+  <script src="/games/_shared/no-touch-ui.js"></script>
+  <script src="../_shared/kj-tutorial-state.js"></script>
+  <script src="../_shared/kj-replay.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <title>Bo Kaata</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <canvas id="game" aria-label="Bo Kaata game"></canvas>
+
+  <div class="pk-hud"><div id="score" class="is-hidden">0</div></div>
+  <div id="hearts" class="is-hidden"></div>
+
+  <div class="pk-screen pk-menu" id="menu">
+    <h1 class="pk-logo">BO<br /><span>KAATA</span></h1>
+    <p class="pk-tag">Lock strings. Win the pench.</p>
+    <div class="pk-actions">
+      <button class="pk-btn" id="playBtn" type="button" disabled>
+        <span class="pk-spin"></span><span id="playLabel">PREPARING YOUR GAME</span>
+      </button>
+      <button class="pk-link" id="learnBtn" type="button">How to play</button>
+    </div>
+  </div>
+
+  <!-- the hands-on practice (drawn by game.js): SKIP while it runs, PLAY once YOU'RE READY! shows -->
+  <button class="pk-skip is-hidden" id="pskip" type="button">SKIP</button>
+  <div class="pk-pplay"><button class="pk-btn is-hidden" id="pplay" type="button">PLAY</button></div>
+
+  <div class="pk-screen pk-over is-hidden" id="gameOver">
+    <h2 id="overTitle">KAT GAYI!</h2>
+    <p>Score <b id="finalScore">0</b></p>
+    <button class="pk-btn" id="retryBtn" type="button">PLAY AGAIN</button>
+  </div>
+
+  <script src="../_shared/kj-fit.js" defer></script>
+  <script src="js/rules.js" defer></script>
+  <script src="js/game.js" defer></script>
+
+  <!-- KJ platform bridge (the Stick Hero / Color Dunk shape):
+       1. KJ_GAME_LOADED at load. 2. The session is minted ON LOAD; PLAY reads
+       PREPARING YOUR GAME until the seed exists, with no timeout.
+       3. __kjGameStart records the v2 marker; __kjMark records each
+       touch / lift against the fixed step it lands before.
+       4. __kjSubmit(score) once, after the ending has played out. -->
+  <script src="/sdk/kj-sdk/kj-sdk-v2.js"></script>
+  <script>
+    (function () {
+      var GAME_ID = 'bo-kaata';
+      var _started = false, _submitted = false;
+
+      window.__kjEmbed = (window.parent !== window) || /[?&]replay=1(&|$)/.test(location.search);
+      if (window.__kjEmbed) document.body.classList.add('kj-embed');
+
+      var _sessionReady = false, _readyWaiters = [];
+      window.__kjSessionReady = function () { return _sessionReady; };
+      window.__kjOnSessionReady = function (cb) {
+        if (_sessionReady) { try { cb(); } catch (_e) {} return; }
+        _readyWaiters.push(cb);
+      };
+      function markReady() {
+        if (_sessionReady) return;
+        _sessionReady = true;
+        var q = _readyWaiters.splice(0);
+        for (var i = 0; i < q.length; i++) { try { q[i](); } catch (_e) {} }
+      }
+
+      var _platformReady = false, _wantSession = false;
+      window.addEventListener('message', function (e) {
+        if (!e.data) return;
+        if (e.data.type === 'KJ_CONFIG' || e.data.type === 'KJ_V2_START') {
+          _platformReady = true;
+          if (_wantSession) { _wantSession = false; window.__kjBeginSession(); }
+        }
+      });
+
+      window.__kjBeginSession = function () {
+        if (_started) return;
+        if (!window.__kjEmbed) { _started = true; markReady(); return; }
+        if (!_platformReady) { _wantSession = true; return; }
+        _started = true;
+        if (typeof window.kjStartV2 !== 'function') return;
+        window.kjStartV2({ gameId: GAME_ID })
+          .then(function () { markReady(); })
+          .catch(function (err) { console.error('[bo-kaata] kjStartV2 failed', err); });
+      };
+
+      try { window.parent.postMessage({ type: 'KJ_GAME_LOADED', gameId: GAME_ID }, '*'); } catch (_) {}
+      window.__kjTutorialOpen = false;
+      window.__kjBeginSession();
+
+      function emit(p) { try { if (typeof window.kjEmit === 'function') window.kjEmit('input', p); } catch (_e) {} }
+
+      window.__kjGameStart = function (tHint, want) {
+        var v = Number(want) >= 3 ? 3 : Number(want) >= 2 ? 2 : 1;
+        emit({ kind: 'start', v: v, tHint: typeof tHint === 'number' ? tHint : performance.now() });
+        return v;
+      };
+      // Finger down and up, against the step they land before.
+      window.__kjMark = function (kind, step) { emit({ kind: kind === 'lift' ? 'lift' : 'touch', step: step, tHint: performance.now() }); };
+
+      window.__kjSubmit = function (score) {
+        if (_submitted) return;
+        _submitted = true;
+        if (!window.__kjEmbed) return;
+        if (typeof window.kjSubmitV2 !== 'function') return;
+        var clientScore = Number(score) || 0, navigated = false;
+        var safety = setTimeout(function () {
+          if (navigated) return; navigated = true;
+          try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: 'submit_timeout' }, '*'); } catch (_) {}
+        }, 75000);
+        window.kjSubmitV2({ clientClaimedScore: clientScore })
+          .then(function (result) {
+            if (navigated) return; navigated = true; clearTimeout(safety);
+            try {
+              window.parent.postMessage({
+                type: 'KJ_V2_RESULT',
+                score: (result && result.authoritativeScore) != null ? result.authoritativeScore : clientScore,
+                authoritative: !!result && !result.alreadyFinalSession,
+                flagged: !!(result && result.flaggedForReview),
+                notCounted: !!(result && result.counted === false),
+              }, '*');
+            } catch (_) {}
+          })
+          .catch(function (err) {
+            console.error('[bo-kaata] kjSubmitV2 failed after retries', err);
+            if (navigated) return; navigated = true; clearTimeout(safety);
+            try { window.parent.postMessage({ type: 'KJ_V2_RESULT', score: clientScore, pending: true, error: (err && err.message) || 'submit_failed' }, '*'); } catch (_) {}
+          });
+      };
+    })();
+  </script>
+</body>
+</html>
