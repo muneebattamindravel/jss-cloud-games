@@ -1,6 +1,6 @@
-# Game brief: Minar Tod (minar-tod)
+# Game brief: Minar Tiles (minar-tiles)
 
-- **Display name / id (kebab-case):** Minar Tod / `minar-tod`
+- **Display name / id (kebab-case):** Minar Tiles / `minar-tiles`
 - **One-line pitch:** Swipe to turn a tower of coloured blocks, tap a block, and a cannon ball smashes it along with every same-colour block touching it.
 - **Reference game(s) and links / full-size frames:** The founder named the Knock'em All / Tower Crash family (mechanic only) and answered "no references", so this is built from the written brief. No name, art or sound from those games is used.
 - **Core loop (one input, what it does, how you die, what scores):**
@@ -24,3 +24,4 @@
   at most 4,096 units a step), a release sets a flick speed that decays by 15/16 a step, and a tap without a drag
   fires at the block under the finger (raycast, small fingertip tolerance). Stage 2 trace:
   `{ kind: 'turn', step, d }`, `{ kind: 'flick', step, v }`, `{ kind: 'fire', n, step, c, r }`; turns batch per step.
+- **Name history:** Minar Tod (rounds 1 to 5), renamed Minar Tiles by the founder (round 6).

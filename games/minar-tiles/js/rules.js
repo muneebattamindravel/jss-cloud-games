@@ -1,8 +1,8 @@
-// Minar Tod: the rules. Everything that decides the score lives here.
+// Minar Tiles: the rules. Everything that decides the score lives here.
 // Integer only, fixed 1/60 s steps, the course is a pure function of the seed.
 // The renderer reads this state and never writes it.
 
-// ==== MINAR TOD RULES BEGIN ====
+// ==== MINAR TILES RULES BEGIN ====
 var STEP_HZ = 60;
 var RUN_STEPS = 180 * STEP_HZ;      // 3 minute clock
 var COLS = 8;                       // blocks around the cylinder
@@ -293,7 +293,7 @@ function land(s) {
   }
   return ev;
 }
-// ==== MINAR TOD RULES END ====
+// ==== MINAR TILES RULES END ====
 
 if (typeof module !== 'undefined') {
   module.exports = { initSim: initSim, stepSim: stepSim, fire: fire, turn: turn, flick: flick, colVisible: colVisible, angleAhead: angleAhead,

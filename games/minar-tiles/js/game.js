@@ -1,4 +1,4 @@
-// Minar Tod: the 3D view, effects, audio and screens. Everything here READS the
+// Minar Tiles: the 3D view, effects, audio and screens. Everything here READS the
 // sim in rules.js and only changes it through the rules' own inputs (fire,
 // turn, flick). Math.random and Math.sin are fine here: nothing in this file
 // can change a score.
@@ -33,7 +33,7 @@
   // convolution reverb so it all sits in the same courtyard.
   var Snd = (function () {
     var ctx = null, master = null, dry = null, wet = null, nbuf = null;
-    var muted = lsGet('minar-tod-muted') === '1';
+    var muted = lsGet('minar-tiles-muted') === '1';
     var last = {};
     var PENT = [0, 2, 4, 7, 9];
     var VOL = 0.5;   // master level: the founder found 0.9 a tad loud
@@ -113,7 +113,7 @@
       init: init,
       isMuted: function () { return muted; },
       setMuted: function (m) {
-        muted = m; lsSet('minar-tod-muted', m ? '1' : '0');
+        muted = m; lsSet('minar-tiles-muted', m ? '1' : '0');
         if (master) master.gain.setTargetAtTime(m ? 0 : VOL, ctx.currentTime, 0.02);
       },
       cannon: function () {
@@ -1135,14 +1135,14 @@
   var PRAC_COLS = [[3, 2, 2, 2, 4], [4, 3, 2, 1, 3], [1, 4, 3, 3, 2], [2, 1, 1, 4, 2],
     [1, 1, 1, 1, 3], [3, 1, 1, 2, 4], [4, 2, 4, 3, 1], [1, 3, 2, 4, 2]];
   var pCap = $('pcap'), pHand = $('phand'), pSkip = $('pskip'), pReady = $('pready'), pSwipe = $('pswipe');
-  function tutSeen() { return +(lsGet('minar-tod-tut') || 0); }
+  function tutSeen() { return +(lsGet('minar-tiles-tut') || 0); }
 
   function startPractice() {
     var g = new Array(COLS * ML);
     for (var i = 0; i < g.length; i++) g[i] = EMPTY;
     for (var c = 0; c < COLS; c++) for (var r = 0; r < PRAC_COLS[c].length; r++) g[c * ML + r] = PRAC_COLS[c][r];
     prac = { grid: g, angle: 9000, phase: 'intro', pt: 0, glide: null, target: null, ball: null, input: false, swiped: 0, turnV: 0 };
-    lsSet('minar-tod-tut', String(tutSeen() + 1));
+    lsSet('minar-tiles-tut', String(tutSeen() + 1));
     V.prevAngle = V.angle = prac.angle;
     buildVis(g, true);
     debris.length = 0; dust.length = 0; sparks.length = 0; grains.length = 0; V.ball = null; V.afterBall = null; V.timers = []; V.preview = null;
@@ -1575,7 +1575,7 @@
   function syncVeil() { veil.classList.toggle('on', !over.classList.contains('is-hidden') || !pReady.classList.contains('is-hidden')); }
   function show(el) { el.classList.remove('is-gone'); void el.offsetWidth; el.classList.remove('is-hidden'); syncVeil(); }
   function hide(el) { el.classList.add('is-hidden'); syncVeil(); setTimeout(function () { if (el.classList.contains('is-hidden')) el.classList.add('is-gone'); }, 320); }
-  function best() { return +(lsGet('minar-tod-best') || 0); }
+  function best() { return +(lsGet('minar-tiles-best') || 0); }
   function refreshMenuBest() { var b = best(); $('menuBest').textContent = b ? 'BEST ' + fmt(b) : ''; }
 
   function toMenu() {
@@ -1627,7 +1627,7 @@
   function showOver() {
     mode = 'over';
     var score = sim.score, prev = best(), isNew = score > prev;
-    if (isNew) lsSet('minar-tod-best', String(score));
+    if (isNew) lsSet('minar-tiles-best', String(score));
     var stats = [['stTowers', sim.cleared], ['stChunk', sim.best], ['stCombo', 'x' + Math.max(1, sim.bestCombo)], ['stBlocks', sim.broken]];
     var ovScore = $('ovScore'), ovBest = $('ovBest');
     ovScore.textContent = '0';
@@ -1702,7 +1702,7 @@
       g.restore();
     }
     word('MINAR', 158, 138, -0.03);
-    word('TOD!', 296, 158, 0.03);
+    word('TILES', 296, 150, 0.03);
     block2d(g, 34, 318, 54, '#3a6dff'); block2d(g, 34, 262, 54, '#1fbf6e');
     g.save(); g.translate(78, 226); g.rotate(-0.5); block2d(g, -24, -24, 48, '#f0364d'); g.restore();
     block2d(g, w - 92, 318, 54, '#a54cf2');
